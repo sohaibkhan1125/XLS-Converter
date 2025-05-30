@@ -6,11 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Keep for email/pass and potential future use
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 export default function SignupPage() {
-  const { signUp, signInWithGoogle, currentUser, loading: authLoading } = useAuth();
+  const { signUp, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false); // Local loading for form submission
@@ -36,20 +36,6 @@ export default function SignupPage() {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setIsLoading(true);
-    try {
-      await signInWithGoogle(); // Initiates redirect
-      // Toast and router.push for Google Sign-In success will be handled after redirect.
-    } catch (error: any) {
-      // This catch block handles errors during the *initiation* of Google Sign-In.
-      console.error("Signup page error (Google initiation):", error);
-      setIsLoading(false); // Ensure loading is reset if initiation fails
-      throw error; // AuthForm will catch this
-    }
-    // `finally` block here might not execute if redirect is successful.
-  };
-
   // Prevent rendering signup form if auth is still loading or user is already logged in
   if (authLoading || (!authLoading && currentUser)) {
     return (
@@ -69,7 +55,6 @@ export default function SignupPage() {
         <CardContent>
           <AuthForm 
             onSubmit={handleSignup} 
-            onGoogleSignIn={handleGoogleSignup}
             submitButtonText="Sign Up" 
             isLoading={isLoading}
           />
