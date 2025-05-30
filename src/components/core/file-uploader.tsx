@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from 'react';
+import React, { useCallback } from 'react'; // Updated import
 import { useDropzone, type FileWithPath } from 'react-dropzone';
 import { UploadCloud, FileText, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,14 +56,14 @@ export default function FileUploader({ onFileSelect, selectedFile, clearSelectio
         {isDragActive ? (
           <p className="text-lg font-semibold text-primary">Drop the PDF file here ...</p>
         ) : (
-          <>
-            <p className="text-lg font-semibold text-foreground">Drag & drop a PDF file here</p
+          <React.Fragment> {/* Changed from <> */}
+            <p className="text-lg font-semibold text-foreground">Drag & drop a PDF file here</p>
             <p className="text-muted-foreground mb-4">or</p>
             <Button type="button" onClick={open} variant="outline" disabled={disabled}>
               Click to select file
             </Button>
             <p className="text-xs text-muted-foreground mt-4">Max file size: 10MB. PDF only.</p>
-          </>
+          </React.Fragment> // Changed from </>
         )}
       </CardContent>
     </Card>
