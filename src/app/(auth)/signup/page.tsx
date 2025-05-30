@@ -6,21 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation"; // Keep for email/pass and potential future use
+import { useState, useEffect } from "react";
 
 export default function SignupPage() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Local loading for form submission
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!authLoading && currentUser) {
+      router.push("/");
+    }
+  }, [currentUser, authLoading, router]);
 
   const handleSignup = async (values: AuthFormValues) => {
     setIsLoading(true);
     try {
       await signUp(values);
       toast({ title: "Signup Successful", description: "Welcome to XLSConvert!" });
-      router.push("/");
+      // router.push("/"); // This will be handled by useEffect above
     } catch (error: any) {
       // Error is handled by AuthForm
       console.error("Signup page error (Email/Pass):", error);
@@ -32,18 +39,25 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     setIsLoading(true);
     try {
-      await signInWithGoogle(); // Firebase handles new user creation or sign-in transparently
-      toast({ title: "Google Sign-up Successful", description: "Welcome to XLSConvert!" });
-      router.push("/");
+      await signInWithGoogle(); // Initiates redirect
+      // Toast and router.push for Google Sign-In success will be handled after redirect.
     } catch (error: any) {
-      // Error is handled by AuthForm
-      console.error("Signup page error (Google):", error);
-      // Re-throw to be caught by AuthForm's internal error handler
-      throw error;
-    } finally {
-      setIsLoading(false);
+      // This catch block handles errors during the *initiation* of Google Sign-In.
+      console.error("Signup page error (Google initiation):", error);
+      setIsLoading(false); // Ensure loading is reset if initiation fails
+      throw error; // AuthForm will catch this
     }
+    // `finally` block here might not execute if redirect is successful.
   };
+
+  // Prevent rendering signup form if auth is still loading or user is already logged in
+  if (authLoading || (!authLoading && currentUser)) {
+    return (
+      <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+        <p>Loading...</p> {/* Or a spinner component */}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
