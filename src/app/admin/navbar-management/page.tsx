@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from '@/hooks/use-toast';
 import type { NavbarSettings } from '@/types/navbar';
 import { getNavbarSettings, updateNavbarSettings, uploadSiteLogo, deleteSiteLogo } from '@/lib/firebase-navbar-service';
+import { auth } from '@/lib/firebase'; // Import auth for diagnostics
 import { Trash2, UploadCloud, ImageOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
@@ -19,8 +20,6 @@ export default function NavbarManagementPage() {
   const { toast } = useToast();
 
   const [settings, setSettings] = useState<Partial<NavbarSettings>>({});
-  // initialSettings is not strictly necessary for this version since we are not comparing for changes before save.
-  // const [initialSettings, setInitialSettings] = useState<Partial<NavbarSettings>>({}); 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -33,16 +32,15 @@ export default function NavbarManagementPage() {
       const currentSettings = await getNavbarSettings();
       if (currentSettings) {
         setSettings(currentSettings);
-        // setInitialSettings(currentSettings);
         if (currentSettings.logoUrl) {
           setLogoPreview(currentSettings.logoUrl);
         }
       } else {
-        const defaultSettings = { siteTitle: 'XLSConvert', logoUrl: '' }; // Default logoUrl to empty string
+        const defaultSettings = { siteTitle: 'XLSConvert', logoUrl: '' };
         setSettings(defaultSettings);
-        // setInitialSettings(defaultSettings);
       }
     } catch (error) {
+      console.error("Error fetching navbar settings:", error);
       toast({ variant: 'destructive', title: 'Error fetching settings', description: 'Could not load navbar settings.' });
     } finally {
       setIsLoading(false);
@@ -62,28 +60,28 @@ export default function NavbarManagementPage() {
   };
 
   const handleRemoveLogo = async () => {
-    const currentSavedLogoUrl = settings.logoUrl; // The logo URL currently in Firestore (via local 'settings' state)
+    console.log("Attempting to remove logo. Current auth user:", auth.currentUser?.email); // Diagnostic
+    const currentSavedLogoUrl = settings.logoUrl; 
     
     setIsSaving(true);
     try {
-      // If there's a logo URL from Firestore (or local state that originated from Firestore)
-      // and it's not already an empty string.
       if (currentSavedLogoUrl && currentSavedLogoUrl !== '') { 
-        await deleteSiteLogo(currentSavedLogoUrl); // Delete from storage
+        await deleteSiteLogo(currentSavedLogoUrl); 
       }
       
-      // Always update Firestore to set logoUrl to empty string, indicating no logo
       await updateNavbarSettings({ logoUrl: '' }); 
       
-      // Update local state to reflect removal
-      setSettings(prev => ({ ...prev, logoUrl: '' })); // Set local logoUrl to empty string
-      setLogoPreview(null); // Clear preview
-      setLogoFile(null); // Clear any pending local file selection
+      setSettings(prev => ({ ...prev, logoUrl: '' })); 
+      setLogoPreview(null); 
+      setLogoFile(null); 
 
       toast({ title: 'Logo Removed', description: 'The site logo has been successfully removed.' });
     } catch (error) {
       console.error("Error removing logo:", error);
-      toast({ variant: 'destructive', title: 'Error Removing Logo', description: 'Could not remove the logo.' });
+      const errorMessage = (error instanceof Error && (error as any).code) 
+        ? `Firebase error: ${(error as any).message}` 
+        : (error instanceof Error ? error.message : 'Could not remove the logo.');
+      toast({ variant: 'destructive', title: 'Error Removing Logo', description: errorMessage });
     } finally {
       setIsSaving(false);
     }
@@ -95,49 +93,42 @@ export default function NavbarManagementPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log("Attempting to save settings. Current auth user:", auth.currentUser?.email); // Diagnostic
     setIsSaving(true);
     
-    let newLogoUrl = settings.logoUrl; // Start with current logo URL from state (could be '' or an actual URL)
+    let newLogoUrl = settings.logoUrl; 
 
     try {
-      if (logoFile) { // If a new logo file was selected for upload
-        // If there was an old logo URL stored (and it's not an empty string), delete it from storage
+      if (logoFile) { 
         if (settings.logoUrl && settings.logoUrl !== '') {
           try {
             await deleteSiteLogo(settings.logoUrl);
           } catch (delError) {
             console.warn("Could not delete old logo during replacement:", delError);
-            // Continue with uploading the new logo even if old one fails to delete
           }
         }
-        newLogoUrl = await uploadSiteLogo(logoFile); // Upload new logo and get its URL
+        newLogoUrl = await uploadSiteLogo(logoFile); 
       }
-      // If logoFile is null, newLogoUrl retains its value from settings.logoUrl 
-      // (which could be an existing URL if not changed, or '' if it was removed).
 
       const updatedSettingsData: Partial<NavbarSettings> = {
-        siteTitle: settings.siteTitle || '', 
-        logoUrl: newLogoUrl || '', // Ensure logoUrl is a string (URL or empty), never undefined
+        siteTitle: settings.siteTitle || 'XLSConvert', // Provide a default if empty
+        logoUrl: newLogoUrl || '', 
       };
       
       await updateNavbarSettings(updatedSettingsData);
       
-      // Update local state to reflect the saved state
       setSettings(prev => ({ ...prev, ...updatedSettingsData }));
-      // setInitialSettings(prev => ({ ...prev, ...updatedSettingsData })); // If using initialSettings
-      setLogoFile(null); // Clear the file input after successful upload or save
+      setLogoFile(null); 
 
-      // Update logoPreview based on the actually saved logoUrl
       if (updatedSettingsData.logoUrl && updatedSettingsData.logoUrl !== '') {
         setLogoPreview(updatedSettingsData.logoUrl);
       } else {
-        setLogoPreview(null); // If logoUrl is empty string or null, clear preview
+        setLogoPreview(null); 
       }
 
       toast({ title: 'Settings Saved', description: 'Navbar settings have been updated successfully.' });
     } catch (error) {
       console.error("Error saving settings:", error);
-      // Check if error is a FirebaseError and has a message
       const errorMessage = (error instanceof Error && (error as any).code) 
         ? `Firebase error: ${(error as any).message}` 
         : (error instanceof Error ? error.message : 'Could not save navbar settings.');
@@ -163,7 +154,6 @@ export default function NavbarManagementPage() {
             <Label htmlFor="logoUpload">Upload New Logo</Label>
             <div className="flex items-center gap-4">
               <Input id="logoUpload" type="file" accept="image/*" onChange={handleLogoChange} className="max-w-xs" disabled={isSaving} />
-              {/* Show remove button if there's any logo (saved or pending local selection) */}
               {(logoPreview || logoFile || (settings.logoUrl && settings.logoUrl !== '')) && ( 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
