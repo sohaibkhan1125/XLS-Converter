@@ -63,9 +63,10 @@ export default function AdsManagementPage() {
         <CardHeader>
           <CardTitle>Ads Script Management</CardTitle>
           <CardDescription>
-            Manage the primary ad loader script for your website (e.g., Google AdSense main script).
-            This script will be injected into the &lt;head&gt; of your website pages.
-            Actual ad units need to be placed manually in your site's content where you want them to appear.
+            Manage the primary ad loader script for your website (e.g., Google AdSense Auto Ads script or similar).
+            This script will be injected into the &lt;head&gt; of your website pages (excluding admin and auth pages).
+            For many ad networks, this single script is enough to display ads across your site.
+            If your network requires manual ad unit placement in content, this script would be their main library loader.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,13 +76,13 @@ export default function AdsManagementPage() {
               id="adLoaderScript"
               value={adSettings.adLoaderScript || ''}
               onChange={handleScriptChange}
-              placeholder="<script async src='https://pagedload2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_CLIENT_ID' crossorigin='anonymous'></script>"
+              placeholder="<script async src='https://pagedload2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_CLIENT_ID' crossorigin='anonymous'></script>\n<!-- or other ad network script -->"
               rows={10}
               className="font-mono text-sm"
               disabled={isSaving}
             />
             <p className="text-xs text-muted-foreground">
-              Paste the main script provided by your ad network (e.g., AdSense, Ezoic). This usually goes in the &lt;head&gt; tag.
+              Paste the main script provided by your ad network. This script will be executed on all public-facing pages.
             </p>
           </div>
         </CardContent>

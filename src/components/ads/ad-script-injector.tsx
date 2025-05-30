@@ -22,7 +22,7 @@ export default function AdScriptInjector() {
   useEffect(() => {
     const existingScript = document.getElementById(SCRIPT_ID);
     
-    // Don't inject on auth pages
+    // Don't inject on admin or auth pages
     if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/signup') {
       if (existingScript) {
         existingScript.remove();
@@ -31,6 +31,9 @@ export default function AdScriptInjector() {
     }
 
     if (adSettings?.adLoaderScript && adSettings.adLoaderScript.trim() !== "") {
+      // The script provided from the admin panel should ideally be self-sufficient 
+      // for loading and displaying ads if no manual ad unit placement in the site's content is desired.
+      // For example, scripts like Google AdSense Auto Ads work this way.
       if (existingScript) {
         // If script content changed, remove old and add new
         if (existingScript.innerHTML !== adSettings.adLoaderScript) {
@@ -38,8 +41,10 @@ export default function AdScriptInjector() {
           const newScript = document.createElement('script');
           newScript.id = SCRIPT_ID;
           newScript.innerHTML = adSettings.adLoaderScript;
-          // Some ad scripts might need to be async or defer, but innerHTML scripts execute immediately
-          // If specific attributes are needed, they should be part of the saved script string or handled differently.
+          // Note: For scripts that require attributes like async, defer, or type="module",
+          // and are provided as external <script src="..."></script> tags, 
+          // this injection method (innerHTML) might need adjustment.
+          // However, for inline JS blobs or document.write-style ad tags, innerHTML is standard.
           document.head.appendChild(newScript);
         }
       } else {
@@ -55,12 +60,11 @@ export default function AdScriptInjector() {
       }
     }
 
-    // Cleanup function to remove script if component unmounts (though this component is likely in root layout)
+    // Cleanup function to remove script if component unmounts 
+    // or if navigating to an excluded page.
     return () => {
       const scriptToRemoveOnUnmount = document.getElementById(SCRIPT_ID);
       if (scriptToRemoveOnUnmount && (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/signup')) {
-        // Ensure it's removed if navigating away to an excluded page
-        // This might be redundant given the check at the start of the effect, but safe.
         scriptToRemoveOnUnmount.remove();
       }
     };
