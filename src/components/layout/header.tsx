@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -13,10 +14,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLogo from './app-logo';
-import { UserCircle, LogOut } from 'lucide-react';
+import { UserCircle, LogOut, Menu } from 'lucide-react'; // Added Menu for potential mobile toggle
+import { useState } from 'react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'; // For mobile menu
+
+const navLinks = [
+  { href: '/', label: 'Home' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+  { href: '/privacy', label: 'Privacy Policy' },
+];
 
 export default function AppHeader() {
   const { currentUser, signOut, loading } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const getInitials = (email?: string | null) => {
     if (!email) return 'U';
@@ -24,10 +35,19 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="border-b bg-card">
+    <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <AppLogo />
-        <nav className="flex items-center gap-4">
+
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
           {loading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : currentUser ? (
@@ -60,7 +80,7 @@ export default function AppHeader() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="ghost" asChild>
+              <Button variant="ghost" asChild className="hidden sm:inline-flex">
                 <Link href="/login">Log In</Link>
               </Button>
               <Button variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -68,7 +88,43 @@ export default function AppHeader() {
               </Button>
             </>
           )}
-        </nav>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] sm:w-[320px] pt-10">
+                <nav className="flex flex-col gap-4">
+                  {navLinks.map((link) => (
+                    <Link 
+                      key={link.href} 
+                      href={link.href} 
+                      className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                  <hr className="my-4"/>
+                  {!currentUser && !loading && (
+                     <Link 
+                      href="/login" 
+                      className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Log In
+                    </Link>
+                  )}
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
       </div>
     </header>
   );

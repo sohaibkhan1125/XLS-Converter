@@ -6,6 +6,7 @@ import FileUploader from '@/components/core/file-uploader';
 import DataPreview from '@/components/core/data-preview';
 import LimitDialog from '@/components/core/limit-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
+import FeatureSection from '@/components/core/feature-section'; // Import FeatureSection
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -174,7 +175,8 @@ export default function HomePage() {
         userType={limitDialogUserType}
         timeToWaitFormatted={limitDialogTimeToWait}
       />
+
+      <FeatureSection /> {/* Add the FeatureSection here */}
     </div>
   );
 }
-
