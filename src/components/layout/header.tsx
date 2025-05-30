@@ -67,7 +67,7 @@ export default function AppHeader() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {isLoadingSettings ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
               <div key={index} className="h-4 w-20 animate-pulse rounded-md bg-muted"></div>
             ))
           ) : (
@@ -132,7 +132,7 @@ export default function AppHeader() {
               <SheetContent side="right" className="w-[280px] sm:w-[320px] pt-10">
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
-                     Array.from({ length: 4 }).map((_, index) => (
+                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (
