@@ -1,7 +1,7 @@
 
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { firestore, storage } from './firebase';
+import { firestore, storage, auth } from './firebase'; // Added auth
 import type { NavbarSettings } from '@/types/navbar';
 
 const NAVBAR_SETTINGS_COLLECTION = 'site_settings';
@@ -25,10 +25,24 @@ export async function getNavbarSettings(): Promise<NavbarSettings | null> {
 
 export async function updateNavbarSettings(settings: Partial<NavbarSettings>): Promise<void> {
   try {
+    const currentUser = auth.currentUser;
+    console.log("Attempting to update navbar settings. Authenticated admin UID:", currentUser?.uid, "Settings:", settings);
+    if (!currentUser) {
+      console.error("No authenticated user found when trying to update navbar settings.");
+      throw new Error("Authentication required to update navbar settings.");
+    }
+    // Check if user is an admin (client-side check, server rules are definitive)
+    // This logic is primarily handled by useAdminAuth ensuring only admins reach here.
+    // const isAdmin = await checkIfAdminUserExistsInFirestore(currentUser.uid); // `checkIfAdminUserExistsInFirestore` would need to be imported
+    // if (!isAdmin) {
+    //   console.error("User is not authorized as admin to update navbar settings.");
+    //   throw new Error("User is not authorized as admin.");
+    // }
+
     const docRef = doc(firestore, NAVBAR_SETTINGS_COLLECTION, NAVBAR_SETTINGS_DOC_ID);
     await setDoc(docRef, settings, { merge: true });
   } catch (error) {
-    console.error("Error updating navbar settings:", error);
+    console.error("Error updating navbar settings in Firestore:", error);
     throw error;
   }
 }
@@ -53,6 +67,13 @@ export function subscribeToNavbarSettings(
 // Firebase Storage functions
 export async function uploadSiteLogo(file: File): Promise<string> {
   try {
+    const currentUser = auth.currentUser;
+    console.log("Attempting to upload site logo. Authenticated admin UID:", currentUser?.uid);
+    if (!currentUser) {
+      console.error("No authenticated user found when trying to upload site logo.");
+      throw new Error("Authentication required to upload site logo.");
+    }
+
     const fileExtension = file.name.split('.').pop();
     const logoFileName = `site_logo_${Date.now()}.${fileExtension}`;
     const storageRef = ref(storage, `${LOGO_STORAGE_PATH}/${logoFileName}`);
@@ -68,12 +89,15 @@ export async function uploadSiteLogo(file: File): Promise<string> {
 export async function deleteSiteLogo(logoUrl: string): Promise<void> {
   if (!logoUrl) return;
   try {
+    const currentUser = auth.currentUser;
+    console.log("Attempting to delete site logo. Authenticated admin UID:", currentUser?.uid, "Logo URL:", logoUrl);
+     if (!currentUser) {
+      console.error("No authenticated user found when trying to delete site logo.");
+      throw new Error("Authentication required to delete site logo.");
+    }
     const storageRef = ref(storage, logoUrl); // Firebase SDK can parse the full URL
     await deleteObject(storageRef);
   } catch (error) {
-    // It's possible the file doesn't exist or URL is malformed.
-    // We can choose to log this error or ignore it if it's not critical (e.g., deleting an already deleted/non-existent file)
     console.warn("Error deleting site logo (it might not exist or URL is invalid):", error);
-    // Depending on strictness, you might re-throw: throw error;
   }
 }

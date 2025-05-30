@@ -1,6 +1,6 @@
 
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
-import { firestore } from './firebase';
+import { firestore, auth } from './firebase'; // Added auth
 import type { AdSettings } from '@/types/site-settings';
 
 const ADS_SETTINGS_COLLECTION = 'site_settings';
@@ -22,11 +22,23 @@ export async function getAdSettings(): Promise<AdSettings | null> {
 
 export async function updateAdSettings(settings: Partial<AdSettings>): Promise<void> {
   try {
+    const currentUser = auth.currentUser;
+    console.log("Attempting to update ad settings. Authenticated admin UID:", currentUser?.uid, "Settings:", settings);
+     if (!currentUser) {
+      console.error("No authenticated user found when trying to update ad settings.");
+      throw new Error("Authentication required to update ad settings.");
+    }
+    // Client-side admin check is primarily handled by useAdminAuth hook
+    // const isAdmin = await checkIfAdminUserExistsInFirestore(currentUser.uid);
+    // if (!isAdmin) {
+    //   console.error("User is not authorized as admin to update ad settings.");
+    //   throw new Error("User is not authorized as admin.");
+    // }
+
     const docRef = doc(firestore, ADS_SETTINGS_COLLECTION, ADS_SETTINGS_DOC_ID);
-    // Use serverTimestamp for lastUpdated if you add such a field
     await setDoc(docRef, { ...settings, lastUpdated: serverTimestamp() }, { merge: true });
   } catch (error) {
-    console.error("Error updating ad settings:", error);
+    console.error("Error updating ad settings in Firestore:", error);
     throw error;
   }
 }
