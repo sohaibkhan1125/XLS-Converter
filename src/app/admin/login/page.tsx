@@ -5,7 +5,7 @@ import { AdminAuthForm, type AuthFormValues } from "@/components/admin/admin-aut
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
+import Link from "next/link"; // Added for consistency, though not strictly needed if no signup link from login
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -26,7 +26,7 @@ export default function AdminLoginPage() {
     try {
       await adminSignIn(values);
       toast({ title: "Admin Login Successful", description: "Redirecting to dashboard..." });
-      // Redirect is handled by useEffect
+      // Redirect is handled by useEffect or layout's auth state change
     } catch (error: any) {
       // Error is handled by AdminAuthForm
       console.error("Admin Login page error:", error);
@@ -35,13 +35,14 @@ export default function AdminLoginPage() {
     }
   };
 
-  if (authLoading || (!authLoading && adminUser)) {
+  if (authLoading) { // Only show loading if auth is truly loading
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading Admin Session...</p>
       </div>
     );
   }
+  // If user is logged in, useEffect will redirect. If not, show form.
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -56,10 +57,9 @@ export default function AdminLoginPage() {
             submitButtonText="Log In" 
             isLoading={isSubmitting} 
           />
-          {/* Optional: Link to signup if admin setup is not complete, but /admin handles this */}
-          {/* <p className="mt-4 text-center text-xs text-muted-foreground">
-            First time setup? Check <Link href="/admin/signup" className="underline">admin signup</Link>.
-          </p> */}
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Need to create an admin account? <Link href="/admin/signup" className="underline">Sign Up</Link>.
+          </p>
         </CardContent>
       </Card>
     </div>

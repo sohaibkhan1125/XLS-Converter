@@ -8,23 +8,15 @@ import LoadingSpinner from '@/components/core/loading-spinner';
 
 export default function AdminRootPage() {
   const router = useRouter();
-  // useAdminAuth must be called within AdminAuthProvider,
-  // which is in AdminRootLayout. This page itself is a child of that layout.
   const { adminUser, loading } = useAdminAuth(); 
 
   useEffect(() => {
-    if (typeof window === 'undefined' || loading) return;
+    if (loading) return; // Wait for auth state to resolve
 
-    const isAdminSetupComplete = localStorage.getItem('admin_setup_complete') === 'true';
-
-    if (!isAdminSetupComplete) {
-      router.replace('/admin/signup');
+    if (adminUser) {
+      router.replace('/admin/dashboard');
     } else {
-      if (adminUser) {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/admin/login');
-      }
+      router.replace('/admin/login');
     }
   }, [adminUser, loading, router]);
 
