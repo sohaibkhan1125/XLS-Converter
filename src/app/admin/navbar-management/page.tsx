@@ -3,16 +3,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { NavbarSettings, NavItem } from '@/types/navbar';
+import type { NavbarSettings } from '@/types/navbar'; // NavItem will no longer be used here
 import { getNavbarSettings, updateNavbarSettings, uploadSiteLogo, deleteSiteLogo } from '@/lib/firebase-navbar-service';
-import { Trash2, Edit3, PlusCircle, UploadCloud, ImageOff } from 'lucide-react';
+import { Trash2, UploadCloud, ImageOff } from 'lucide-react'; // Removed Edit3, PlusCircle
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 
@@ -20,17 +19,12 @@ export default function NavbarManagementPage() {
   const { toast } = useToast();
 
   const [settings, setSettings] = useState<Partial<NavbarSettings>>({});
-  const [initialSettings, setInitialSettings] = useState<Partial<NavbarSettings>>({});
+  const [initialSettings, setInitialSettings] = useState<Partial<NavbarSettings>>({}); // To compare if actual changes were made, though not strictly necessary for this simplified version
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-
-  const [navItems, setNavItems] = useState<NavItem[]>([]);
-  const [currentNavItem, setCurrentNavItem] = useState<{ id?: string; label: string; href: string }>({ label: '', href: '' });
-  const [isEditingNavItem, setIsEditingNavItem] = useState<string | null>(null);
-
 
   const fetchSettings = useCallback(async () => {
     setIsLoading(true);
@@ -38,17 +32,15 @@ export default function NavbarManagementPage() {
       const currentSettings = await getNavbarSettings();
       if (currentSettings) {
         setSettings(currentSettings);
-        setInitialSettings(currentSettings); // Store initial settings for comparison or revert
-        setNavItems(currentSettings.navItems || []);
+        setInitialSettings(currentSettings);
         if (currentSettings.logoUrl) {
           setLogoPreview(currentSettings.logoUrl);
         }
       } else {
         // Initialize with defaults if no settings found
-        const defaultSettings = { siteTitle: 'XLSConvert', navItems: [] };
+        const defaultSettings = { siteTitle: 'XLSConvert', logoUrl: undefined };
         setSettings(defaultSettings);
         setInitialSettings(defaultSettings);
-        setNavItems([]);
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error fetching settings', description: 'Could not load navbar settings.' });
@@ -70,21 +62,22 @@ export default function NavbarManagementPage() {
   };
 
   const handleRemoveLogo = async () => {
-    if (settings.logoUrl) {
+    if (settings.logoUrl) { // If there's a logo URL from Firestore
       setIsSaving(true);
       try {
-        await deleteSiteLogo(settings.logoUrl);
-        setSettings(prev => ({ ...prev, logoUrl: undefined }));
+        await deleteSiteLogo(settings.logoUrl); // Delete from storage
+        const newSettings = { ...settings, logoUrl: undefined };
+        await updateNavbarSettings({ logoUrl: '' }); // Update Firestore to remove URL
+        setSettings(newSettings);
         setLogoPreview(null);
-        setLogoFile(null);
-        await updateNavbarSettings({ logoUrl: '' }); // Send empty string to signify deletion
+        setLogoFile(null); // Clear any pending local file
         toast({ title: 'Logo Removed', description: 'The site logo has been removed.' });
       } catch (error) {
         toast({ variant: 'destructive', title: 'Error Removing Logo', description: 'Could not remove the logo.' });
       } finally {
         setIsSaving(false);
       }
-    } else if (logoFile || logoPreview) { // Removing a pending upload or local preview
+    } else if (logoFile || logoPreview) { // Only a local preview/file exists, not yet saved
         setLogoFile(null);
         setLogoPreview(null);
         toast({ title: 'Local Logo Cleared', description: 'The selected logo has been cleared.' });
@@ -95,68 +88,47 @@ export default function NavbarManagementPage() {
     setSettings(prev => ({ ...prev, siteTitle: e.target.value }));
   };
 
-  const handleNavItemChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCurrentNavItem(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddOrUpdateNavItem = () => {
-    if (!currentNavItem.label || !currentNavItem.href) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Label and Link URL are required for a nav item.' });
-      return;
-    }
-    if (isEditingNavItem) {
-      setNavItems(navItems.map(item => item.id === isEditingNavItem ? { ...item, label: currentNavItem.label, href: currentNavItem.href } : item));
-      setIsEditingNavItem(null);
-    } else {
-      setNavItems([...navItems, { id: uuidv4(), label: currentNavItem.label, href: currentNavItem.href }]);
-    }
-    setCurrentNavItem({ label: '', href: '' }); // Reset form
-  };
-
-  const handleEditNavItem = (navItem: NavItem) => {
-    setIsEditingNavItem(navItem.id);
-    setCurrentNavItem({ id: navItem.id, label: navItem.label, href: navItem.href });
-  };
-
-  const handleDeleteNavItem = (id: string) => {
-    setNavItems(navItems.filter(item => item.id !== id));
-    if (isEditingNavItem === id) { // If deleting the item currently being edited
-        setIsEditingNavItem(null);
-        setCurrentNavItem({ label: '', href: '' });
-    }
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    let newLogoUrl = settings.logoUrl;
+    let newLogoUrl = settings.logoUrl; // Start with current (possibly undefined)
 
     try {
-      if (logoFile) {
-        // If there was an old logo, delete it first if it's different from the new one
-        if (settings.logoUrl && settings.logoUrl !== logoPreview) { // Check if it's not the same URL
+      if (logoFile) { // If a new logo file was selected
+        // If there was an old logo URL from Firestore and it's different from the one we are about to upload
+        // (This check is a bit complex if the old logo was just a local preview that was cleared.
+        // Simpler: just delete if settings.logoUrl exists and we're uploading a new one.)
+        if (settings.logoUrl) {
           try {
             await deleteSiteLogo(settings.logoUrl);
           } catch (delError) {
             console.warn("Could not delete old logo during replacement:", delError);
-            // Non-critical, continue with upload
           }
         }
-        newLogoUrl = await uploadSiteLogo(logoFile);
+        newLogoUrl = await uploadSiteLogo(logoFile); // Upload new logo
       }
+      // If logoFile is null, newLogoUrl retains its value from settings.logoUrl (or undefined if it was removed)
       
-      const updatedSettings: NavbarSettings = {
-        ...settings,
-        logoUrl: newLogoUrl,
-        navItems: navItems,
+      const updatedSettingsData: Partial<NavbarSettings> = {
+        siteTitle: settings.siteTitle || '', // Ensure siteTitle is not undefined
+        logoUrl: newLogoUrl, 
+        // navItems are no longer managed here, so they won't be part of the update.
+        // Firestore merge: true will keep existing navItems if any.
       };
       
-      await updateNavbarSettings(updatedSettings);
-      setSettings(updatedSettings); // Update local state to reflect saved state including new logo URL
-      setInitialSettings(updatedSettings); // Update initial settings baseline
+      await updateNavbarSettings(updatedSettingsData);
+      
+      // Update local state to reflect the saved state
+      setSettings(prev => ({ ...prev, ...updatedSettingsData }));
+      setInitialSettings(prev => ({ ...prev, ...updatedSettingsData }));
       setLogoFile(null); // Clear the file input after successful upload
-      if (newLogoUrl) setLogoPreview(newLogoUrl); // Update preview to the new URL
+      if (newLogoUrl) {
+        setLogoPreview(newLogoUrl); // Update preview to the new URL from storage
+      } else if (!logoFile && !settings.logoUrl && !newLogoUrl) { 
+        // Handles case where logo was removed and saved
+        setLogoPreview(null);
+      }
+
 
       toast({ title: 'Settings Saved', description: 'Navbar settings have been updated successfully.' });
     } catch (error) {
@@ -176,14 +148,14 @@ export default function NavbarManagementPage() {
       <Card>
         <CardHeader>
           <CardTitle>Logo Management</CardTitle>
-          <CardDescription>Upload or change your website logo.</CardDescription>
+          <CardDescription>Upload or change your website logo. This will be displayed on the main site's navbar.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="logoUpload">Upload Logo</Label>
+            <Label htmlFor="logoUpload">Upload New Logo</Label>
             <div className="flex items-center gap-4">
               <Input id="logoUpload" type="file" accept="image/*" onChange={handleLogoChange} className="max-w-xs" disabled={isSaving} />
-              {logoPreview && (
+              {(logoPreview || logoFile) && ( // Show remove button if there's any logo (saved or pending)
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" size="sm" type="button" disabled={isSaving}>
@@ -192,7 +164,9 @@ export default function NavbarManagementPage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Confirm Removal</AlertDialogTitle></AlertDialogHeader>
-                    <AlertDialogDescription>Are you sure you want to remove the current logo?</AlertDialogDescription>
+                    <AlertDialogDescription>
+                      {settings.logoUrl ? "Are you sure you want to remove the current site logo? This will delete it from storage." : "Are you sure you want to clear the selected logo?"}
+                    </AlertDialogDescription>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleRemoveLogo} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
@@ -218,11 +192,12 @@ export default function NavbarManagementPage() {
       <Card>
         <CardHeader>
           <CardTitle>Site Title</CardTitle>
-          <CardDescription>Set the main title for your website that appears in the navbar.</CardDescription>
+          <CardDescription>Set the main title for your website that appears in the navbar next to the logo.</CardDescription>
         </CardHeader>
         <CardContent>
+          <Label htmlFor="siteTitleInput" className="sr-only">Site Title</Label>
           <Input 
-            id="siteTitle" 
+            id="siteTitleInput" 
             value={settings.siteTitle || ''} 
             onChange={handleSiteTitleChange} 
             placeholder="e.g., XLSConvert" 
@@ -230,79 +205,13 @@ export default function NavbarManagementPage() {
           />
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Navigation Items</CardTitle>
-          <CardDescription>Manage the links that appear in your website's main navigation.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4 p-4 border rounded-md">
-            <h3 className="font-semibold text-lg">{isEditingNavItem ? 'Edit Nav Item' : 'Add New Nav Item'}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-1">
-                <Label htmlFor="navItemLabel">Label</Label>
-                <Input id="navItemLabel" name="label" placeholder="e.g., Home" value={currentNavItem.label} onChange={handleNavItemChange} disabled={isSaving} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="navItemHref">Link URL</Label>
-                <Input id="navItemHref" name="href" placeholder="e.g., / or /about" value={currentNavItem.href} onChange={handleNavItemChange} disabled={isSaving} />
-              </div>
-              <Button type="button" onClick={handleAddOrUpdateNavItem} className="whitespace-nowrap" disabled={isSaving}>
-                <PlusCircle className="mr-2 h-4 w-4" /> {isEditingNavItem ? 'Update Item' : 'Add Item'}
-              </Button>
-            </div>
-             {isEditingNavItem && (
-                <Button type="button" variant="outline" size="sm" onClick={() => { setIsEditingNavItem(null); setCurrentNavItem({label: '', href: ''})}} disabled={isSaving}>
-                    Cancel Edit
-                </Button>
-            )}
-          </div>
-
-          {navItems.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">Current Nav Items</h3>
-              <ul className="space-y-2">
-                {navItems.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between p-3 border rounded-md bg-muted/20 shadow-sm">
-                    <div>
-                      <span className="font-medium">{item.label}</span>
-                      <span className="text-sm text-muted-foreground ml-2">({item.href})</span>
-                    </div>
-                    <div className="space-x-2">
-                      <Button variant="outline" size="icon" type="button" onClick={() => handleEditNavItem(item)} disabled={isSaving}>
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon" type="button" disabled={isSaving}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Confirm Delete</AlertDialogTitle></AlertDialogHeader>
-                            <AlertDialogDescription>Are you sure you want to delete the &quot;{item.label}&quot; nav item?</AlertDialogDescription>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteNavItem(item.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
       
       <div className="flex justify-end mt-8">
         <Button type="submit" size="lg" disabled={isSaving || isLoading}>
-          {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save All Navbar Settings'}
+          {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save Navbar Settings'}
         </Button>
       </div>
     </form>
   );
 }
+    
