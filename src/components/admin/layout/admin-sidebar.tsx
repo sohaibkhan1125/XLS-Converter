@@ -2,12 +2,13 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Settings } from 'lucide-react'; // Added Settings icon
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/navbar-management', label: 'Navbar Management', icon: Settings },
   // Add more admin navigation items here
   // { href: '/admin/users', label: 'Users', icon: Users },
   // { href: '/admin/settings', label: 'Settings', icon: Settings },

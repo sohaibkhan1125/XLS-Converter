@@ -1,0 +1,79 @@
+
+import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { firestore, storage } from './firebase';
+import type { NavbarSettings } from '@/types/navbar';
+
+const NAVBAR_SETTINGS_COLLECTION = 'site_settings';
+const NAVBAR_SETTINGS_DOC_ID = 'navbar';
+const LOGO_STORAGE_PATH = 'site_settings/logo';
+
+// Firestore functions
+export async function getNavbarSettings(): Promise<NavbarSettings | null> {
+  try {
+    const docRef = doc(firestore, NAVBAR_SETTINGS_COLLECTION, NAVBAR_SETTINGS_DOC_ID);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as NavbarSettings;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching navbar settings:", error);
+    throw error;
+  }
+}
+
+export async function updateNavbarSettings(settings: Partial<NavbarSettings>): Promise<void> {
+  try {
+    const docRef = doc(firestore, NAVBAR_SETTINGS_COLLECTION, NAVBAR_SETTINGS_DOC_ID);
+    await setDoc(docRef, settings, { merge: true });
+  } catch (error) {
+    console.error("Error updating navbar settings:", error);
+    throw error;
+  }
+}
+
+export function subscribeToNavbarSettings(
+  callback: (settings: NavbarSettings | null) => void
+): Unsubscribe {
+  const docRef = doc(firestore, NAVBAR_SETTINGS_COLLECTION, NAVBAR_SETTINGS_DOC_ID);
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data() as NavbarSettings);
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    console.error("Error in navbar settings subscription:", error);
+    callback(null); // Notify on error
+  });
+  return unsubscribe;
+}
+
+// Firebase Storage functions
+export async function uploadSiteLogo(file: File): Promise<string> {
+  try {
+    const fileExtension = file.name.split('.').pop();
+    const logoFileName = `site_logo_${Date.now()}.${fileExtension}`;
+    const storageRef = ref(storage, `${LOGO_STORAGE_PATH}/${logoFileName}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading site logo:", error);
+    throw error;
+  }
+}
+
+export async function deleteSiteLogo(logoUrl: string): Promise<void> {
+  if (!logoUrl) return;
+  try {
+    const storageRef = ref(storage, logoUrl); // Firebase SDK can parse the full URL
+    await deleteObject(storageRef);
+  } catch (error) {
+    // It's possible the file doesn't exist or URL is malformed.
+    // We can choose to log this error or ignore it if it's not critical (e.g., deleting an already deleted/non-existent file)
+    console.warn("Error deleting site logo (it might not exist or URL is invalid):", error);
+    // Depending on strictness, you might re-throw: throw error;
+  }
+}
