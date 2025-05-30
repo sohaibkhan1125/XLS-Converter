@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { Users, ShieldAlert, UserPlus } from 'lucide-react'; // Added UserPlus
+import { ShieldAlert } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
@@ -77,11 +77,11 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Adjusted grid for two cards */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1"> {/* Adjusted grid for one card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
-            <ShieldAlert className="h-4 w-4 text-muted-foreground" /> {/* Changed icon */}
+            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -89,21 +89,6 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               Currently registered administrators.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Registered Normal Users</CardTitle>
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              N/A
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Live count requires a backend setup.
             </p>
           </CardContent>
         </Card>
