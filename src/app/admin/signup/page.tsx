@@ -3,6 +3,7 @@
 
 import { AdminAuthForm, type AuthFormValues } from "@/components/admin/admin-auth-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Added this import
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
