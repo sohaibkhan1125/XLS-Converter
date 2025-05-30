@@ -4,6 +4,7 @@ import AppLogo from './app-logo';
 
 const navLinks = [
   { href: '/', label: 'Home' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
   { href: '/privacy', label: 'Privacy Policy' },

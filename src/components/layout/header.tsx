@@ -14,12 +14,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLogo from './app-logo';
-import { UserCircle, LogOut, Menu } from 'lucide-react'; // Added Menu for potential mobile toggle
+import { LogOut, Menu } from 'lucide-react'; // Added Menu for potential mobile toggle
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'; // For mobile menu
 
 const navLinks = [
   { href: '/', label: 'Home' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
   { href: '/privacy', label: 'Privacy Policy' },

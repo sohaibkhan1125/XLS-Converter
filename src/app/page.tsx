@@ -6,31 +6,36 @@ import FileUploader from '@/components/core/file-uploader';
 import DataPreview from '@/components/core/data-preview';
 import LimitDialog from '@/components/core/limit-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import FeatureSection from '@/components/core/feature-section'; // Import FeatureSection
+import FeatureSection from '@/components/core/feature-section';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Download, Trash2, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { checkConversionLimit, recordConversion, formatTime } from '@/lib/local-storage-limits';
+import { checkConversionLimit, recordConversion, formatTime, type LimitStatus } from '@/lib/local-storage-limits';
 import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
 
-const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100; // Heuristic: if PDF has less than this many chars, assume image-based.
+const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null); // Renamed from extractedData for clarity
+  const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState<string>(""); // For more granular loading messages
+  const [loadingStep, setLoadingStep] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   
   const [showLimitDialog, setShowLimitDialog] = useState(false);
-  const [limitDialogUserType, setLimitDialogUserType] = useState<'guest' | 'loggedIn'>('guest');
-  const [limitDialogTimeToWait, setLimitDialogTimeToWait] = useState<string | undefined>(undefined);
+  const [limitDialogContent, setLimitDialogContent] = useState<{
+    userType: 'guest' | 'loggedIn';
+    timeToWaitFormatted?: string;
+    onPlan?: boolean;
+    planName?: string;
+    isPlanExhausted?: boolean;
+  }>({ userType: 'guest' });
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -41,12 +46,17 @@ export default function HomePage() {
     setError(null);
     setLoadingStep("");
 
-    const limitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
+    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
     if (!limitStatus.allowed) {
-      setLimitDialogUserType(currentUser ? 'loggedIn' : 'guest');
-      setLimitDialogTimeToWait(limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined);
+      setLimitDialogContent({
+        userType: currentUser ? 'loggedIn' : 'guest',
+        timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
+        onPlan: limitStatus.onPlan,
+        planName: limitStatus.planName,
+        isPlanExhausted: limitStatus.isPlanExhausted,
+      });
       setShowLimitDialog(true);
-      setSelectedFile(null); // Clear selection if limit reached
+      setSelectedFile(null);
       return;
     }
 
@@ -64,7 +74,7 @@ export default function HomePage() {
       } else {
         toast({ title: "Image PDF Detected", description: "Attempting OCR for text extraction. This may take a moment." });
         setLoadingStep("Performing OCR on PDF image...");
-        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1); // OCR first page
+        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1);
         const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
         if (!aiOcrResult || !aiOcrResult.extractedText) {
           throw new Error("OCR process failed to extract text from image-based PDF.");
@@ -78,8 +88,6 @@ export default function HomePage() {
       const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
       
       if (!structuredDataResult || !structuredDataResult.blocks || structuredDataResult.blocks.length === 0) {
-        // Even if the AI returns an empty blocks array, formatStructuredDataForExcel handles it.
-        // We might want a more specific error if blocks is undefined/null after AI processing.
         console.warn("AI structuring returned no blocks or an unexpected result:", structuredDataResult);
         toast({ variant: "destructive", title: "AI Structuring Issue", description: "AI could not effectively structure the document. The output might be basic." });
       }
@@ -88,8 +96,15 @@ export default function HomePage() {
       const excelData = formatStructuredDataForExcel(structuredDataResult);
       setExcelReadyData(excelData);
       
-      recordConversion(currentUser ? currentUser.uid : null);
-      toast({ title: "Conversion Successful", description: "PDF data processed and structured. Ready for preview/download." });
+      recordConversion(currentUser ? currentUser.uid : null); // This will use plan or free tier
+      const newLimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
+      let conversionToastDescription = "PDF data processed and structured. Ready for preview/download.";
+      if (newLimitStatus.onPlan && newLimitStatus.planName) {
+        conversionToastDescription += ` ${newLimitStatus.remaining} ${newLimitStatus.planName} conversions remaining.`;
+      } else {
+        conversionToastDescription += ` ${newLimitStatus.remaining} free conversions remaining.`;
+      }
+      toast({ title: "Conversion Successful", description: conversionToastDescription });
 
     } catch (err: any) {
       console.error("Processing error:", err);
@@ -172,11 +187,14 @@ export default function HomePage() {
       <LimitDialog
         isOpen={showLimitDialog}
         onOpenChange={setShowLimitDialog}
-        userType={limitDialogUserType}
-        timeToWaitFormatted={limitDialogTimeToWait}
+        userType={limitDialogContent.userType}
+        timeToWaitFormatted={limitDialogContent.timeToWaitFormatted}
+        onPlan={limitDialogContent.onPlan}
+        planName={limitDialogContent.planName}
+        isPlanExhausted={limitDialogContent.isPlanExhausted}
       />
 
-      <FeatureSection /> {/* Add the FeatureSection here */}
+      <FeatureSection />
     </div>
   );
 }
