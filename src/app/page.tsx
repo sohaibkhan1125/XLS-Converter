@@ -74,7 +74,12 @@ export default function HomePage() {
       } else {
         toast({ title: "Image PDF Detected", description: "Attempting OCR for text extraction. This may take a moment." });
         setLoadingStep("Performing OCR on PDF image...");
-        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1);
+        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1); // Using scale 1.0 as per previous adjustment
+        if (!imageDataUri) {
+            throw new Error("Failed to convert PDF page to image data URI.");
+        }
+        // console.log("Image Data URI length (client-side):", imageDataUri.length); // For debugging
+
         const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
         if (!aiOcrResult || !aiOcrResult.extractedText) {
           throw new Error("OCR process failed to extract text from image-based PDF.");
@@ -96,7 +101,7 @@ export default function HomePage() {
       const excelData = formatStructuredDataForExcel(structuredDataResult);
       setExcelReadyData(excelData);
       
-      recordConversion(currentUser ? currentUser.uid : null); // This will use plan or free tier
+      recordConversion(currentUser ? currentUser.uid : null);
       const newLimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
       let conversionToastDescription = "PDF data processed and structured. Ready for preview/download.";
       if (newLimitStatus.onPlan && newLimitStatus.planName) {
@@ -107,10 +112,25 @@ export default function HomePage() {
       toast({ title: "Conversion Successful", description: conversionToastDescription });
 
     } catch (err: any) {
-      console.error("Processing error:", err);
-      const errorMessage = err.message || "An unknown error occurred during processing.";
-      setError(errorMessage);
-      toast({ variant: "destructive", title: "Processing Error", description: errorMessage });
+      console.error("Detailed error in handleFileSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      let displayMessage = "Processing failed. ";
+      if (err.message) {
+        displayMessage += err.message;
+      } else {
+        displayMessage += "An unknown error occurred.";
+      }
+      // Attempt to get more details from Genkit-like error structures
+      if (err.details) {
+        try {
+          displayMessage += ` Details: ${JSON.stringify(err.details)}`;
+        } catch (e) { /* ignore stringify error if err.details is not plain object */ }
+      }
+      if (err.cause && err.cause.message) {
+         displayMessage += ` Cause: ${err.cause.message}`;
+      }
+      
+      setError(displayMessage);
+      toast({ variant: "destructive", title: "Processing Error", description: displayMessage });
       setExcelReadyData(null);
     } finally {
       setIsLoading(false);
