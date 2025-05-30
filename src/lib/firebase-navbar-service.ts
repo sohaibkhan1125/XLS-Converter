@@ -87,17 +87,24 @@ export async function uploadSiteLogo(file: File): Promise<string> {
 }
 
 export async function deleteSiteLogo(logoUrl: string): Promise<void> {
-  if (!logoUrl) return;
+  if (!logoUrl || logoUrl.startsWith('blob:')) {
+    console.warn("Attempted to delete an invalid or blob URL from Firebase Storage:", logoUrl);
+    return; // Do not attempt to delete local blob URLs or empty URLs from storage
+  }
   try {
     const currentUser = auth.currentUser;
-    console.log("Attempting to delete site logo. Authenticated admin UID:", currentUser?.uid, "Logo URL:", logoUrl);
+    console.log("Attempting to delete site logo from Storage. Authenticated admin UID:", currentUser?.uid, "Logo URL:", logoUrl);
      if (!currentUser) {
-      console.error("No authenticated user found when trying to delete site logo.");
+      console.error("No authenticated user found when trying to delete site logo from Storage.");
       throw new Error("Authentication required to delete site logo.");
     }
     const storageRef = ref(storage, logoUrl); // Firebase SDK can parse the full URL
     await deleteObject(storageRef);
+    console.log("Successfully deleted old logo from Firebase Storage:", logoUrl);
   } catch (error) {
-    console.warn("Error deleting site logo (it might not exist or URL is invalid):", error);
+    console.error("Error deleting site logo from Firebase Storage:", error);
+    // Re-throw the error so the calling function (e.g., handleSubmit in UI) can catch it
+    // and update UI state accordingly (e.g., stop loading spinner).
+    throw error;
   }
 }
