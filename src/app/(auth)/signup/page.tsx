@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AuthForm, type AuthFormValues } from "@/components/auth/auth-form";
@@ -9,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignupPage() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -22,7 +23,23 @@ export default function SignupPage() {
       router.push("/");
     } catch (error: any) {
       // Error is handled by AuthForm
-      console.error("Signup page error:", error);
+      console.error("Signup page error (Email/Pass):", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithGoogle(); // Firebase handles new user creation or sign-in transparently
+      toast({ title: "Google Sign-up Successful", description: "Welcome to XLSConvert!" });
+      router.push("/");
+    } catch (error: any) {
+      // Error is handled by AuthForm
+      console.error("Signup page error (Google):", error);
+      // Re-throw to be caught by AuthForm's internal error handler
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -36,7 +53,12 @@ export default function SignupPage() {
           <CardDescription>Sign up to start converting your PDFs to Excel with more benefits.</CardDescription>
         </CardHeader>
         <CardContent>
-          <AuthForm onSubmit={handleSignup} submitButtonText="Sign Up" isLoading={isLoading} />
+          <AuthForm 
+            onSubmit={handleSignup} 
+            onGoogleSignIn={handleGoogleSignup}
+            submitButtonText="Sign Up" 
+            isLoading={isLoading}
+          />
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="font-medium text-primary hover:underline">

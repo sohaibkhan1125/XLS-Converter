@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AuthForm, type AuthFormValues } from "@/components/auth/auth-form";
@@ -9,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -21,9 +22,24 @@ export default function LoginPage() {
       toast({ title: "Login Successful", description: "Welcome back!" });
       router.push("/");
     } catch (error: any) {
-      // Error is handled by AuthForm, but you could add more specific logging here
-      console.error("Login page error:", error);
-      // Toast is not needed here as AuthForm displays the error
+      // Error is handled by AuthForm
+      console.error("Login page error (Email/Pass):", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+      toast({ title: "Google Login Successful", description: "Welcome!" });
+      router.push("/");
+    } catch (error: any) {
+      // Error is handled by AuthForm
+      console.error("Login page error (Google):", error);
+      // Re-throw to be caught by AuthForm's internal error handler
+      throw error; 
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +53,12 @@ export default function LoginPage() {
           <CardDescription>Log in to access your PDF to Excel conversions.</CardDescription>
         </CardHeader>
         <CardContent>
-          <AuthForm onSubmit={handleLogin} submitButtonText="Log In" isLoading={isLoading} />
+          <AuthForm 
+            onSubmit={handleLogin} 
+            onGoogleSignIn={handleGoogleLogin}
+            submitButtonText="Log In" 
+            isLoading={isLoading} 
+          />
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">

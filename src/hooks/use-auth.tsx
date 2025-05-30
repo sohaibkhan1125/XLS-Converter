@@ -1,7 +1,15 @@
+
 "use client";
 
 import type { User, AuthError } from 'firebase/auth';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
@@ -12,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (values: AuthFormValues) => Promise<User | null>;
   signIn: (values: AuthFormValues) => Promise<User | null>;
+  signInWithGoogle: () => Promise<User | null>;
   signOut: () => Promise<void>;
 }
 
@@ -57,6 +66,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithGoogle = async (): Promise<User | null> => {
+    setLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      const userCredential = await signInWithPopup(auth, provider);
+      setCurrentUser(userCredential.user);
+      setLoading(false);
+      return userCredential.user;
+    } catch (error) {
+      console.error("Google sign in error:", error);
+      setLoading(false);
+      throw error as AuthError;
+    }
+  };
+
   const signOut = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -74,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
   };
 
