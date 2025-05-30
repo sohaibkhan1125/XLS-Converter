@@ -2,13 +2,14 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Settings } from 'lucide-react'; // Added Settings icon
+import { LayoutDashboard, Settings, Megaphone } from 'lucide-react'; // Added Ads icon (Megaphone as example)
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/navbar-management', label: 'Navbar Management', icon: Settings },
+  { href: '/admin/ads-management', label: 'Ads Management', icon: Megaphone },
   // Add more admin navigation items here
   // { href: '/admin/users', label: 'Users', icon: Users },
   // { href: '/admin/settings', label: 'Settings', icon: Settings },

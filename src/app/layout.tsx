@@ -8,21 +8,13 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { Toaster } from '@/components/ui/toaster';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
+import AdScriptInjector from '@/components/ads/ad-script-injector'; // Import AdScriptInjector
 import { usePathname } from 'next/navigation'; // Import usePathname
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
-
-// Note: Metadata export is for server components. If RootLayout becomes fully client,
-// metadata might need to be handled differently (e.g. in a parent server component or page.tsx files).
-// However, for this specific change, we only need usePathname for conditional rendering.
-// Next.js allows 'use client' at the top of a layout while still respecting metadata.
-// export const metadata: Metadata = { // This should ideally be in a server component layout or page
-//   title: 'XLSConvert - PDF to Excel Converter',
-//   description: 'Easily convert your PDF files to structured Excel spreadsheets.',
-// };
 
 export default function RootLayout({
   children,
@@ -31,6 +23,8 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith('/admin');
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+
 
   // Determine main class based on route
   const mainClassName = isAdminRoute 
@@ -40,13 +34,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Metadata can be placed here directly or managed via Next.js metadata API in page.tsx/layout.tsx server components */}
         <title>XLSConvert - PDF to Excel Converter</title>
         <meta name="description" content="Easily convert your PDF files to structured Excel spreadsheets." />
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>
           {!isAdminRoute && <AppHeader />}
+          {/* AdScriptInjector will internally handle not running on admin/auth pages */}
+          <AdScriptInjector /> 
           <main className={mainClassName}>
             {children}
           </main>
