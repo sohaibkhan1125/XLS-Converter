@@ -17,30 +17,46 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
-import LoadingSpinner from "@/components/core/loading-spinner"; // Import LoadingSpinner
+import LoadingSpinner from "@/components/core/loading-spinner";
 
-const formSchema = z.object({
+const baseSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export type AuthFormValues = z.infer<typeof formSchema>;
+const signupFormSchema = baseSchema.extend({
+  confirmPassword: z.string().min(6, { message: "Confirm Password must be at least 6 characters." })
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // Show error on confirmPassword field
+});
+
+const loginFormSchema = baseSchema;
+
+// Unified type for form values, confirmPassword is optional
+export type AuthFormValues = z.infer<typeof baseSchema> & {
+  confirmPassword?: string;
+};
 
 interface AdminAuthFormProps {
+  mode: 'login' | 'signup';
   onSubmit: (values: AuthFormValues) => Promise<any>;
   submitButtonText: string;
-  isLoading?: boolean; // General loading state passed from parent page (e.g., auth context loading)
+  isLoading?: boolean; 
 }
 
-export function AdminAuthForm({ onSubmit, submitButtonText, isLoading = false }: AdminAuthFormProps) {
+export function AdminAuthForm({ mode, onSubmit, submitButtonText, isLoading = false }: AdminAuthFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Form-specific submission loading
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const currentSchema = mode === 'signup' ? signupFormSchema : loginFormSchema;
 
   const form = useForm<AuthFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       email: "",
       password: "",
+      ...(mode === 'signup' && { confirmPassword: "" }),
     },
   });
 
@@ -75,14 +91,14 @@ export function AdminAuthForm({ onSubmit, submitButtonText, isLoading = false }:
         case 'auth/too-many-requests':
             errorMessage = "Too many attempts. Please try again later.";
             break;
-        default: // Keep default message for unhandled Firebase codes
-          errorMessage = `An unexpected error occurred: ${err.code}`; 
+        default: 
+          errorMessage = `An unexpected error occurred: ${err.code || err.message || 'Unknown error'}`; 
       }
     }
     setFormError(errorMessage);
   }
 
-  const actualIsLoading = isLoading || isSubmitting; // Combine parent loading with form submitting state
+  const actualIsLoading = isLoading || isSubmitting;
 
   return (
     <div className="space-y-6">
@@ -121,6 +137,21 @@ export function AdminAuthForm({ onSubmit, submitButtonText, isLoading = false }:
               </FormItem>
             )}
           />
+          {mode === 'signup' && (
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input placeholder="••••••••" {...field} type="password" disabled={actualIsLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actualIsLoading}>
             {actualIsLoading ? <LoadingSpinner message="Processing..." /> : submitButtonText}
           </Button>

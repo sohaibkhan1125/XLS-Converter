@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { AdminAuthProvider, useAdminAuth } from '@/hooks/use-admin-auth';
 import AdminHeader from '@/components/admin/layout/admin-header';
 import AdminSidebar from '@/components/admin/layout/admin-sidebar';
-import LoadingSpinner from '@/components/core/loading-spinner'; // Import LoadingSpinner
+import LoadingSpinner from '@/components/core/loading-spinner';
 
 function AdminProtectedLayout({ children }: { children: ReactNode }) {
   const { adminUser, loading: authLoading } = useAdminAuth(); 
@@ -19,13 +19,13 @@ function AdminProtectedLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hasMounted || authLoading) return; // Wait for client mount and auth to resolve
+    if (!hasMounted || authLoading) return; 
 
     const isAuthPage = pathname === '/admin/login' || pathname === '/admin/signup';
-    const isAdminRootPage = pathname === '/admin';
+    const isAdminRootPage = pathname === '/admin'; // The root /admin page now just redirects
 
-    // If not an admin user and not on an auth page or the root admin page (which handles its own redirects),
-    // redirect to login.
+    // If not an admin user and not on an auth page, redirect to login.
+    // The /admin page itself will handle its own redirection logic based on auth state.
     if (!adminUser && !isAuthPage && !isAdminRootPage) {
       router.replace('/admin/login');
     }
@@ -38,30 +38,22 @@ function AdminProtectedLayout({ children }: { children: ReactNode }) {
   }, [adminUser, authLoading, router, pathname, hasMounted]);
 
   if (!hasMounted) {
-    // Generic initial loading state, same for server and client initial render
     return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Initializing Admin UI..." /></div>;
   }
-
-  // If auth is still loading, and we are NOT on an auth page or the root admin page, show a loading screen.
-  // This prevents flashing content before redirection logic in useEffect kicks in.
-  // The root /admin page has its own loading logic.
-  if (authLoading && (pathname !== '/admin/login' && pathname !== '/admin/signup' && pathname !== '/admin')) {
+  
+  // Show loading if auth is resolving and it's not an auth page or the root /admin page (which handles its own spinner)
+  if (authLoading && pathname !== '/admin/login' && pathname !== '/admin/signup' && pathname !== '/admin') {
     return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Loading Admin Data..." /></div>;
   }
   
-  // For login, signup, and the root /admin page, render children directly without the full admin layout
-  // (header/sidebar). These pages handle their own layout/redirects.
+  // For login, signup, and the root /admin page, render children directly.
+  // These pages handle their own layout/redirects.
   if (pathname === '/admin/login' || pathname === '/admin/signup' || pathname === '/admin') {
-    // If user is already logged in and lands on these, useEffect above will redirect them.
-    // If authLoading is still true here but adminUser is null, it's okay to show the page,
-    // as these pages often have their own internal loading indicators or redirect logic.
     return <>{children}</>;
   }
   
-  // If we reach here and there's no validated adminUser (and not authLoading),
-  // it means the redirect effect hasn't kicked in or there's a brief moment.
-  // The primary protection is the useEffect hook. Show a redirecting message.
-  if (!adminUser && !authLoading) { // Check !authLoading here
+  // If not authenticated and not loading, and not on an auth page, redirect (should be caught by useEffect, but as a fallback)
+  if (!adminUser && !authLoading) {
      return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
   }
 
@@ -78,8 +70,7 @@ function AdminProtectedLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fallback: Should be covered by other conditions, but ensures something renders
-  // if auth is still loading and we are on a protected page.
+  // Fallback loading if none of the above conditions met (e.g. brief state before redirect)
   return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Loading..." /></div>;
 }
 

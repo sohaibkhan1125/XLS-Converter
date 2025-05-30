@@ -17,7 +17,6 @@ export default function AdminLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // If a validated adminUser exists (from useAdminAuth, which checks Firestore), redirect to dashboard
     if (!authLoading && adminUser) {
       router.replace("/admin/dashboard");
     }
@@ -28,19 +27,15 @@ export default function AdminLoginPage() {
     try {
       await adminSignIn(values);
       toast({ title: "Admin Login Successful", description: "Redirecting to dashboard..." });
-      // Redirect is handled by useEffect for adminUser state change (from useAdminAuth)
-      // or by AdminProtectedLayout if already on dashboard path.
+      // Redirect is handled by useEffect for adminUser state change or by AdminProtectedLayout.
     } catch (error: any) {
-      // AdminAuthForm handles displaying Firebase errors like 'auth/invalid-credential'
-      // and custom errors like "User is not authorized as an admin." from useAdminAuth hook.
+      // AdminAuthForm handles displaying errors.
       console.error("Admin Login page caught specific error:", error.message);
-      // No need to re-toast here if AdminAuthForm handles it.
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // Show loading if auth is resolving and no adminUser has been confirmed yet
+ 
   if (authLoading && !adminUser) { 
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -49,9 +44,7 @@ export default function AdminLoginPage() {
     );
   }
   
-  // If adminUser exists (validated by useAdminAuth), useEffect will redirect. 
-  // This state primarily shows the login form if no admin is logged in and auth is not loading.
-  if (!authLoading && adminUser) { // This case should ideally be handled by useEffect redirection
+  if (!authLoading && adminUser) { 
      return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner message="Redirecting to Dashboard..." />
@@ -68,12 +61,17 @@ export default function AdminLoginPage() {
         </CardHeader>
         <CardContent>
           <AdminAuthForm 
+            mode="login"
             onSubmit={handleLogin} 
             submitButtonText="Log In" 
-            isLoading={isSubmitting || authLoading} // Form is loading if submitting or auth is generally resolving
+            isLoading={isSubmitting || authLoading} 
           />
-          {/* Link to admin signup is typically not shown after initial setup. 
-              The /admin root page handles routing to signup if needed. */}
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Don&apos;t have an admin account?{" "}
+            <Link href="/admin/signup" className="font-medium text-primary hover:underline">
+              Sign up
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
