@@ -13,6 +13,7 @@ const FOOTER_LOGO_STORAGE_PATH = 'site_settings/footer_logo';
 // Firestore functions
 export async function getFooterSettings(): Promise<FooterSettings | null> {
   try {
+    console.log("Attempting to get footer settings. Admin UID:", auth.currentUser?.uid);
     const docRef = doc(firestore, FOOTER_SETTINGS_COLLECTION, FOOTER_SETTINGS_DOC_ID);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -63,6 +64,7 @@ export function subscribeToFooterSettings(
 export async function uploadFooterLogo(file: File): Promise<string> {
   try {
     const currentUser = auth.currentUser;
+    console.log("Attempting to upload footer logo. Authenticated admin UID:", currentUser?.uid);
     if (!currentUser) {
       throw new Error("Authentication required to upload footer logo.");
     }
@@ -86,6 +88,7 @@ export async function deleteFooterLogo(logoUrl: string): Promise<void> {
   }
   try {
     const currentUser = auth.currentUser;
+    console.log("Attempting to delete footer logo. Authenticated admin UID:", currentUser?.uid, "Logo URL:", logoUrl);
     if (!currentUser) {
       throw new Error("Authentication required to delete footer logo.");
     }
