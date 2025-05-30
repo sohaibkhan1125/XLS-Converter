@@ -2,11 +2,13 @@
 "use client";
 
 import type React from 'react';
-import { Button } from '@/components/ui/button';
+import { PayPalButtons, usePayPalScriptReducer, type PayPalButtonsComponentProps } from "@paypal/react-paypal-js";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import LoadingSpinner from '@/components/core/loading-spinner';
 import { cn } from '@/lib/utils';
 import type { Plan, PlanFeature } from '@/config/pricing';
-import { CheckCircle2, XCircle } from 'lucide-react'; // Import XCircle for unavailable features
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface PricingCardProps {
   plan: Plan;
@@ -15,12 +17,73 @@ interface PricingCardProps {
 }
 
 export default function PricingCard({ plan, billingCycle, onSelectPlan }: PricingCardProps) {
+  const [{ isPending, isRejected }] = usePayPalScriptReducer();
+  const { toast } = useToast();
+
   const displayPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
   const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
   const cycleAdverb = billingCycle === 'monthly' ? 'month' : 'year';
 
-  const handleSelect = () => {
-    onSelectPlan(plan.id, billingCycle);
+  const paypalButtonOptions: PayPalButtonsComponentProps = {
+    style: { 
+      layout: "vertical", 
+      tagline: false, 
+      height: 48,
+      // color: plan.highlight ? "blue" : "gold", // Example: PayPal button color customization
+      // shape: 'pill',
+    },
+    disabled: false, // Can be dynamically set, e.g. based on auth state or plan conditions
+    createOrder: async (_data, actions) => {
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: displayPrice.toFixed(2), // Ensure value is a string with 2 decimal places
+            currency_code: "USD" // Assuming USD, should match provider currency
+          },
+          description: `${plan.name} Plan - ${billingCycle}ly`
+        }]
+      });
+    },
+    onApprove: async (data, actions) => {
+      try {
+        const captureDetails = await actions.order?.capture();
+        // Check if captureDetails is defined, as capture() might not always return details (e.g. if already captured)
+        if (captureDetails) {
+          toast({
+            title: "Payment Successful!",
+            description: `Order ID: ${captureDetails.id}. Thank you for your purchase.`,
+          });
+        } else {
+           toast({
+            title: "Payment Approved!",
+            description: `Order ID: ${data.orderID}. Thank you for your purchase.`,
+          });
+        }
+        // Call the original function to activate the plan in localStorage
+        onSelectPlan(plan.id, billingCycle);
+      } catch (error) {
+        console.error("PayPal Capture Error:", error);
+        toast({
+          variant: "destructive",
+          title: "Payment Capture Failed",
+          description: "There was an issue processing your payment. Please try again or contact support.",
+        });
+      }
+    },
+    onError: (err) => {
+      console.error("PayPal Button Error:", err);
+      toast({
+        variant: "destructive",
+        title: "PayPal Error",
+        description: "An error occurred with PayPal. Please ensure your details are correct or try again later.",
+      });
+    },
+    onCancel: () => {
+      toast({
+        title: "Payment Cancelled",
+        description: "You have cancelled the payment process.",
+      });
+    }
   };
 
   return (
@@ -64,17 +127,18 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
           ))}
         </ul>
       </CardContent>
-      <CardFooter className="p-6 mt-auto">
-        <Button
-          onClick={handleSelect}
-          className={cn(
-            "w-full text-lg py-3",
-            plan.highlight ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-accent hover:bg-accent/90 text-accent-foreground"
-          )}
-          size="lg"
-        >
-          {plan.ctaText || 'Choose Plan'}
-        </Button>
+      <CardFooter className="p-6 mt-auto min-h-[80px] flex items-center justify-center"> {/* Ensure footer has some min height */}
+        {isPending ? (
+          <LoadingSpinner message="Loading payment options..." />
+        ) : isRejected ? (
+          <p className="text-destructive text-center text-sm">
+            Could not load PayPal. Please refresh the page or check your internet connection.
+          </p>
+        ) : (
+          <div className="w-full">
+            <PayPalButtons {...paypalButtonOptions} />
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
