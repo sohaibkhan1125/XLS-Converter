@@ -34,7 +34,6 @@ export async function checkIfAnyAdminSetupInFirestore(): Promise<boolean> {
   } catch (error) {
     console.error("Error checking if any admin exists in Firestore:", error);
     // If an error occurs (e.g. permission issues), it's safer to assume setup might be needed or handle appropriately.
-    // For now, returning false might lead to signup page if DB is inaccessible. Consider implications.
     return false;
   }
 }

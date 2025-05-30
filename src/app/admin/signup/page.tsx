@@ -27,11 +27,20 @@ export default function AdminSignupPage() {
         router.replace('/admin/login');
       }
     }
-    checkSetup();
-  }, [router, adminUser]);
+    // Only run this check if not already logged in as admin
+    if (!authLoading && !adminUser) {
+        checkSetup();
+    } else if (authLoading) {
+        // If auth is loading, defer the setup check until auth status is known
+        // to avoid redirecting to login if an admin session is being restored.
+    } else if (adminUser) {
+        // If admin is already logged in, no need to check setup or show signup.
+        // The layout or main admin page will redirect to dashboard.
+    }
+  }, [router, adminUser, authLoading]);
 
   useEffect(() => {
-    // If admin is already logged in (and validated), redirect to dashboard
+    // If admin is already logged in (and validated by useAdminAuth), redirect to dashboard
     if (!authLoading && adminUser) {
       router.replace('/admin/dashboard');
     }
@@ -41,22 +50,26 @@ export default function AdminSignupPage() {
     setIsSubmitting(true);
     try {
       await adminSignUp(values); 
-      toast({ title: "Admin Account Created", description: "Redirecting to dashboard..." });
-      // Redirect is handled by useEffect for adminUser state change
+      toast({ title: "Admin Account Created", description: "Please log in to continue." });
+      router.push('/admin/login'); // Redirect to login after successful first admin signup
     } catch (error: any) {
-      // Error is handled by AdminAuthForm, but specific signup logic error here:
+      // AdminAuthForm will display most Firebase errors.
+      // Specific error from adminSignUp (e.g., "Admin account already exists...")
       if (error.message === "Admin account already exists. Signup is not allowed.") {
          toast({ variant: "destructive", title: "Signup Blocked", description: error.message });
-         router.replace('/admin/login'); // Redirect if blocked
+         setAdminSetupComplete(true); // Mark setup as complete to trigger UI change or redirect
+         router.replace('/admin/login'); 
       } else {
-        // General auth errors are handled in AdminAuthForm
-        console.error("Admin Signup page error:", error);
+        // Let AdminAuthForm handle other auth errors by re-throwing or relying on its internal state
+        console.error("Admin Signup page error:", error.message);
+        // AdminAuthForm should display this if it's a Firebase error
       }
     } finally {
       setIsSubmitting(false);
     }
   };
   
+  // Show loading spinner if auth is resolving or admin setup status is unknown
   if (authLoading || adminSetupComplete === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -65,7 +78,8 @@ export default function AdminSignupPage() {
     );
   }
 
-  if (adminSetupComplete && !adminUser) { // If setup is done, and no admin logged in (useEffect above should have redirected)
+  // If admin setup is already complete and no admin is logged in, show "Signup Not Available"
+  if (adminSetupComplete && !adminUser) { 
      return (
       <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md shadow-xl">
@@ -85,8 +99,8 @@ export default function AdminSignupPage() {
     );
   }
   
-  // If adminSetupComplete is false, or if somehow an admin is logged in and adminSetupComplete is false (unlikely)
-  // Show the signup form
+  // If adminSetupComplete is false (meaning no admin exists in Firestore), show the signup form.
+  // Or if somehow an admin is logged in and adminSetupComplete is false (should be handled by redirect above)
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md shadow-xl">
@@ -98,7 +112,7 @@ export default function AdminSignupPage() {
           <AdminAuthForm 
             onSubmit={handleSignup} 
             submitButtonText="Create Admin Account" 
-            isLoading={isSubmitting || authLoading}
+            isLoading={isSubmitting || authLoading} // Form is loading if submitting or auth is resolving
           />
            <p className="mt-4 text-center text-xs text-muted-foreground">
             This form is for initial admin setup only.

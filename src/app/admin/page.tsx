@@ -37,6 +37,7 @@ export default function AdminRootPage() {
     }
   }, [adminUser, authLoading, setupCheckLoading, isAdminSetup, router]);
 
+  // Show a loading spinner while checks are in progress
   if (setupCheckLoading || authLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -46,6 +47,7 @@ export default function AdminRootPage() {
   }
   
   // Fallback or brief content before redirect kicks in
+  // This should ideally not be visible for long as useEffect handles redirection.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <LoadingSpinner message="Redirecting..." />

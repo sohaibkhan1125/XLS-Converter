@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { AdminAuthProvider, useAdminAuth } from '@/hooks/use-admin-auth';
 import AdminHeader from '@/components/admin/layout/admin-header';
 import AdminSidebar from '@/components/admin/layout/admin-sidebar';
+import LoadingSpinner from '@/components/core/loading-spinner'; // Import LoadingSpinner
 
 function AdminProtectedLayout({ children }: { children: ReactNode }) {
   const { adminUser, loading: authLoading } = useAdminAuth(); 
@@ -18,13 +19,14 @@ function AdminProtectedLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hasMounted || authLoading) return; 
+    if (!hasMounted || authLoading) return; // Wait for client mount and auth to resolve
 
     const isAuthPage = pathname === '/admin/login' || pathname === '/admin/signup';
+    const isAdminRootPage = pathname === '/admin';
 
-    // If not an admin user and not on an auth page (login/signup), redirect to login.
-    // This now also protects /admin itself if the user is not authenticated.
-    if (!adminUser && !isAuthPage) {
+    // If not an admin user and not on an auth page or the root admin page (which handles its own redirects),
+    // redirect to login.
+    if (!adminUser && !isAuthPage && !isAdminRootPage) {
       router.replace('/admin/login');
     }
     
@@ -36,42 +38,49 @@ function AdminProtectedLayout({ children }: { children: ReactNode }) {
   }, [adminUser, authLoading, router, pathname, hasMounted]);
 
   if (!hasMounted) {
-    return <div className="flex h-screen items-center justify-center"><p>Initializing Admin UI...</p></div>;
+    // Generic initial loading state, same for server and client initial render
+    return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Initializing Admin UI..." /></div>;
   }
 
-  if (authLoading && !adminUser && (pathname !== '/admin/login' && pathname !== '/admin/signup')) {
-    // Show a more persistent loading screen if auth is loading and we are not on auth pages
-    // and there's no adminUser yet (prevents brief flash of content before redirect)
-    return <div className="flex h-screen items-center justify-center"><p>Loading Admin Data...</p></div>;
+  // If auth is still loading, and we are NOT on an auth page or the root admin page, show a loading screen.
+  // This prevents flashing content before redirection logic in useEffect kicks in.
+  // The root /admin page has its own loading logic.
+  if (authLoading && (pathname !== '/admin/login' && pathname !== '/admin/signup' && pathname !== '/admin')) {
+    return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Loading Admin Data..." /></div>;
   }
   
-  // For login and signup pages, render children directly without full layout
-  // This allows them to have their own simpler layout (e.g. centered form)
-  if (pathname === '/admin/login' || pathname === '/admin/signup') {
-    // If user is already logged in, the useEffect above will redirect them,
-    // otherwise, show the login/signup page.
-    // If authLoading is still true here but user is null, it's fine to show the page,
-    // as auth pages handle their own internal loading/redirects for already logged-in users.
+  // For login, signup, and the root /admin page, render children directly without the full admin layout
+  // (header/sidebar). These pages handle their own layout/redirects.
+  if (pathname === '/admin/login' || pathname === '/admin/signup' || pathname === '/admin') {
+    // If user is already logged in and lands on these, useEffect above will redirect them.
+    // If authLoading is still true here but adminUser is null, it's okay to show the page,
+    // as these pages often have their own internal loading indicators or redirect logic.
     return <>{children}</>;
   }
   
-  // If we reach here, and there's no adminUser, it means the redirect effect hasn't kicked in yet
-  // or there's a brief moment before redirection. Show a loading/redirecting message.
-  // The primary protection is the useEffect hook.
-  if (!adminUser) {
-     return <div className="flex h-screen items-center justify-center"><p>Redirecting to login...</p></div>;
+  // If we reach here and there's no validated adminUser (and not authLoading),
+  // it means the redirect effect hasn't kicked in or there's a brief moment.
+  // The primary protection is the useEffect hook. Show a redirecting message.
+  if (!adminUser && !authLoading) { // Check !authLoading here
+     return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
   }
 
-  // Render full layout for authenticated admin areas (e.g., /admin/dashboard, /admin itself if logged in)
-  return (
-    <div className="flex min-h-screen flex-col">
-      <AdminHeader />
-      <div className="flex flex-1">
-        <AdminSidebar />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+  // If we have a validated adminUser, render the full admin layout.
+  if (adminUser) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <AdminHeader />
+        <div className="flex flex-1">
+          <AdminSidebar />
+          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Fallback: Should be covered by other conditions, but ensures something renders
+  // if auth is still loading and we are on a protected page.
+  return <div className="flex h-screen items-center justify-center"><LoadingSpinner message="Loading..." /></div>;
 }
 
 export default function AdminRootLayout({ children }: { children: ReactNode }) {

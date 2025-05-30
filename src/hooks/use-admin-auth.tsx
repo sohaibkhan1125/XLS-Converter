@@ -34,14 +34,17 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [loading, setLoading] = useState(true);
 
   const validateAndSetAdminUser = useCallback(async (user: User | null) => {
+    setLoading(true);
     if (user) {
       const isFirestoreAdmin = await checkIfAdminUserExistsInFirestore(user.uid);
       if (isFirestoreAdmin) {
         setAdminUser(user);
       } else {
-        setAdminUser(null); // Firebase user exists but is not in Firestore /admins
-        // Optionally sign them out of Firebase if they shouldn't be here at all
-        // await firebaseSignOut(auth); 
+        setAdminUser(null); 
+        // If a non-admin user somehow is authenticated with Firebase session
+        // but not in Firestore /admins, they are not considered an adminUser.
+        // No need to sign them out here as they might be a regular site user.
+        // The admin panel routes will protect themselves based on adminUser.
       }
     } else {
       setAdminUser(null);
@@ -51,7 +54,6 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setLoading(true); // Start loading when Firebase auth state changes
       setFirebaseUser(user); // Store raw Firebase user
       validateAndSetAdminUser(user);
     }, (error) => {
@@ -69,14 +71,14 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
     try {
       const anyAdminExists = await checkIfAnyAdminSetupInFirestore();
       if (anyAdminExists) {
+        // This error will be caught by AdminAuthForm and displayed
         throw new Error("Admin account already exists. Signup is not allowed.");
       }
 
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       if (userCredential.user) {
         await addAdminToFirestore(userCredential.user.uid, userCredential.user.email);
-        // onAuthStateChanged will trigger validation and set adminUser
-        // No need to call setAdminUser directly here to avoid race conditions with onAuthStateChanged
+        // onAuthStateChanged will trigger validation and set adminUser for this new admin
         return userCredential.user; 
       }
       return null;
@@ -84,7 +86,7 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
       console.error("Admin Sign up error:", error);
       throw error; // Let the form handle the error type
     } finally {
-      // setLoading(false) will be handled by the onAuthStateChanged flow
+       // setLoading(false) will be handled by the onAuthStateChanged/validateAndSetAdminUser flow
     }
   };
 
@@ -92,31 +94,28 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      // Firebase auth successful. onAuthStateChanged will fire, triggering validateAndSetAdminUser.
-      // That validation will determine if this Firebase user is a *true* admin.
-      // We need to ensure that this promise resolves *after* Firestore validation completes for this specific sign-in action.
-
       if (userCredential.user) {
         const isFirestoreAdmin = await checkIfAdminUserExistsInFirestore(userCredential.user.uid);
         if (isFirestoreAdmin) {
-          // The onAuthStateChanged might have already run, but to be sure for this specific call:
-          setAdminUser(userCredential.user); 
+          // The onAuthStateChanged should handle setting adminUser.
+          // To ensure adminUser is set for this specific call for immediate UI updates:
+          setAdminUser(userCredential.user);
           setLoading(false);
           return userCredential.user;
         } else {
-          // Firebase auth succeeded, but user is not in Firestore admins.
-          await firebaseSignOut(auth); // Sign them out of Firebase as they are not a valid admin.
+          // User authenticated with Firebase, but not in /admins collection.
+          await firebaseSignOut(auth); // Sign them out of Firebase session.
           setAdminUser(null);
           setLoading(false);
-          throw new Error("User is not authorized as an admin.");
+          throw new Error("User is not authorized as an admin."); // This error is caught by AdminAuthForm
         }
       }
-      setLoading(false);
+      setLoading(false); // Should not reach here if userCredential.user is null
       return null;
     } catch (error) {
       console.error("Admin Sign in error:", error);
-      setAdminUser(null); // Ensure adminUser is null on error
-      setLoading(false); // Ensure loading is false on error
+      setAdminUser(null); 
+      setLoading(false); 
       throw error; 
     }
   };
@@ -128,9 +127,10 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
       // onAuthStateChanged will set firebaseUser to null, which then sets adminUser to null.
     } catch (error) {
       console.error("Admin Sign out error:", error);
-    } finally {
-      // setLoading(false) handled by onAuthStateChanged flow
-    }
+      // Ensure loading is false even on error
+      setLoading(false);
+    } 
+    // setLoading(false) is also handled by onAuthStateChanged flow implicitly
   };
 
   const value = {
