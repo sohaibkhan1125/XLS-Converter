@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { Users } from 'lucide-react';
+import { Users, ShieldAlert, UserPlus } from 'lucide-react'; // Added UserPlus
 
 export default function AdminDashboardPage() {
   const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function fetchAdminUsers() {
-      if (!adminUser) return; // Only fetch if admin is logged in
+      if (!adminUser) return; 
 
       setIsLoadingUsers(true);
       setErrorLoadingUsers(null);
@@ -57,6 +57,7 @@ export default function AdminDashboardPage() {
   }
 
   if (!adminUser) {
+    // This case should ideally be handled by AdminProtectedLayout redirecting to login
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
   }
 
@@ -64,7 +65,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Admin Dashboard</CardTitle>
+          <CardTitle>Admin Dashboard Overview</CardTitle>
           <CardDescription>
             Welcome, {adminUser.email}. Manage your application settings and view user data.
           </CardDescription>
@@ -76,11 +77,11 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Adjusted grid for two cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <ShieldAlert className="h-4 w-4 text-muted-foreground" /> {/* Changed icon */}
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -88,6 +89,21 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               Currently registered administrators.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Registered Normal Users</CardTitle>
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              N/A
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Live count requires a backend setup.
             </p>
           </CardContent>
         </Card>
