@@ -1,67 +1,134 @@
 
 "use client";
 
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation"; // To redirect on logout
+import { useRouter } from "next/navigation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
+import LoadingSpinner from '@/components/core/loading-spinner';
+import { format } from 'date-fns';
+import { Users } from 'lucide-react';
 
 export default function AdminDashboardPage() {
-  const { adminUser, adminSignOut, loading } = useAdminAuth();
+  const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  const [adminUsersList, setAdminUsersList] = useState<AdminUserData[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [errorLoadingUsers, setErrorLoadingUsers] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchAdminUsers() {
+      if (!adminUser) return; // Only fetch if admin is logged in
+
+      setIsLoadingUsers(true);
+      setErrorLoadingUsers(null);
+      try {
+        const users = await getAdminUsersList();
+        setAdminUsersList(users);
+      } catch (error) {
+        console.error("Failed to fetch admin users:", error);
+        setErrorLoadingUsers("Could not load admin user data. Please try again.");
+        toast({ variant: "destructive", title: "Error", description: "Failed to fetch admin users list." });
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    }
+    fetchAdminUsers();
+  }, [adminUser, toast]);
 
   const handleSignOut = async () => {
     try {
       await adminSignOut();
       toast({ title: "Logged Out", description: "Admin successfully logged out." });
-      router.push('/admin/login'); // Explicit redirect after sign out
+      router.push('/admin/login');
     } catch (error) {
       toast({ variant: "destructive", title: "Logout Error", description: "Failed to log out admin." });
     }
   };
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><p>Loading Dashboard...</p></div>;
+  if (authLoading) {
+    return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading Dashboard..." /></div>;
   }
 
   if (!adminUser) {
-    // This should ideally be caught by the layout redirect, but as a fallback:
-    // router.replace('/admin/login'); // This can cause hydration issues if called directly in render
-    return <div className="flex h-full items-center justify-center"><p>Redirecting to login...</p></div>;
+    return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
   }
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Welcome to the Admin Dashboard</CardTitle>
+          <CardTitle>Admin Dashboard</CardTitle>
           <CardDescription>
-            You are logged in as: {adminUser.email}
+            Welcome, {adminUser.email}. Manage your application settings and view user data.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>This is a placeholder for your admin panel content. You can add statistics, user management, content management, and other administrative tools here.</p>
-          <div className="mt-6">
-            <Button onClick={handleSignOut} variant="destructive">
+           <Button onClick={handleSignOut} variant="destructive">
               Sign Out Admin
             </Button>
-          </div>
         </CardContent>
       </Card>
 
-      {/* Placeholder for future admin panel sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
         <Card>
-          <CardHeader><CardTitle>Site Statistics</CardTitle></CardHeader>
-          <CardContent><p>Graphs and numbers will go here.</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>User Management</CardTitle></CardHeader>
-          <CardContent><p>A list of users or user management tools will go here.</p></CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoadingUsers ? <span className="text-sm">Loading...</span> : adminUsersList.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Currently registered administrators.
+            </p>
+          </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Admin Users List</CardTitle>
+          <CardDescription>List of all registered administrators.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingUsers ? (
+            <LoadingSpinner message="Loading admin users..." />
+          ) : errorLoadingUsers ? (
+            <p className="text-destructive">{errorLoadingUsers}</p>
+          ) : adminUsersList.length === 0 ? (
+            <p>No admin users found.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Date Joined</TableHead>
+                  <TableHead>Admin UID</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adminUsersList.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell>
+                      {user.createdAt ? format(user.createdAt, 'PPP p') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{user.id}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

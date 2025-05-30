@@ -27,31 +27,61 @@ export async function checkIfAdminUserExistsInFirestore(uid: string): Promise<bo
 export async function checkIfAnyAdminSetupInFirestore(): Promise<boolean> {
   try {
     const adminsCollectionRef = collection(firestore, ADMIN_COLLECTION);
-    // Query for just one document to see if any exist, more efficient than getDocs()
     const q = query(adminsCollectionRef, limit(1));
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
   } catch (error) {
     console.error("Error checking if any admin exists in Firestore:", error);
-    // If an error occurs (e.g. permission issues), it's safer to assume setup might be needed or handle appropriately.
     return false;
   }
 }
 
 /**
  * Adds a new admin user to the Firestore 'admins' collection.
- * Typically called only once during the initial admin setup.
  */
 export async function addAdminToFirestore(uid: string, email: string | null): Promise<void> {
   if (!uid) throw new Error("UID is required to add an admin to Firestore.");
   try {
     const adminDocRef = doc(firestore, ADMIN_COLLECTION, uid);
     await setDoc(adminDocRef, {
-      email: email || 'N/A', // Store email for reference, handle null case
-      createdAt: serverTimestamp(), // Use Firestore server timestamp
+      email: email || 'N/A',
+      createdAt: serverTimestamp(),
     });
   } catch (error) {
     console.error("Error adding admin to Firestore:", error);
-    throw error; // Re-throw to be handled by caller
+    throw error;
+  }
+}
+
+export interface AdminUserData {
+  id: string; // UID
+  email: string;
+  createdAt: Date | null; // Firestore Timestamp converted to Date
+}
+
+/**
+ * Fetches a list of all admin users from the 'admins' collection in Firestore.
+ */
+export async function getAdminUsersList(): Promise<AdminUserData[]> {
+  try {
+    const adminsCollectionRef = collection(firestore, ADMIN_COLLECTION);
+    const querySnapshot = await getDocs(adminsCollectionRef);
+    const adminUsers: AdminUserData[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      let createdAtDate = null;
+      if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+        createdAtDate = data.createdAt.toDate();
+      }
+      adminUsers.push({
+        id: doc.id,
+        email: data.email || 'N/A',
+        createdAt: createdAtDate,
+      });
+    });
+    return adminUsers;
+  } catch (error) {
+    console.error("Error fetching admin users list:", error);
+    throw error; // Re-throw to be handled by the caller
   }
 }
