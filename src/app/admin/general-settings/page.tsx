@@ -19,6 +19,8 @@ import { Trash2, ImageOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 
+const DEFAULT_SITE_TITLE = "XLSConvert";
+
 export default function GeneralSettingsPage() {
   const { toast } = useToast();
 
@@ -41,8 +43,7 @@ export default function GeneralSettingsPage() {
           setLogoPreview(currentSettings.logoUrl);
         }
       } else {
-        // Default settings if none exist
-        const defaultSettings: Partial<GeneralSiteSettings> = { siteTitle: 'XLSConvert', logoUrl: '' };
+        const defaultSettings: Partial<GeneralSiteSettings> = { siteTitle: DEFAULT_SITE_TITLE, logoUrl: '' };
         setSettings(defaultSettings);
         setInitialSettings(defaultSettings);
       }
@@ -66,12 +67,13 @@ export default function GeneralSettingsPage() {
         return;
       }
       setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+      setLogoPreview(URL.createObjectURL(file)); // Show local preview
+      // Do not update settings.logoUrl here, only on successful save
     }
   };
 
   const handleRemoveLogo = async () => {
-    const currentSavedLogoUrl = initialSettings.logoUrl;
+    const currentSavedLogoUrl = initialSettings.logoUrl; // Use the one actually saved
     
     setIsSaving(true);
     try {
@@ -79,11 +81,18 @@ export default function GeneralSettingsPage() {
         await deleteSharedSiteLogo(currentSavedLogoUrl); 
       }
       
-      const updatedData = { ...settings, logoUrl: '' };
-      await updateGeneralSettings({ logoUrl: '' }); 
+      // Data to update in Firestore (only logoUrl changes here, others preserved)
+      const firestoreUpdateData: Partial<GeneralSiteSettings> = { 
+        logoUrl: '', 
+        siteTitle: initialSettings.siteTitle || DEFAULT_SITE_TITLE, // Preserve from last saved state
+        adLoaderScript: initialSettings.adLoaderScript, // Preserve
+        navItems: initialSettings.navItems // Preserve
+      };
+      await updateGeneralSettings(firestoreUpdateData); 
       
-      setSettings(updatedData); 
-      setInitialSettings(updatedData);
+      // Update local states to reflect successful removal
+      setSettings(prev => ({ ...prev, logoUrl: '' })); 
+      setInitialSettings(prev => ({ ...prev, logoUrl: '' })); // Reflect removal in initial settings
       setLogoPreview(null); 
       setLogoFile(null); 
 
@@ -104,52 +113,70 @@ export default function GeneralSettingsPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!settings) return;
+
     setIsSaving(true);
-    
-    let newLogoUrl = settings.logoUrl;
+    let newLogoUrlIfUploaded: string | undefined = undefined;
 
     try {
-      if (logoFile) {
-        if (initialSettings.logoUrl && initialSettings.logoUrl !== '') {
-          try {
-            await deleteSharedSiteLogo(initialSettings.logoUrl);
-          } catch (delError: any) {
-            if (delError.code !== 'storage/object-not-found') {
-                 toast({ variant: 'destructive', title: 'Old Logo Deletion Issue', description: `Could not remove previous logo: ${delError.message}. Proceeding with new upload.` });
-            }
+      // Step 1: If a new logo file is provided, try to delete the old one (if it existed in initialSettings)
+      if (logoFile && initialSettings.logoUrl && initialSettings.logoUrl !== '') {
+        try {
+          await deleteSharedSiteLogo(initialSettings.logoUrl);
+        } catch (delError: any) {
+          if (delError.code !== 'storage/object-not-found') {
+            console.warn("Old logo deletion issue (non-fatal):", delError);
+            toast({ variant: 'destructive', title: 'Old Logo Deletion Issue', description: `Could not remove previous logo: ${delError.message}. Proceeding.` });
           }
         }
-        newLogoUrl = await uploadSharedSiteLogo(logoFile);
       }
 
-      const updatedSettingsData: Partial<GeneralSiteSettings> = {
-        siteTitle: settings.siteTitle || 'XLSConvert', 
-        logoUrl: newLogoUrl || '', 
-        // Preserve adLoaderScript and navItems if they exist
-        adLoaderScript: initialSettings.adLoaderScript, 
-        navItems: initialSettings.navItems,
-      };
-      
-      await updateGeneralSettings(updatedSettingsData);
-      
-      setSettings(prev => ({ ...prev, ...updatedSettingsData }));
-      setInitialSettings(prev => ({ ...prev, ...updatedSettingsData }));
-      setLogoFile(null);
+      // Step 2: If a new logo file is provided, upload it. This will throw on critical failure.
+      if (logoFile) {
+        newLogoUrlIfUploaded = await uploadSharedSiteLogo(logoFile);
+      }
 
-      if (updatedSettingsData.logoUrl && updatedSettingsData.logoUrl !== '') {
-        setLogoPreview(updatedSettingsData.logoUrl);
+      // Step 3: Determine the final logoUrl for Firestore
+      // - If a new logo was uploaded successfully, use its URL.
+      // - Else, if no new file was selected, settings.logoUrl reflects either the existing URL or '' if "Remove Logo" was clicked.
+      const finalLogoUrlForFirestore = newLogoUrlIfUploaded !== undefined
+        ? newLogoUrlIfUploaded
+        : settings.logoUrl; // settings.logoUrl will be '' if removed, or initialSettings.logoUrl if unchanged
+
+      // Step 4: Prepare data for Firestore update
+      const settingsToUpdate: Partial<GeneralSiteSettings> = {
+        siteTitle: settings.siteTitle || DEFAULT_SITE_TITLE,
+        logoUrl: finalLogoUrlForFirestore,
+        adLoaderScript: initialSettings.adLoaderScript, // Preserve from last known saved state
+        navItems: initialSettings.navItems,             // Preserve from last known saved state
+      };
+
+      // Step 5: Update Firestore
+      await updateGeneralSettings(settingsToUpdate);
+
+      // Step 6: Update local state to reflect successful save
+      setInitialSettings(settingsToUpdate); // Sync initialSettings with exactly what was saved
+      setSettings(settingsToUpdate);        // Sync current form state as well
+      
+      setLogoFile(null); // Clear the selected file input
+
+      // Update preview based on what was actually saved to Firestore
+      if (settingsToUpdate.logoUrl && settingsToUpdate.logoUrl !== '') {
+        setLogoPreview(settingsToUpdate.logoUrl);
       } else {
-        setLogoPreview(null); 
+        setLogoPreview(null);
       }
 
       toast({ title: 'General Settings Saved', description: 'Site settings have been updated successfully.' });
-    } catch (error: any) {
-      console.error("Error saving general settings:", error);
-      let description = 'Could not save general settings.';
-      if (error.message) description = error.message;
-      toast({ variant: 'destructive', title: 'Save Error', description });
+
+    } catch (error: any) { // This catches errors from uploadSharedSiteLogo (if new file) or updateGeneralSettings
+      console.error("Error during save process:", error);
+      toast({ variant: 'destructive', title: 'Save Error', description: error.message || 'Could not save settings.' });
+      // If upload failed, newLogoUrlIfUploaded would be undefined.
+      // The settings state (title, logoUrl) might be partially updated from user actions.
+      // We don't revert them here, user can retry or correct.
+      // The preview might still show the local blob if upload failed; user might need to re-select or remove.
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // Crucial: ensure this always runs
     }
   };
 
@@ -178,8 +205,8 @@ export default function GeneralSettingsPage() {
           <div className="space-y-2">
             <Label htmlFor="logoUpload">Site Logo (Max 2MB, PNG/JPG/SVG recommended)</Label>
             <div className="flex items-center gap-4">
-              <Input id="logoUpload" type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoChange} className="max-w-xs" disabled={isSaving} />
-              {(logoPreview || (settings.logoUrl && settings.logoUrl !== '')) && ( 
+              <Input id="logoUpload" type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoChange} className="max-w-xs" disabled={isSaving} key={logoFile ? 'file-selected' : 'no-file'} />
+              {(logoPreview || (initialSettings.logoUrl && initialSettings.logoUrl !== '')) && ( 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" size="sm" type="button" disabled={isSaving}>
@@ -189,7 +216,7 @@ export default function GeneralSettingsPage() {
                   <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Confirm Logo Removal</AlertDialogTitle></AlertDialogHeader>
                     <AlertDialogDescription>
-                      Are you sure you want to remove the current site logo?
+                      Are you sure you want to remove the current site logo? This will save immediately.
                     </AlertDialogDescription>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -212,8 +239,6 @@ export default function GeneralSettingsPage() {
         </CardContent>
       </Card>
       
-      {/* Future section for NavItems management can go here */}
-
       <div className="flex justify-end mt-8">
         <Button type="submit" size="lg" disabled={isSaving || isLoading}>
           {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save General Settings'}
