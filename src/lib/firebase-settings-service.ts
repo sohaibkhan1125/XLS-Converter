@@ -4,11 +4,21 @@
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firestore, storage, auth } from './firebase';
-import type { GeneralSiteSettings } from '@/types/site-settings';
+import type { GeneralSiteSettings, SocialLink } from '@/types/site-settings';
 
 const SETTINGS_COLLECTION = 'site_settings';
 const GENERAL_SETTINGS_DOC_ID = 'general_config';
 const SHARED_LOGO_STORAGE_PATH = 'site_settings/shared_logo';
+
+export const PREDEFINED_SOCIAL_MEDIA_PLATFORMS: Omit<SocialLink, 'url' | 'enabled'>[] = [
+  { id: 'facebook', name: 'Facebook', iconName: 'Facebook' },
+  { id: 'twitter', name: 'Twitter', iconName: 'Twitter' },
+  { id: 'instagram', name: 'Instagram', iconName: 'Instagram' },
+  { id: 'linkedin', name: 'Linkedin', iconName: 'Linkedin' },
+  { id: 'youtube', name: 'Youtube', iconName: 'Youtube' },
+  { id: 'github', name: 'Github', iconName: 'Github' },
+];
+
 
 // Firestore functions
 export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> {
@@ -16,11 +26,31 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
     const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return docSnap.data() as GeneralSiteSettings;
+      const data = docSnap.data() as GeneralSiteSettings;
+      // Ensure socialLinks is initialized
+      if (!data.socialLinks) {
+        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
+      } else {
+        // Merge with predefined to add any new platforms not yet in Firestore
+        const savedLinkIds = new Set(data.socialLinks.map(sl => sl.id));
+        const mergedLinks = [...data.socialLinks];
+        PREDEFINED_SOCIAL_MEDIA_PLATFORMS.forEach(p => {
+          if (!savedLinkIds.has(p.id)) {
+            mergedLinks.push({ ...p, url: '', enabled: false });
+          }
+        });
+        data.socialLinks = mergedLinks;
+      }
+      return data;
     }
-    // Return a default empty object if no settings are found, 
-    // so components don't break trying to access properties of null.
-    return { siteTitle: '', logoUrl: undefined, navItems: [], adLoaderScript: '' };
+    // Return a default object if no settings are found
+    return { 
+      siteTitle: 'XLSConvert', 
+      logoUrl: undefined, 
+      navItems: [], 
+      adLoaderScript: '',
+      socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }))
+    };
   } catch (error) {
     console.error("Error fetching general settings:", error);
     throw error;
@@ -49,10 +79,37 @@ export function subscribeToGeneralSettings(
   const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
-      callback(docSnap.data() as GeneralSiteSettings);
+      const data = docSnap.data() as GeneralSiteSettings;
+      if (!data.socialLinks) {
+        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
+      } else {
+        // Merge with predefined to add any new platforms not yet in Firestore
+        // This ensures the admin panel always shows all predefined platforms
+        const currentSocialLinks = data.socialLinks || [];
+        const savedLinkIds = new Set(currentSocialLinks.map(sl => sl.id));
+        const mergedLinks = [...currentSocialLinks];
+        
+        PREDEFINED_SOCIAL_MEDIA_PLATFORMS.forEach(p => {
+          if (!savedLinkIds.has(p.id)) {
+            mergedLinks.push({ ...p, url: '', enabled: false });
+          }
+        });
+         // Ensure order matches predefined platforms for consistent UI
+        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
+            const found = mergedLinks.find(ml => ml.id === p_defined.id);
+            return found || { ...p_defined, url: '', enabled: false };
+        });
+      }
+      callback(data);
     } else {
-      // Provide default empty settings if document doesn't exist
-      callback({ siteTitle: 'XLSConvert', logoUrl: undefined, navItems: [], adLoaderScript: '' });
+      // Provide default settings if document doesn't exist
+      callback({ 
+        siteTitle: 'XLSConvert', 
+        logoUrl: undefined, 
+        navItems: [], 
+        adLoaderScript: '',
+        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }))
+      });
     }
   }, (error) => {
     console.error("Error in general settings subscription:", error);
@@ -68,6 +125,7 @@ export async function uploadSharedSiteLogo(file: File): Promise<string> {
     if (!currentUser) {
       throw new Error("Authentication required to upload site logo.");
     }
+    console.log("Attempting to upload site logo. Admin UID:", currentUser.uid);
 
     const fileExtension = file.name.split('.').pop();
     const logoFileName = `shared_logo_${Date.now()}.${fileExtension}`;
@@ -91,6 +149,7 @@ export async function deleteSharedSiteLogo(logoUrl: string): Promise<void> {
     if (!currentUser) {
       throw new Error("Authentication required to delete shared site logo.");
     }
+    console.log("Attempting to delete shared site logo. Admin UID:", currentUser.uid, "URL:", logoUrl);
     const storageRefInstance = ref(storage, logoUrl);
     await deleteObject(storageRefInstance);
     console.log("Successfully deleted old shared logo from Firebase Storage:", logoUrl);
