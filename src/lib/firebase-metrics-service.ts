@@ -18,29 +18,34 @@ function getUTCDateString(): string {
 export async function incrementDailyConversionCounter(): Promise<void> {
   const dateString = getUTCDateString();
   const dailyDocRef = doc(firestore, DAILY_CONVERSIONS_COLLECTION_PATH, dateString);
+  console.log(`Attempting to increment daily conversion counter for date: ${dateString}`);
 
   try {
     await runTransaction(firestore, async (transaction) => {
       const dailyDocSnap = await transaction.get(dailyDocRef);
 
       if (!dailyDocSnap.exists()) {
+        console.log(`Document for ${dateString} does not exist. Creating with count 1.`);
         transaction.set(dailyDocRef, {
           count: 1,
           date: Timestamp.fromDate(new Date(dateString + 'T00:00:00Z')), // Store UTC date
           lastUpdated: serverTimestamp(),
         });
       } else {
-        const newCount = (dailyDocSnap.data().count || 0) + 1;
+        const currentCount = dailyDocSnap.data().count || 0;
+        const newCount = currentCount + 1;
+        console.log(`Document for ${dateString} exists. Current count: ${currentCount}, New count: ${newCount}.`);
         transaction.update(dailyDocRef, {
           count: newCount,
           lastUpdated: serverTimestamp(),
         });
       }
     });
-    console.log(`Daily conversion count incremented for ${dateString}`);
+    console.log(`Successfully incremented daily conversion count for ${dateString}`);
   } catch (error) {
-    console.error("Error incrementing daily conversion counter:", error);
+    console.error(`Error incrementing daily conversion counter for ${dateString}:`, error);
     // Optionally, re-throw or handle more gracefully
+    // throw error; // Re-throwing might break the conversion flow if not caught upstream
   }
 }
 
@@ -55,11 +60,15 @@ export function subscribeToDailyConversionCount(
   callback: (count: number) => void
 ): Unsubscribe {
   const dailyDocRef = doc(firestore, DAILY_CONVERSIONS_COLLECTION_PATH, dateString);
+  console.log(`Subscribing to daily conversion count for date: ${dateString}`);
 
   const unsubscribe = onSnapshot(dailyDocRef, (docSnap) => {
     if (docSnap.exists()) {
-      callback(docSnap.data().count || 0);
+      const count = docSnap.data().count || 0;
+      console.log(`Received update for ${dateString}. Count: ${count}`);
+      callback(count);
     } else {
+      console.log(`No document found for ${dateString}. Reporting count 0.`);
       callback(0); // No document for this date, so count is 0
     }
   }, (error) => {
@@ -69,3 +78,4 @@ export function subscribeToDailyConversionCount(
 
   return unsubscribe;
 }
+

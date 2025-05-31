@@ -190,17 +190,22 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 }
 
 export function recordConversion(userId: string | null): void {
+  console.log(`Recording conversion for user: ${userId || 'guest'}. Calling incrementDailyConversionCounter.`);
   // Increment Firestore daily counter
   // We call this regardless of plan or free tier, to count all successful conversions.
   incrementDailyConversionCounter().catch(error => {
-    console.error("Failed to increment daily conversion counter via metrics service:", error);
+    // This catch is important to see if the call to incrementDailyConversionCounter itself fails,
+    // e.g., due to Firestore permission issues for the currently authenticated user.
+    console.error("Error calling incrementDailyConversionCounter from recordConversion:", error);
   });
 
   if (consumePlanConversion(userId)) {
+    console.log("Conversion recorded against user's plan.");
     return; // Conversion recorded against the plan
   }
 
   // Fallback to free tier recording
+  console.log("Recording conversion against free tier.");
   const freeTierKey = getFreeTierKey(userId);
   const now = Date.now();
   const allTimestamps = getStoredFreeTierTimestamps(freeTierKey);
@@ -228,3 +233,4 @@ export function formatTime(milliseconds: number): string {
   
   return parts.join(', ');
 }
+
