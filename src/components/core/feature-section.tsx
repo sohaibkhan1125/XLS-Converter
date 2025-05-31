@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+// Removed: import { useState, useEffect } from 'react';
 import { ShieldCheck, Download, BrainCircuit, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
+// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 interface Feature {
   icon: React.ElementType;
@@ -34,23 +34,14 @@ const features: Feature[] = [
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function FeatureSection() {
-  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      if (settings && settings.siteTitle) {
-        setSiteTitle(settings.siteTitle);
-      } else {
-        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Removed: useEffect for subscribeToGeneralSettings
 
   return (
     <section className="py-12 lg:py-16">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center text-primary mb-2">Why Choose {siteTitle}?</h2>
+        <h2 className="text-3xl font-bold text-center text-primary mb-2">Why Choose {DEFAULT_SITE_TITLE_FALLBACK}?</h2>
         <p className="text-lg text-muted-foreground text-center mb-10">
             Streamline your PDF to Excel workflow with powerful and intuitive features.
         </p>

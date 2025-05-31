@@ -8,8 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
+// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
@@ -18,18 +18,9 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false); 
-  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      if (settings && settings.siteTitle) {
-        setSiteTitle(settings.siteTitle);
-      } else {
-        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Removed: useEffect for subscribeToGeneralSettings
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -41,7 +32,7 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       await signUp(values);
-      toast({ title: "Signup Successful", description: `Welcome to ${siteTitle}!` });
+      toast({ title: "Signup Successful", description: `Welcome to ${DEFAULT_SITE_TITLE_FALLBACK}!` });
       // router.push("/"); // This will be handled by useEffect above
     } catch (error: any) {
       // Error is handled by AuthForm

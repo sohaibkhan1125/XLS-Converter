@@ -16,10 +16,10 @@ import {
 import AppLogo from './app-logo';
 import { LogOut, Menu } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'; // Added SheetTitle
-import type { GeneralSiteSettings, NavItem } from '@/types/site-settings'; 
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import type { NavItem } from '@/types/site-settings'; 
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
-import { VisuallyHidden } from '@/components/ui/visually-hidden'; // Added VisuallyHidden
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'home', href: '/', label: 'Home' },
@@ -28,27 +28,25 @@ const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'contact', href: '/contact', label: 'Contact' },
   { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
 ];
-const DEFAULT_SITE_TITLE = "XLSConvert";
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  const [generalSettings, setGeneralSettings] = useState<Partial<GeneralSiteSettings> | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
+  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_LINKS);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
-        setGeneralSettings(settings);
+        setLogoUrl(settings.logoUrl);
+        setNavItems(settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS);
       } else {
-        setGeneralSettings({ 
-          siteTitle: DEFAULT_SITE_TITLE, 
-          logoUrl: undefined,
-          navItems: DEFAULT_NAV_LINKS,
-          adLoaderScript: '' 
-        });
+        setLogoUrl(undefined);
+        setNavItems(DEFAULT_NAV_LINKS);
       }
       setIsLoadingSettings(false);
     });
@@ -60,15 +58,13 @@ export default function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
-  const siteTitle = isLoadingSettings ? DEFAULT_SITE_TITLE : (generalSettings?.siteTitle || DEFAULT_SITE_TITLE);
-  const logoUrl = isLoadingSettings ? undefined : generalSettings?.logoUrl;
-  const navItems = isLoadingSettings ? DEFAULT_NAV_LINKS : (generalSettings?.navItems && generalSettings.navItems.length > 0 ? generalSettings.navItems : DEFAULT_NAV_LINKS);
-
+  // Site title is now static, logoUrl and navItems can remain dynamic from settings.
+  const siteTitleForLogo = DEFAULT_SITE_TITLE_FALLBACK;
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <AppLogo logoUrl={logoUrl} siteTitle={siteTitle} />
+        <AppLogo logoUrl={logoUrl} siteTitle={siteTitleForLogo} />
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {isLoadingSettings ? (

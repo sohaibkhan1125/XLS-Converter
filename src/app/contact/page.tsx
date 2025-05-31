@@ -1,31 +1,22 @@
 
 "use client"; 
 
-import { useState, useEffect } from 'react';
+// Removed: import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Mail, Phone, MapPin } from "lucide-react";
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
+// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function ContactPage() {
-  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      if (settings && settings.siteTitle) {
-        setSiteTitle(settings.siteTitle);
-      } else {
-        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Removed: useEffect for subscribeToGeneralSettings
 
   return (
     <div className="space-y-12">
@@ -93,7 +84,7 @@ export default function ContactPage() {
               <MapPin className="h-6 w-6 text-accent mt-1 shrink-0" />
               <div>
                 <h3 className="font-semibold text-foreground">Our Office</h3>
-                <p>{siteTitle}</p>
+                <p>{DEFAULT_SITE_TITLE_FALLBACK}</p>
                 <p>123 Innovation Drive</p>
                 <p>Tech City, TX 75001, USA</p>
               </div>

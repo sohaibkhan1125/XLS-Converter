@@ -18,8 +18,8 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
+// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
@@ -42,18 +42,9 @@ export default function HomePage() {
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      if (settings && settings.siteTitle) {
-        setSiteTitle(settings.siteTitle);
-      } else {
-        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Removed: useEffect for subscribeToGeneralSettings
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
@@ -170,7 +161,7 @@ export default function HomePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center text-primary flex items-center justify-center">
-            <Zap className="mr-2 h-8 w-8 text-primary" /> {siteTitle}
+            <Zap className="mr-2 h-8 w-8 text-primary" /> {DEFAULT_SITE_TITLE_FALLBACK}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
             Upload your PDF, preview the AI-structured data, and download it as an Excel file.

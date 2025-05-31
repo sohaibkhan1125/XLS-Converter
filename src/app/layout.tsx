@@ -9,11 +9,11 @@ import { Toaster } from '@/components/ui/toaster';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import AdScriptInjector from '@/components/ads/ad-script-injector';
-import CustomScriptInjector from '@/components/core/custom-script-injector'; // Added
+import CustomScriptInjector from '@/components/core/custom-script-injector';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+// Removed: import { useState, useEffect } from 'react';
+// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
+// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -21,6 +21,7 @@ const geistSans = Geist({
 });
 
 const DEFAULT_FALLBACK_TITLE = "XLSConvert - PDF to Excel Converter";
+const DEFAULT_FALLBACK_DESCRIPTION = "Easily convert your PDF files to structured Excel spreadsheets.";
 
 export default function RootLayout({
   children,
@@ -30,25 +31,7 @@ export default function RootLayout({
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith('/admin');
 
-  const [siteTitle, setSiteTitle] = useState<string | undefined>(undefined);
-  const [siteDescription, setSiteDescription] = useState<string>(`Easily convert your PDF files to structured Excel spreadsheets.`);
-
-
-  useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      const currentTitle = settings?.siteTitle || DEFAULT_FALLBACK_TITLE.split(" - ")[0];
-      if (settings && settings.siteTitle) {
-        setSiteTitle(settings.siteTitle);
-        document.title = `${settings.siteTitle} - PDF to Excel Converter`;
-        setSiteDescription(`Easily convert your PDF files to structured Excel spreadsheets with ${settings.siteTitle}.`);
-      } else {
-        setSiteTitle(undefined); 
-        document.title = DEFAULT_FALLBACK_TITLE;
-        setSiteDescription(`Easily convert your PDF files to structured Excel spreadsheets.`);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // Removed siteTitle and siteDescription state and effect for dynamic settings
 
   const mainClassName = isAdminRoute 
     ? "flex-grow" 
@@ -57,14 +40,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>{siteTitle ? `${siteTitle} - PDF to Excel Converter` : DEFAULT_FALLBACK_TITLE}</title>
-        <meta name="description" content={siteDescription} />
+        <title>{DEFAULT_FALLBACK_TITLE}</title>
+        <meta name="description" content={DEFAULT_FALLBACK_DESCRIPTION} />
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>
           {!isAdminRoute && <AppHeader />}
           <AdScriptInjector /> 
-          <CustomScriptInjector /> {/* Added CustomScriptInjector */}
+          <CustomScriptInjector />
           <main className={mainClassName}>
             {children}
           </main>

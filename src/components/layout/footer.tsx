@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import AppLogo from './app-logo';
 import { useState, useEffect } from 'react';
-import * as LucideIcons from 'lucide-react'; // Import all icons
+import * as LucideIcons from 'lucide-react'; 
 import type { GeneralSiteSettings, NavItem, SocialLink } from '@/types/site-settings'; 
 import { subscribeToGeneralSettings, PREDEFINED_SOCIAL_MEDIA_PLATFORMS } from '@/lib/firebase-settings-service'; 
 
@@ -15,7 +15,7 @@ const mainSiteLinks: NavItem[] = [
   { id: 'contact', href: '/contact', label: 'Contact' },
   { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
 ];
-const DEFAULT_SITE_TITLE = "XLSConvert";
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 const DEFAULT_SOCIAL_LINKS: SocialLink[] = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({
   ...p,
   url: '',
@@ -24,47 +24,40 @@ const DEFAULT_SOCIAL_LINKS: SocialLink[] = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map
 
 
 export default function AppFooter() {
-  const [generalSettings, setGeneralSettings] = useState<Partial<GeneralSiteSettings> | null>({
-    siteTitle: DEFAULT_SITE_TITLE,
-    logoUrl: undefined,
-    socialLinks: DEFAULT_SOCIAL_LINKS,
-  });
+  const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(DEFAULT_SOCIAL_LINKS);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
+        setLogoUrl(settings.logoUrl); // Keep dynamic logo
         // Ensure socialLinks are merged correctly if they exist, or use default
         const mergedSocialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
           const savedLink = settings.socialLinks?.find(sl => sl.id === p_defined.id);
           return savedLink ? { ...p_defined, ...savedLink } : { ...p_defined, url: '', enabled: false };
         });
-        setGeneralSettings({ ...settings, socialLinks: mergedSocialLinks });
+        setSocialLinks(mergedSocialLinks);
       } else {
-        setGeneralSettings({ 
-          siteTitle: DEFAULT_SITE_TITLE, 
-          logoUrl: undefined, 
-          navItems: mainSiteLinks,
-          adLoaderScript: '',
-          socialLinks: DEFAULT_SOCIAL_LINKS
-        });
+        setLogoUrl(undefined);
+        setSocialLinks(DEFAULT_SOCIAL_LINKS);
       }
       setIsLoadingSettings(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const displayTitle = isLoadingSettings ? DEFAULT_SITE_TITLE : (generalSettings?.siteTitle || DEFAULT_SITE_TITLE);
-  const displayLogoUrl = isLoadingSettings ? undefined : generalSettings?.logoUrl;
-  const enabledSocialLinks = generalSettings?.socialLinks?.filter(link => link.enabled && link.url) || [];
+  const displayTitleForLogoAndCopyright = DEFAULT_SITE_TITLE_FALLBACK;
+  const displayLogoUrlToPass = isLoadingSettings ? undefined : logoUrl;
+  const enabledSocialLinks = socialLinks?.filter(link => link.enabled && link.url) || [];
 
   return (
     <footer className="border-t bg-card text-card-foreground">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
           <div className="flex-shrink-0 md:col-span-1 flex justify-center md:justify-start">
-            <AppLogo logoUrl={displayLogoUrl} siteTitle={displayTitle} />
+            <AppLogo logoUrl={displayLogoUrlToPass} siteTitle={displayTitleForLogoAndCopyright} />
           </div>
           
           <nav className="flex flex-wrap justify-center md:col-span-1 gap-x-6 gap-y-2 text-sm">
@@ -91,7 +84,7 @@ export default function AppFooter() {
           )}
         </div>
         <div className="mt-8 text-center text-sm text-muted-foreground border-t border-border pt-8">
-          © {new Date().getFullYear()} {displayTitle}. All rights reserved.
+          © {new Date().getFullYear()} {displayTitleForLogoAndCopyright}. All rights reserved.
         </div>
       </div>
     </footer>
