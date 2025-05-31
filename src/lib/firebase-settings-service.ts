@@ -4,7 +4,7 @@
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firestore, storage, auth } from './firebase';
-import type { GeneralSiteSettings, SocialLink } from '@/types/site-settings';
+import type { GeneralSiteSettings, SocialLink, CustomScript } from '@/types/site-settings'; // Added CustomScript
 
 const SETTINGS_COLLECTION = 'site_settings';
 const GENERAL_SETTINGS_DOC_ID = 'general_config';
@@ -31,7 +31,6 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       if (!data.socialLinks) {
         data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
       } else {
-        // Merge with predefined to add any new platforms not yet in Firestore
         const savedLinkIds = new Set(data.socialLinks.map(sl => sl.id));
         const mergedLinks = [...data.socialLinks];
         PREDEFINED_SOCIAL_MEDIA_PLATFORMS.forEach(p => {
@@ -41,6 +40,10 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
         });
         data.socialLinks = mergedLinks;
       }
+      // Ensure customScripts is initialized
+      if (!data.customScripts) {
+        data.customScripts = [];
+      }
       return data;
     }
     // Return a default object if no settings are found
@@ -49,7 +52,8 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       logoUrl: undefined, 
       navItems: [], 
       adLoaderScript: '',
-      socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }))
+      socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
+      customScripts: [] // Default empty custom scripts
     };
   } catch (error) {
     console.error("Error fetching general settings:", error);
@@ -80,11 +84,10 @@ export function subscribeToGeneralSettings(
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as GeneralSiteSettings;
+      // Social Links Merging
       if (!data.socialLinks) {
         data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
       } else {
-        // Merge with predefined to add any new platforms not yet in Firestore
-        // This ensures the admin panel always shows all predefined platforms
         const currentSocialLinks = data.socialLinks || [];
         const savedLinkIds = new Set(currentSocialLinks.map(sl => sl.id));
         const mergedLinks = [...currentSocialLinks];
@@ -94,21 +97,24 @@ export function subscribeToGeneralSettings(
             mergedLinks.push({ ...p, url: '', enabled: false });
           }
         });
-         // Ensure order matches predefined platforms for consistent UI
         data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
             const found = mergedLinks.find(ml => ml.id === p_defined.id);
             return found || { ...p_defined, url: '', enabled: false };
         });
       }
+      // Custom Scripts Initialization
+      if (!data.customScripts) {
+        data.customScripts = [];
+      }
       callback(data);
     } else {
-      // Provide default settings if document doesn't exist
       callback({ 
         siteTitle: 'XLSConvert', 
         logoUrl: undefined, 
         navItems: [], 
         adLoaderScript: '',
-        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }))
+        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
+        customScripts: []
       });
     }
   }, (error) => {

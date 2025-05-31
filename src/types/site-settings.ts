@@ -13,12 +13,20 @@ export interface SocialLink {
   enabled: boolean;
 }
 
+export interface CustomScript {
+  id: string; // Unique ID for the script
+  name: string; // User-friendly name for the script (e.g., "Google Analytics")
+  scriptContent: string; // The actual <script>...</script> tag or JS code
+  enabled: boolean; // Whether the script should be injected
+}
+
 export interface GeneralSiteSettings {
   siteTitle?: string;
   logoUrl?: string;
   navItems?: NavItem[];
-  adLoaderScript?: string;
+  adLoaderScript?: string; // For primary ad network script
   socialLinks?: SocialLink[];
+  customScripts?: CustomScript[]; // For multiple custom scripts like GA, etc.
   // future settings can be added here
 }
 

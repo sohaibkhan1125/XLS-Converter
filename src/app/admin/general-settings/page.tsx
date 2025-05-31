@@ -3,14 +3,15 @@
 
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import Image from 'next/image';
-import * as LucideIcons from 'lucide-react'; // Import all icons
+import * as LucideIcons from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { GeneralSiteSettings, SocialLink } from '@/types/site-settings';
+import type { GeneralSiteSettings, SocialLink, CustomScript } from '@/types/site-settings';
 import { 
   getGeneralSettings, 
   updateGeneralSettings, 
@@ -18,9 +19,10 @@ import {
   deleteSharedSiteLogo,
   PREDEFINED_SOCIAL_MEDIA_PLATFORMS
 } from '@/lib/firebase-settings-service';
-import { Trash2, ImageOff } from 'lucide-react';
+import { Trash2, ImageOff, PlusCircle, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
+import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_SITE_TITLE = "XLSConvert";
 
@@ -31,6 +33,7 @@ export default function GeneralSettingsPage() {
     siteTitle: DEFAULT_SITE_TITLE,
     logoUrl: '',
     socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
+    customScripts: [],
   });
   const [initialSettings, setInitialSettings] = useState<Partial<GeneralSiteSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +47,6 @@ export default function GeneralSettingsPage() {
     try {
       const currentSettings = await getGeneralSettings();
       if (currentSettings) {
-        // Ensure socialLinks are merged correctly
         const mergedSocialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
           const savedLink = currentSettings.socialLinks?.find(sl => sl.id === p_defined.id);
           return savedLink ? { ...p_defined, ...savedLink } : { ...p_defined, url: '', enabled: false };
@@ -52,7 +54,8 @@ export default function GeneralSettingsPage() {
 
         const newSettings = {
           ...currentSettings,
-          socialLinks: mergedSocialLinks
+          socialLinks: mergedSocialLinks,
+          customScripts: currentSettings.customScripts || [], // Ensure customScripts is an array
         };
         setSettings(newSettings);
         setInitialSettings(newSettings); 
@@ -65,7 +68,8 @@ export default function GeneralSettingsPage() {
           logoUrl: '', 
           adLoaderScript: '', 
           navItems: [],
-          socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }))
+          socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
+          customScripts: []
         };
         setSettings(defaultSettingsWithSocial);
         setInitialSettings(defaultSettingsWithSocial);
@@ -85,7 +89,7 @@ export default function GeneralSettingsPage() {
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      if (file.size > 2 * 1024 * 1024) { 
         toast({ variant: 'destructive', title: 'File Too Large', description: 'Logo image should be less than 2MB.' });
         return;
       }
@@ -102,7 +106,7 @@ export default function GeneralSettingsPage() {
         await deleteSharedSiteLogo(currentSavedLogoUrl); 
       }
       const firestoreUpdateData: Partial<GeneralSiteSettings> = { 
-        ...initialSettings, // Preserve all other initial settings
+        ...initialSettings, 
         logoUrl: '', 
       };
       await updateGeneralSettings(firestoreUpdateData); 
@@ -133,14 +137,44 @@ export default function GeneralSettingsPage() {
     }));
   };
 
+  const handleCustomScriptChange = (id: string, field: keyof CustomScript, value: string | boolean) => {
+    setSettings(prev => ({
+      ...prev,
+      customScripts: (prev.customScripts || []).map(script =>
+        script.id === id ? { ...script, [field]: value } : script
+      ),
+    }));
+  };
+
+  const handleAddCustomScript = () => {
+    const newScript: CustomScript = {
+      id: uuidv4(),
+      name: '',
+      scriptContent: '',
+      enabled: true,
+    };
+    setSettings(prev => ({
+      ...prev,
+      customScripts: [...(prev.customScripts || []), newScript],
+    }));
+  };
+
+  const handleRemoveCustomScript = (id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      customScripts: (prev.customScripts || []).filter(script => script.id !== id),
+    }));
+  };
+
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!settings) return;
     setIsSaving(true);
-    let newLogoUrlIfUploaded: string | undefined = initialSettings.logoUrl; // Default to existing if no change
+    let newLogoUrlIfUploaded: string | undefined = initialSettings.logoUrl; 
 
     try {
-      if (logoFile) { // A new logo file was selected
+      if (logoFile) { 
         if (initialSettings.logoUrl && initialSettings.logoUrl !== '') {
           try {
             await deleteSharedSiteLogo(initialSettings.logoUrl);
@@ -152,27 +186,23 @@ export default function GeneralSettingsPage() {
         }
         newLogoUrlIfUploaded = await uploadSharedSiteLogo(logoFile);
       }
-      // If logoFile is null, newLogoUrlIfUploaded retains initialSettings.logoUrl
-      // If logo was explicitly removed via handleRemoveLogo, settings.logoUrl would be '',
-      // but handleSubmit gets triggered after that, so newLogoUrlIfUploaded needs to be set to settings.logoUrl
-      // if no new file is chosen.
-      else if (settings.logoUrl === '' && initialSettings.logoUrl !== '') { // Logo was removed but no new one selected for this save
+      else if (settings.logoUrl === '' && initialSettings.logoUrl !== '') { 
          newLogoUrlIfUploaded = '';
       }
 
 
       const settingsToUpdate: Partial<GeneralSiteSettings> = {
-        ...initialSettings, // Start with the last saved state to preserve fields not on this form (e.g., navItems)
+        ...initialSettings, 
         siteTitle: settings.siteTitle || DEFAULT_SITE_TITLE,
         logoUrl: newLogoUrlIfUploaded,
         socialLinks: settings.socialLinks || [],
-        // adLoaderScript is managed on its own page but part of the same doc, preserve it
+        customScripts: settings.customScripts || [],
         adLoaderScript: initialSettings.adLoaderScript 
       };
 
       await updateGeneralSettings(settingsToUpdate);
       setInitialSettings(settingsToUpdate);
-      setSettings(settingsToUpdate); // Sync current form state
+      setSettings(settingsToUpdate); 
       setLogoFile(null); 
       if (settingsToUpdate.logoUrl && settingsToUpdate.logoUrl !== '') {
         setLogoPreview(settingsToUpdate.logoUrl);
@@ -232,7 +262,6 @@ export default function GeneralSettingsPage() {
                         setLogoFile(null);
                         setLogoPreview(null);
                         setSettings(prev => ({ ...prev, logoUrl: '' }));
-                        // No direct save here, removal happens on main form submit
                       }} className="bg-destructive hover:bg-destructive/90">Confirm Removal</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -259,8 +288,7 @@ export default function GeneralSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {(settings.socialLinks || []).map(link => {
-            // @ts-ignore - LucideIcons is an object, not a type here, using string index
-            const IconComponent = LucideIcons[link.iconName] as LucideIcons.LucideIcon | undefined || LucideIcons.Link2;
+            const IconComponent = LucideIcons[link.iconName as keyof typeof LucideIcons] as LucideIcons.LucideIcon | undefined || LucideIcons.Link2;
             return (
               <div key={link.id} className="space-y-3 p-4 border rounded-md">
                 <div className="flex items-center justify-between">
@@ -294,12 +322,79 @@ export default function GeneralSettingsPage() {
           })}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Custom Header Scripts</CardTitle>
+          <CardDescription>
+            Add custom scripts (e.g., Google Analytics, tracking pixels) to the &lt;head&gt; of your website.
+            Use with caution, as invalid scripts can break your site.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {(settings.customScripts || []).map((script, index) => (
+            <div key={script.id} className="p-4 border rounded-md space-y-4">
+              <div className="flex items-center justify-between">
+                 <Label htmlFor={`custom-script-name-${script.id}`} className="text-base font-medium">
+                  Script #{index + 1}
+                </Label>
+                <div className='flex items-center gap-2'>
+                  <Label htmlFor={`custom-script-enabled-${script.id}`} className="text-sm">Enabled</Label>
+                   <Switch
+                    id={`custom-script-enabled-${script.id}`}
+                    checked={script.enabled}
+                    onCheckedChange={(checked) => handleCustomScriptChange(script.id, 'enabled', checked)}
+                    disabled={isSaving}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveCustomScript(script.id)}
+                    disabled={isSaving}
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    <XCircle className="h-5 w-5" />
+                    <span className="sr-only">Remove Script</span>
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor={`custom-script-name-input-${script.id}`}>Script Name (Optional)</Label>
+                <Input
+                  id={`custom-script-name-input-${script.id}`}
+                  placeholder="e.g., Google Analytics"
+                  value={script.name}
+                  onChange={(e) => handleCustomScriptChange(script.id, 'name', e.target.value)}
+                  disabled={isSaving}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`custom-script-content-${script.id}`}>Script Content</Label>
+                <Textarea
+                  id={`custom-script-content-${script.id}`}
+                  placeholder="<script async src='...'></script>"
+                  value={script.scriptContent}
+                  onChange={(e) => handleCustomScriptChange(script.id, 'scriptContent', e.target.value)}
+                  rows={5}
+                  className="font-mono text-sm mt-1"
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" onClick={handleAddCustomScript} disabled={isSaving}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Script
+          </Button>
+        </CardContent>
+      </Card>
       
-      <div className="flex justify-end mt-8">
+      <CardFooter className="flex justify-end mt-8">
         <Button type="submit" size="lg" disabled={isSaving || isLoading}>
           {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save General Settings'}
         </Button>
-      </div>
+      </CardFooter>
     </form>
   );
 }
