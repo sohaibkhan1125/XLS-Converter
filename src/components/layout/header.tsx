@@ -14,11 +14,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLogo from './app-logo';
-import { LogOut, Menu } from 'lucide-react'; // Removed Loader2
+import { LogOut, Menu } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import type { GeneralSiteSettings, NavItem } from '@/types/site-settings'; // Updated type import
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; // Updated service import
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'; // Added SheetTitle
+import type { GeneralSiteSettings, NavItem } from '@/types/site-settings'; 
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
+import { VisuallyHidden } from '@/components/ui/visually-hidden'; // Added VisuallyHidden
 
 const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'home', href: '/', label: 'Home' },
@@ -42,7 +43,6 @@ export default function AppHeader() {
       if (settings) {
         setGeneralSettings(settings);
       } else {
-        // No settings found in Firestore, use defaults
         setGeneralSettings({ 
           siteTitle: DEFAULT_SITE_TITLE, 
           logoUrl: undefined,
@@ -135,6 +135,9 @@ export default function AppHeader() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px] sm:w-[320px] pt-10">
+                <VisuallyHidden>
+                  <SheetTitle>Mobile Navigation Menu</SheetTitle>
+                </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
                      Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
