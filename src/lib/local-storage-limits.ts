@@ -1,8 +1,7 @@
 
 "use client";
 
-// Existing imports
-import { incrementDailyConversionCounter } from './firebase-metrics-service'; // Added
+// Removed: import { incrementDailyConversionCounter } from './firebase-metrics-service';
 
 const GUEST_FREE_TIER_KEY_PREFIX = "XLSCONVERT_GUEST_CONVERSIONS";
 const USER_FREE_TIER_KEY_PREFIX = "XLSCONVERT_USER_CONVERSIONS_";
@@ -190,29 +189,11 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 }
 
 export function recordConversion(userId: string | null): void {
-  console.log(
-    `[LocalStorageLimits] recordConversion called for user: ${userId || 'guest'}.`
-  );
+  console.log(`[LocalStorageLimits] recordConversion called for user: ${userId || 'guest'}.`);
 
-  console.log(
-    `[LocalStorageLimits] Attempting to call incrementDailyConversionCounter for user: ${userId || 'guest'}.`
-  );
-  incrementDailyConversionCounter()
-    .then(() => {
-      console.log(
-        `[LocalStorageLimits] incrementDailyConversionCounter call completed successfully for user: ${userId || 'guest'}.`
-      );
-    })
-    .catch((error) => {
-      // This catch will only grab errors if incrementDailyConversionCounter itself throws an unhandled synchronous error
-      // or if its promise is rejected and not caught internally.
-      console.error(
-        `[LocalStorageLimits] Error during/after incrementDailyConversionCounter call for user: ${userId || 'guest'}:`,
-        error
-      );
-    });
+  // Removed call to incrementDailyConversionCounter()
 
-  // This part handles local storage limits for plans/free tier, independent of Firestore daily count
+  // This part handles local storage limits for plans/free tier
   if (consumePlanConversion(userId)) {
     console.log("[LocalStorageLimits] Local conversion recorded against user's plan.");
     return; // Conversion recorded against the plan
