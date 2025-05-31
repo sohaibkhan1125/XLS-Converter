@@ -14,11 +14,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLogo from './app-logo';
-import { LogOut, Menu, Loader2 } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react'; // Removed Loader2
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import type { NavbarSettings, NavItem } from '@/types/navbar';
-import { subscribeToNavbarSettings } from '@/lib/firebase-navbar-service';
+import type { GeneralSiteSettings, NavItem } from '@/types/site-settings'; // Updated type import
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; // Updated service import
 
 const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'home', href: '/', label: 'Home' },
@@ -27,25 +27,28 @@ const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'contact', href: '/contact', label: 'Contact' },
   { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
 ];
+const DEFAULT_SITE_TITLE = "XLSConvert";
 
 export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  const [navbarSettings, setNavbarSettings] = useState<Partial<NavbarSettings> | null>(null);
-  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_LINKS);
+  const [generalSettings, setGeneralSettings] = useState<Partial<GeneralSiteSettings> | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     setIsLoadingSettings(true);
-    const unsubscribe = subscribeToNavbarSettings((settings) => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
-        setNavbarSettings(settings);
-        setNavItems(settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS);
+        setGeneralSettings(settings);
       } else {
         // No settings found in Firestore, use defaults
-        setNavbarSettings({ siteTitle: "XLSConvert", logoUrl: undefined }); // Provide default object
-        setNavItems(DEFAULT_NAV_LINKS);
+        setGeneralSettings({ 
+          siteTitle: DEFAULT_SITE_TITLE, 
+          logoUrl: undefined,
+          navItems: DEFAULT_NAV_LINKS,
+          adLoaderScript: '' 
+        });
       }
       setIsLoadingSettings(false);
     });
@@ -57,8 +60,10 @@ export default function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
-  const siteTitle = navbarSettings?.siteTitle || "XLSConvert";
-  const logoUrl = navbarSettings?.logoUrl;
+  const siteTitle = isLoadingSettings ? DEFAULT_SITE_TITLE : (generalSettings?.siteTitle || DEFAULT_SITE_TITLE);
+  const logoUrl = isLoadingSettings ? undefined : generalSettings?.logoUrl;
+  const navItems = isLoadingSettings ? DEFAULT_NAV_LINKS : (generalSettings?.navItems && generalSettings.navItems.length > 0 ? generalSettings.navItems : DEFAULT_NAV_LINKS);
+
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">

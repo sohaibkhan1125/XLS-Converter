@@ -1,49 +1,61 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { AdSettings } from '@/types/site-settings';
-import { getAdSettings, updateAdSettings } from '@/lib/firebase-ads-service';
+import type { GeneralSiteSettings } from '@/types/site-settings'; // Updated type
+import { getGeneralSettings, updateGeneralSettings } from '@/lib/firebase-settings-service'; // Updated service
 import LoadingSpinner from '@/components/core/loading-spinner';
 
 export default function AdsManagementPage() {
   const { toast } = useToast();
-  const [adSettings, setAdSettings] = useState<Partial<AdSettings>>({ adLoaderScript: '' });
+  const [adScript, setAdScript] = useState<string>('');
+  const [initialSettings, setInitialSettings] = useState<Partial<GeneralSiteSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    async function fetchSettings() {
-      setIsLoading(true);
-      try {
-        const currentSettings = await getAdSettings();
-        if (currentSettings) {
-          setAdSettings(currentSettings);
-        }
-      } catch (error) {
-        console.error("Error fetching ad settings:", error);
-        toast({ variant: 'destructive', title: 'Error Fetching Settings', description: 'Could not load ad settings.' });
-      } finally {
-        setIsLoading(false);
+  const fetchSettings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const currentSettings = await getGeneralSettings();
+      if (currentSettings) {
+        setInitialSettings(currentSettings);
+        setAdScript(currentSettings.adLoaderScript || '');
+      } else {
+        setInitialSettings({});
+        setAdScript('');
       }
+    } catch (error) {
+      console.error("Error fetching ad settings:", error);
+      toast({ variant: 'destructive', title: 'Error Fetching Settings', description: 'Could not load ad settings.' });
+    } finally {
+      setIsLoading(false);
     }
-    fetchSettings();
   }, [toast]);
 
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
   const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setAdSettings(prev => ({ ...prev, adLoaderScript: e.target.value }));
+    setAdScript(e.target.value);
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await updateAdSettings({ adLoaderScript: adSettings.adLoaderScript || '' });
+      // We only update the adLoaderScript part of the general settings
+      const settingsToUpdate: Partial<GeneralSiteSettings> = {
+        ...initialSettings, // Preserve other general settings
+        adLoaderScript: adScript || '' 
+      };
+      await updateGeneralSettings(settingsToUpdate);
+      setInitialSettings(settingsToUpdate); // Update initial settings to reflect save
       toast({ title: 'Ad Settings Saved', description: 'Your ad script has been updated successfully.' });
     } catch (error) {
       console.error("Error saving ad settings:", error);
@@ -66,7 +78,6 @@ export default function AdsManagementPage() {
             Manage the primary ad loader script for your website (e.g., Google AdSense Auto Ads script or similar).
             This script will be injected into the &lt;head&gt; of your website pages (excluding admin and auth pages).
             For many ad networks, this single script is enough to display ads across your site.
-            If your network requires manual ad unit placement in content, this script would be their main library loader.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,7 +85,7 @@ export default function AdsManagementPage() {
             <Label htmlFor="adLoaderScript">Ad Loader Script</Label>
             <Textarea
               id="adLoaderScript"
-              value={adSettings.adLoaderScript || ''}
+              value={adScript}
               onChange={handleScriptChange}
               placeholder="<script async src='https://pagedload2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_CLIENT_ID' crossorigin='anonymous'></script>\n<!-- or other ad network script -->"
               rows={10}

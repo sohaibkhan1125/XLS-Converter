@@ -1,15 +1,19 @@
 
-export interface AdSettings {
-  adLoaderScript?: string;
+export interface NavItem {
+  id: string;
+  label: string;
+  href: string;
 }
 
-// You can add other site-wide settings types here in the future
-// For example, if you merge navbar types:
-// import type { NavItem } from './navbar';
-// export interface GeneralSiteSettings extends AdSettings {
-//   navbar?: {
-//     siteTitle?: string;
-//     logoUrl?: string;
-//     navItems?: NavItem[];
-//   }
+export interface GeneralSiteSettings {
+  siteTitle?: string;
+  logoUrl?: string;
+  navItems?: NavItem[];
+  adLoaderScript?: string;
+  // future settings can be added here
+}
+
+// AdSettings is now part of GeneralSiteSettings
+// export interface AdSettings {
+//   adLoaderScript?: string;
 // }
