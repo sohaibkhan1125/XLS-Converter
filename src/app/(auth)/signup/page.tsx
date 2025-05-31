@@ -8,14 +8,29 @@ import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function SignupPage() {
   const { signUp, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false); // Local loading for form submission
+  const [isLoading, setIsLoading] = useState(false); 
+  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
 
-  // Redirect if user is already logged in
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings && settings.siteTitle) {
+        setSiteTitle(settings.siteTitle);
+      } else {
+        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (!authLoading && currentUser) {
       router.push("/");
@@ -26,7 +41,7 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       await signUp(values);
-      toast({ title: "Signup Successful", description: "Welcome to XLSConvert!" });
+      toast({ title: "Signup Successful", description: `Welcome to ${siteTitle}!` });
       // router.push("/"); // This will be handled by useEffect above
     } catch (error: any) {
       // Error is handled by AuthForm
@@ -36,11 +51,10 @@ export default function SignupPage() {
     }
   };
 
-  // Prevent rendering signup form if auth is still loading or user is already logged in
   if (authLoading || (!authLoading && currentUser)) {
     return (
       <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-        <p>Loading...</p> {/* Or a spinner component */}
+        <p>Loading...</p> 
       </div>
     );
   }

@@ -1,7 +1,30 @@
 
+"use client";
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function PrivacyPolicyPage() {
+  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  const [currentDate, setCurrentDate] = useState<string>('');
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings && settings.siteTitle) {
+        setSiteTitle(settings.siteTitle);
+      } else {
+        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
+      }
+    });
+    // Set current date only on client-side to avoid hydration mismatch
+    setCurrentDate(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+    return () => unsubscribe();
+  }, []);
+
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
@@ -15,7 +38,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-foreground mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Welcome to XLSConvert (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). We are committed to protecting your personal information
+              Welcome to {siteTitle} (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). We are committed to protecting your personal information
               and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices
               with regards to your personal information, please contact us at privacy@xlsconvert.com.
             </p>
@@ -146,13 +169,13 @@ export default function PrivacyPolicyPage() {
               If you have questions or comments about this notice, you may email us at privacy@xlsconvert.com or by post to:
             </p>
             <p className="text-muted-foreground leading-relaxed mt-2">
-              XLSConvert<br />
+              {siteTitle}<br />
               Attn: Privacy Officer<br />
               123 Innovation Drive<br />
               Tech City, TX 75001, USA
             </p>
           </section>
-          <p className="text-sm text-muted-foreground pt-4 text-center">Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="text-sm text-muted-foreground pt-4 text-center">Last updated: {currentDate || 'Loading date...'}</p>
         </CardContent>
       </Card>
     </div>

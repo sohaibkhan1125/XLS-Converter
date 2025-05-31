@@ -1,12 +1,32 @@
 
+"use client";
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BrainCircuit, Zap, Users } from "lucide-react"; // Example icons
+import { BrainCircuit, Zap, Users } from "lucide-react";
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function AboutPage() {
+  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings && settings.siteTitle) {
+        setSiteTitle(settings.siteTitle);
+      } else {
+        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <div className="space-y-12">
       <section className="text-center py-10 bg-card shadow-lg rounded-lg">
-        <h1 className="text-5xl font-extrabold text-primary mb-4">About XLSConvert</h1>
+        <h1 className="text-5xl font-extrabold text-primary mb-4">About {siteTitle}</h1>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
           Streamlining your data workflow by effortlessly transforming PDF documents into structured Excel spreadsheets.
         </p>
@@ -16,7 +36,7 @@ export default function AboutPage() {
         <div>
           <h2 className="text-3xl font-semibold text-foreground mb-4">Our Mission</h2>
           <p className="text-lg text-muted-foreground mb-4">
-            At XLSConvert, our mission is to provide an intuitive, efficient, and reliable solution for individuals and businesses
+            At {siteTitle}, our mission is to provide an intuitive, efficient, and reliable solution for individuals and businesses
             to overcome the challenges of manual data extraction from PDFs. We believe in empowering users with tools
             that save time, reduce errors, and enhance productivity.
           </p>
@@ -87,12 +107,12 @@ export default function AboutPage() {
           </div>
           <div className="md:w-1/2">
             <p className="text-lg text-muted-foreground mb-4">
-              XLSConvert started from a simple observation: too much time was being wasted manually transcribing data
+              {siteTitle} started from a simple observation: too much time was being wasted manually transcribing data
               from PDFs into spreadsheets. We knew there had to be a better way.
             </p>
             <p className="text-lg text-muted-foreground">
               Driven by a passion for technology and a desire to solve real-world problems, our team embarked on a journey
-              to create a seamless, AI-driven conversion tool. Today, XLSConvert stands as a testament to that vision,
+              to create a seamless, AI-driven conversion tool. Today, {siteTitle} stands as a testament to that vision,
               helping users worldwide unlock the value hidden within their PDF documents.
             </p>
           </div>

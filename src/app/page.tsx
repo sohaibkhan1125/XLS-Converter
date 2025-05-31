@@ -18,8 +18,11 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -39,6 +42,18 @@ export default function HomePage() {
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings && settings.siteTitle) {
+        setSiteTitle(settings.siteTitle);
+      } else {
+        setSiteTitle(DEFAULT_SITE_TITLE_FALLBACK);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
@@ -74,12 +89,10 @@ export default function HomePage() {
       } else {
         toast({ title: "Image PDF Detected", description: "Attempting OCR for text extraction. This may take a moment." });
         setLoadingStep("Performing OCR on PDF image...");
-        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1); // Using scale 1.0 as per previous adjustment
+        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1); 
         if (!imageDataUri) {
             throw new Error("Failed to convert PDF page to image data URI.");
         }
-        // console.log("Image Data URI length (client-side):", imageDataUri.length); // For debugging
-
         const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
         if (!aiOcrResult || !aiOcrResult.extractedText) {
           throw new Error("OCR process failed to extract text from image-based PDF.");
@@ -119,11 +132,10 @@ export default function HomePage() {
       } else {
         displayMessage += "An unknown error occurred.";
       }
-      // Attempt to get more details from Genkit-like error structures
       if (err.details) {
         try {
           displayMessage += ` Details: ${JSON.stringify(err.details)}`;
-        } catch (e) { /* ignore stringify error if err.details is not plain object */ }
+        } catch (e) { /* ignore stringify error */ }
       }
       if (err.cause && err.cause.message) {
          displayMessage += ` Cause: ${err.cause.message}`;
@@ -158,7 +170,7 @@ export default function HomePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center text-primary flex items-center justify-center">
-            <Zap className="mr-2 h-8 w-8 text-primary" /> XLSConvert
+            <Zap className="mr-2 h-8 w-8 text-primary" /> {siteTitle}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
             Upload your PDF, preview the AI-structured data, and download it as an Excel file.
