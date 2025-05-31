@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, TrendingUp } from 'lucide-react'; // Added TrendingUp
+import { subscribeToDailyConversionCount } from '@/lib/firebase-metrics-service'; // Added
+
+function getTodayUTCDateString(): string {
+  const now = new Date();
+  return now.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+}
 
 export default function AdminDashboardPage() {
   const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
@@ -21,26 +27,44 @@ export default function AdminDashboardPage() {
   const [adminUsersList, setAdminUsersList] = useState<AdminUserData[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [errorLoadingUsers, setErrorLoadingUsers] = useState<string | null>(null);
+  const [dailyConversions, setDailyConversions] = useState<number | null>(null); // State for daily conversions
+  const [isLoadingConversions, setIsLoadingConversions] = useState(true);
+
+
+  const fetchAdminUsers = useCallback(async () => {
+    if (!adminUser) return; 
+    setIsLoadingUsers(true);
+    setErrorLoadingUsers(null);
+    try {
+      const users = await getAdminUsersList();
+      setAdminUsersList(users);
+    } catch (error) {
+      console.error("Failed to fetch admin users:", error);
+      setErrorLoadingUsers("Could not load admin user data. Please try again.");
+      toast({ variant: "destructive", title: "Error", description: "Failed to fetch admin users list." });
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [adminUser, toast]);
 
   useEffect(() => {
-    async function fetchAdminUsers() {
-      if (!adminUser) return; 
-
-      setIsLoadingUsers(true);
-      setErrorLoadingUsers(null);
-      try {
-        const users = await getAdminUsersList();
-        setAdminUsersList(users);
-      } catch (error) {
-        console.error("Failed to fetch admin users:", error);
-        setErrorLoadingUsers("Could not load admin user data. Please try again.");
-        toast({ variant: "destructive", title: "Error", description: "Failed to fetch admin users list." });
-      } finally {
-        setIsLoadingUsers(false);
-      }
-    }
     fetchAdminUsers();
-  }, [adminUser, toast]);
+  }, [fetchAdminUsers]);
+
+  // Effect for subscribing to daily conversion counts
+  useEffect(() => {
+    if (!adminUser) return; // Only for admins
+
+    setIsLoadingConversions(true);
+    const todayUTCString = getTodayUTCDateString();
+    const unsubscribe = subscribeToDailyConversionCount(todayUTCString, (count) => {
+      setDailyConversions(count);
+      setIsLoadingConversions(false);
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, [adminUser]);
+
 
   const handleSignOut = async () => {
     try {
@@ -57,7 +81,6 @@ export default function AdminDashboardPage() {
   }
 
   if (!adminUser) {
-    // This case should ideally be handled by AdminProtectedLayout redirecting to login
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
   }
 
@@ -77,7 +100,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1"> {/* Adjusted grid for one card */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Adjusted grid for two cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
@@ -89,6 +112,27 @@ export default function AdminDashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               Currently registered administrators.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today&apos;s Conversions (UTC)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoadingConversions ? (
+                <span className="text-sm">Loading...</span>
+              ) : dailyConversions !== null ? (
+                dailyConversions
+              ) : (
+                'N/A'
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total PDF conversions processed today.
             </p>
           </CardContent>
         </Card>

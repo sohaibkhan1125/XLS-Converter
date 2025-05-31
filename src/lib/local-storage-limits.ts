@@ -1,6 +1,9 @@
 
 "use client";
 
+// Existing imports
+import { incrementDailyConversionCounter } from './firebase-metrics-service'; // Added
+
 const GUEST_FREE_TIER_KEY_PREFIX = "XLSCONVERT_GUEST_CONVERSIONS";
 const USER_FREE_TIER_KEY_PREFIX = "XLSCONVERT_USER_CONVERSIONS_";
 const MAX_GUEST_CONVERSIONS = 1;
@@ -187,6 +190,12 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 }
 
 export function recordConversion(userId: string | null): void {
+  // Increment Firestore daily counter
+  // We call this regardless of plan or free tier, to count all successful conversions.
+  incrementDailyConversionCounter().catch(error => {
+    console.error("Failed to increment daily conversion counter via metrics service:", error);
+  });
+
   if (consumePlanConversion(userId)) {
     return; // Conversion recorded against the plan
   }
