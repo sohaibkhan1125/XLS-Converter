@@ -6,19 +6,47 @@ import { firestore, auth } from './firebase'; // Ensure auth is imported
 
 const DAILY_CONVERSIONS_COLLECTION_PATH = 'daily_conversion_metrics';
 
-function getUTCDateString(): string {
+function getTodayUTCDateString(): string {
   const now = new Date();
   return now.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
 }
+
+/**
+ * Ensures that Firebase Auth has initialized and onAuthStateChanged has fired at least once.
+ */
+function ensureAuthInitialized(): Promise<void> {
+  // If auth.currentUser is already available, Firebase Auth has likely initialized.
+  // However, to be certain onAuthStateChanged has run for the current session, we use the listener.
+  return new Promise((resolve, reject) => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      unsubscribe(); // Important to unsubscribe after the first emission to avoid memory leaks
+      resolve();
+    }, error => {
+      unsubscribe();
+      console.error("[MetricsService] Error during auth state initialization:", error);
+      reject(error); // Propagate error if auth initialization itself fails
+    });
+  });
+}
+
 
 /**
  * Increments the conversion counter for the current UTC day in Firestore.
  * Uses a transaction to safely create or update the counter.
  */
 export async function incrementDailyConversionCounter(): Promise<void> {
-  const dateString = getUTCDateString();
+  try {
+    await ensureAuthInitialized(); // Wait for auth to be initialized
+  } catch (authError) {
+    console.error("[MetricsService] Failed to ensure auth was initialized before incrementing counter:", authError);
+    // Decide if you want to reject or proceed (currentUser might still be null)
+    // For now, we'll let it proceed and the currentUser check below will handle it.
+  }
+  
+  const currentUser = auth.currentUser; // Now get currentUser
+  const dateString = getTodayUTCDateString();
   const dailyDocRef = doc(firestore, DAILY_CONVERSIONS_COLLECTION_PATH, dateString);
-  const currentUser = auth.currentUser; // Get current user at the time of call
+
 
   console.log(
     `[MetricsService] Attempting to increment daily conversion counter for date: ${dateString}. Current User UID for transaction: ${currentUser?.uid || 'No User (Guest? Not Logged In)'}`
@@ -26,10 +54,11 @@ export async function incrementDailyConversionCounter(): Promise<void> {
 
   if (!currentUser) {
     console.warn(
-      `[MetricsService] No authenticated user found at the moment of Firestore transaction for ${dateString}. Conversion increment might be denied by Firestore rules if 'request.auth != null' is required for write.`
+      `[MetricsService] No authenticated user found AFTER ensureAuthInitialized for ${dateString}. Conversion increment WILL BE DENIED by Firestore rules or will fail if rules require auth.`
     );
-    // Note: The current Firestore rule for write IS `request.auth != null`.
-    // So if currentUser is null here, the transaction WILL fail due to permissions.
+    // This return will prevent the transaction if no user is found.
+    // The Firestore rule `request.auth != null` would deny it anyway.
+    return Promise.reject(new Error("User not authenticated for metrics increment after auth init."));
   }
 
   try {
@@ -57,15 +86,14 @@ export async function incrementDailyConversionCounter(): Promise<void> {
       }
     });
     console.log(
-      `[MetricsService] Successfully ran Firestore transaction to increment daily conversion count for ${dateString}. User UID during attempt: ${currentUser?.uid || 'N/A'}`
+      `[MetricsService] Successfully ran Firestore transaction to increment daily conversion count for ${dateString}. User UID during attempt: ${currentUser.uid}`
     );
   } catch (error) {
     console.error(
-      `[MetricsService] Error in Firestore runTransaction for ${dateString}. User UID during attempt: ${currentUser?.uid || 'N/A'}:`,
+      `[MetricsService] Error in Firestore runTransaction for ${dateString}. User UID during attempt: ${currentUser.uid}:`,
       error // This will log the specific Firestore error (e.g., permission denied)
     );
-    // It's important not to re-throw here unless the caller is prepared to handle it,
-    // to avoid breaking the main conversion flow if just the metric update fails.
+    throw error; // Re-throw to be caught by the caller in recordConversion
   }
 }
 
