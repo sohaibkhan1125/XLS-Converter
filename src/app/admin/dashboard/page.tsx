@@ -11,8 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { ShieldAlert, TrendingUp } from 'lucide-react'; // Added TrendingUp
-import { subscribeToDailyConversionCount } from '@/lib/firebase-metrics-service'; // Added
+import { ShieldAlert, TrendingUp } from 'lucide-react'; 
+import { subscribeToDailyConversionCount } from '@/lib/firebase-metrics-service'; 
 
 function getTodayUTCDateString(): string {
   const now = new Date();
@@ -27,19 +27,23 @@ export default function AdminDashboardPage() {
   const [adminUsersList, setAdminUsersList] = useState<AdminUserData[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [errorLoadingUsers, setErrorLoadingUsers] = useState<string | null>(null);
-  const [dailyConversions, setDailyConversions] = useState<number | null>(null); // State for daily conversions
+  const [dailyConversions, setDailyConversions] = useState<number | null>(null); 
   const [isLoadingConversions, setIsLoadingConversions] = useState(true);
 
 
   const fetchAdminUsers = useCallback(async () => {
-    if (!adminUser) return; 
+    if (!adminUser) {
+      console.log("[AdminDashboard] fetchAdminUsers: No admin user, skipping fetch.");
+      return;
+    }
+    console.log("[AdminDashboard] fetchAdminUsers: Fetching admin users list.");
     setIsLoadingUsers(true);
     setErrorLoadingUsers(null);
     try {
       const users = await getAdminUsersList();
       setAdminUsersList(users);
     } catch (error) {
-      console.error("Failed to fetch admin users:", error);
+      console.error("[AdminDashboard] fetchAdminUsers: Failed to fetch admin users:", error);
       setErrorLoadingUsers("Could not load admin user data. Please try again.");
       toast({ variant: "destructive", title: "Error", description: "Failed to fetch admin users list." });
     } finally {
@@ -53,17 +57,29 @@ export default function AdminDashboardPage() {
 
   // Effect for subscribing to daily conversion counts
   useEffect(() => {
-    if (!adminUser) return; // Only for admins
-
+    if (!adminUser) {
+      console.log("[AdminDashboard] ConversionsSubscriptionEffect: No admin user, not subscribing.");
+      // If auth is still loading, and we don't have an adminUser yet, we might want to wait.
+      // However, if authLoading is false and adminUser is null, then there's no admin.
+      if (!authLoading) setIsLoadingConversions(false); // Stop loading if definitely no admin
+      return;
+    }
+    console.log(`[AdminDashboard] ConversionsSubscriptionEffect: Admin user detected (UID: ${adminUser.uid}). Setting up subscription.`);
     setIsLoadingConversions(true);
     const todayUTCString = getTodayUTCDateString();
+    console.log(`[AdminDashboard] ConversionsSubscriptionEffect: Subscribing for date (UTC): ${todayUTCString}`);
+
     const unsubscribe = subscribeToDailyConversionCount(todayUTCString, (count) => {
+      console.log(`[AdminDashboard] ConversionsSubscriptionEffect: Received new count for ${todayUTCString}: ${count}`);
       setDailyConversions(count);
       setIsLoadingConversions(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
-  }, [adminUser]);
+    return () => {
+      console.log(`[AdminDashboard] ConversionsSubscriptionEffect: Unsubscribing from daily conversion count for ${todayUTCString}.`);
+      unsubscribe();
+    }
+  }, [adminUser, authLoading]); // Rerun if adminUser or authLoading changes
 
 
   const handleSignOut = async () => {
@@ -80,9 +96,16 @@ export default function AdminDashboardPage() {
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading Dashboard..." /></div>;
   }
 
+  // Redirect if not an admin user (even if auth has finished loading)
+  // This check is important if the user's admin status changes or if they land here without being an admin.
   if (!adminUser) {
-    return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Redirecting to login..." /></div>;
+    console.log("[AdminDashboard] Render: No admin user after auth check. Redirecting or showing loading for redirect.");
+    // If router hasn't redirected yet from layout, show loading.
+    // The layout should ideally handle the redirect.
+    return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Verifying admin access..." /></div>;
   }
+  console.log("[AdminDashboard] Render: Admin user verified, rendering dashboard content.");
+
 
   return (
     <div className="space-y-6">
@@ -100,7 +123,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> {/* Adjusted grid for two cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
@@ -128,7 +151,7 @@ export default function AdminDashboardPage() {
               ) : dailyConversions !== null ? (
                 dailyConversions
               ) : (
-                'N/A'
+                '0' // Default to 0 if null after loading
               )}
             </div>
             <p className="text-xs text-muted-foreground">

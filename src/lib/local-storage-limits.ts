@@ -54,7 +54,7 @@ export function activatePlan(userId: string | null, planDetails: PlanDetails): A
     try {
       localStorage.setItem(planKey, JSON.stringify(newPlan));
     } catch (error) {
-      console.error("Error saving active plan to local storage:", error);
+      console.error("[LocalStorageLimits] Error saving active plan to local storage:", error);
     }
   }
   return newPlan;
@@ -77,7 +77,7 @@ export function getActivePlan(userId: string | null): ActivePlan | null {
     }
     return plan;
   } catch (error) {
-    console.error("Error reading active plan from local storage:", error);
+    console.error("[LocalStorageLimits] Error reading active plan from local storage:", error);
     localStorage.removeItem(planKey); // Remove potentially corrupted data
     return null;
   }
@@ -92,7 +92,7 @@ function consumePlanConversion(userId: string | null): boolean {
       localStorage.setItem(getPlanKey(userId), JSON.stringify(activePlan));
       return true;
     } catch (error) {
-      console.error("Error updating plan conversions in local storage:", error);
+      console.error("[LocalStorageLimits] Error updating plan conversions in local storage:", error);
       return false;
     }
   }
@@ -107,7 +107,7 @@ function getStoredFreeTierTimestamps(key: string): ConversionRecord[] {
     const item = localStorage.getItem(key);
     return item ? JSON.parse(item) : [];
   } catch (error) {
-    console.error("Error reading from local storage for free tier:", error);
+    console.error("[LocalStorageLimits] Error reading from local storage for free tier:", error);
     return [];
   }
 }
@@ -117,7 +117,7 @@ function saveFreeTierTimestamps(key: string, timestamps: ConversionRecord[]): vo
   try {
     localStorage.setItem(key, JSON.stringify(timestamps));
   } catch (error) {
-    console.error("Error writing to local storage for free tier:", error);
+    console.error("[LocalStorageLimits] Error writing to local storage for free tier:", error);
   }
 }
 
@@ -190,29 +190,44 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 }
 
 export function recordConversion(userId: string | null): void {
-  console.log(`Recording conversion for user: ${userId || 'guest'}. Calling incrementDailyConversionCounter.`);
-  // Increment Firestore daily counter
-  // We call this regardless of plan or free tier, to count all successful conversions.
-  incrementDailyConversionCounter().catch(error => {
-    // This catch is important to see if the call to incrementDailyConversionCounter itself fails,
-    // e.g., due to Firestore permission issues for the currently authenticated user.
-    console.error("Error calling incrementDailyConversionCounter from recordConversion:", error);
-  });
+  console.log(
+    `[LocalStorageLimits] recordConversion called for user: ${userId || 'guest'}.`
+  );
 
+  console.log(
+    `[LocalStorageLimits] Attempting to call incrementDailyConversionCounter for user: ${userId || 'guest'}.`
+  );
+  incrementDailyConversionCounter()
+    .then(() => {
+      console.log(
+        `[LocalStorageLimits] incrementDailyConversionCounter call completed successfully for user: ${userId || 'guest'}.`
+      );
+    })
+    .catch((error) => {
+      // This catch will only grab errors if incrementDailyConversionCounter itself throws an unhandled synchronous error
+      // or if its promise is rejected and not caught internally.
+      console.error(
+        `[LocalStorageLimits] Error during/after incrementDailyConversionCounter call for user: ${userId || 'guest'}:`,
+        error
+      );
+    });
+
+  // This part handles local storage limits for plans/free tier, independent of Firestore daily count
   if (consumePlanConversion(userId)) {
-    console.log("Conversion recorded against user's plan.");
+    console.log("[LocalStorageLimits] Local conversion recorded against user's plan.");
     return; // Conversion recorded against the plan
   }
 
-  // Fallback to free tier recording
-  console.log("Recording conversion against free tier.");
+  console.log("[LocalStorageLimits] Recording local conversion against free tier.");
   const freeTierKey = getFreeTierKey(userId);
   const now = Date.now();
   const allTimestamps = getStoredFreeTierTimestamps(freeTierKey);
-  // Ensure we are only keeping timestamps within the window for the new record
-  const validTimestamps = allTimestamps.filter(record => (now - record.timestamp) < FREE_TIER_WINDOW_MS);
+  const validTimestamps = allTimestamps.filter(
+    (record) => now - record.timestamp < FREE_TIER_WINDOW_MS
+  );
   validTimestamps.push({ timestamp: now });
   saveFreeTierTimestamps(freeTierKey, validTimestamps);
+  console.log(`[LocalStorageLimits] Free tier timestamps updated for ${freeTierKey}. Current count in window: ${validTimestamps.length}`);
 }
 
 // --- Utility ---
@@ -233,4 +248,3 @@ export function formatTime(milliseconds: number): string {
   
   return parts.join(', ');
 }
-
