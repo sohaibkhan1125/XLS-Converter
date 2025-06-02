@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
-import Image from 'next/image';
+// Removed Image import as it's no longer used for logo preview here
 import Link from 'next/link'; 
 import * as LucideIcons from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
@@ -16,12 +16,12 @@ import type { GeneralSiteSettings, SocialLink, CustomScript } from '@/types/site
 import { 
   getGeneralSettings, 
   updateGeneralSettings, 
-  uploadSharedSiteLogo, 
+  // uploadSharedSiteLogo, // No longer used from this page
   deleteSharedSiteLogo,
   PREDEFINED_SOCIAL_MEDIA_PLATFORMS
 } from '@/lib/firebase-settings-service';
-import { Trash2, ImageOff, PlusCircle, XCircle, FileText, FileCode2, Construction } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { PlusCircle, XCircle, FileText, FileCode2, Construction } from 'lucide-react';
+// Removed AlertDialog and ImageOff as they were primarily for logo management UI
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -47,7 +47,7 @@ export default function GeneralSettingsPage() {
 
   const [settings, setSettings] = useState<Partial<GeneralSiteSettings>>({
     siteTitle: DEFAULT_SITE_TITLE,
-    logoUrl: '',
+    logoUrl: '', // Kept in state for consistency, but not managed by UI
     socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
     customScripts: [],
     robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
@@ -58,8 +58,7 @@ export default function GeneralSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  // Removed logoFile and logoPreview states
 
   const fetchSettings = useCallback(async () => {
     setIsLoading(true);
@@ -78,12 +77,11 @@ export default function GeneralSettingsPage() {
           robotsTxtContent: currentSettings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
           sitemapXmlContent: currentSettings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
           maintenanceModeEnabled: currentSettings.maintenanceModeEnabled || false,
+          // logoUrl is part of currentSettings if it exists, will be preserved in initialSettings
         };
         setSettings(newSettings);
         setInitialSettings(newSettings); 
-        if (currentSettings.logoUrl) {
-          setLogoPreview(currentSettings.logoUrl);
-        }
+        // No longer setting logoPreview here
       } else {
         const defaultSettingsWithSocial: Partial<GeneralSiteSettings> = { 
           siteTitle: DEFAULT_SITE_TITLE, 
@@ -115,44 +113,7 @@ export default function GeneralSettingsPage() {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
-
-  const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) { 
-        toast({ variant: 'destructive', title: 'File Too Large', description: 'Logo image should be less than 2MB.' });
-        return;
-      }
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleRemoveLogo = async () => {
-    const currentSavedLogoUrl = initialSettings.logoUrl;
-    setIsSaving(true);
-    try {
-      if (currentSavedLogoUrl && currentSavedLogoUrl !== '') { 
-        await deleteSharedSiteLogo(currentSavedLogoUrl); 
-      }
-      const firestoreUpdateData: Partial<GeneralSiteSettings> = { 
-        ...initialSettings, 
-        logoUrl: '', 
-      };
-      await updateGeneralSettings(firestoreUpdateData); 
-      
-      setSettings(prev => ({ ...prev, logoUrl: '' })); 
-      setInitialSettings(prev => ({ ...prev, logoUrl: '' }));
-      setLogoPreview(null); 
-      setLogoFile(null); 
-      toast({ title: 'Site Logo Removed', description: 'The site logo has been successfully removed.' });
-    } catch (error: any) {
-      console.error("Error removing site logo:", error);
-      toast({ variant: 'destructive', title: 'Error Removing Logo', description: error.message || 'Could not remove the site logo.' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Removed handleLogoChange and handleRemoveLogo (its logic merged into handleSubmit)
 
   const handleSocialLinkChange = (id: string, field: 'url' | 'enabled', value: string | boolean) => {
     setSettings(prev => ({
@@ -197,48 +158,44 @@ export default function GeneralSettingsPage() {
     e.preventDefault();
     if (!settings) return;
     setIsSaving(true);
-    let newLogoUrlIfUploaded: string | undefined = initialSettings.logoUrl; 
-
+    
     try {
-      if (logoFile) { 
-        if (initialSettings.logoUrl && initialSettings.logoUrl !== '') {
-          try {
-            await deleteSharedSiteLogo(initialSettings.logoUrl);
-          } catch (delError: any) {
-             if (delError.code !== 'storage/object-not-found') {
-                console.warn("Old logo deletion issue (non-fatal):", delError);
-             }
-          }
+      // If there was an initial logo URL, attempt to delete it from storage
+      // as we are now clearing the logoUrl field.
+      if (initialSettings.logoUrl && initialSettings.logoUrl !== '') {
+        try {
+          await deleteSharedSiteLogo(initialSettings.logoUrl);
+          toast({ title: 'Old Site Logo Cleared', description: 'The previous site logo has been removed from storage.' });
+        } catch (delError: any) {
+           if (delError.code !== 'storage/object-not-found') {
+              console.warn("Old logo deletion issue (non-fatal):", delError);
+              toast({ variant: 'destructive', title: 'Logo Deletion Issue', description: 'Could not remove the old logo from storage, but settings were saved.' });
+           } else {
+             console.log("Old logo was not found in storage, nothing to delete for path:", initialSettings.logoUrl);
+           }
         }
-        newLogoUrlIfUploaded = await uploadSharedSiteLogo(logoFile);
       }
-      else if (settings.logoUrl === '' && initialSettings.logoUrl !== '') { 
-         newLogoUrlIfUploaded = '';
-      }
-
 
       const settingsToUpdate: Partial<GeneralSiteSettings> = {
         ...initialSettings, 
         siteTitle: settings.siteTitle || DEFAULT_SITE_TITLE,
-        logoUrl: newLogoUrlIfUploaded,
+        logoUrl: '', // Always clear logoUrl when saving general settings
         socialLinks: settings.socialLinks || [],
         customScripts: settings.customScripts || [],
-        adLoaderScript: initialSettings.adLoaderScript,
+        adLoaderScript: initialSettings.adLoaderScript, 
         robotsTxtContent: settings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
         sitemapXmlContent: settings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
         maintenanceModeEnabled: settings.maintenanceModeEnabled || false,
       };
 
       await updateGeneralSettings(settingsToUpdate);
-      setInitialSettings(settingsToUpdate);
+      
+      // Update both settings and initialSettings to reflect the cleared logoUrl and other changes
       setSettings(settingsToUpdate); 
-      setLogoFile(null); 
-      if (settingsToUpdate.logoUrl && settingsToUpdate.logoUrl !== '') {
-        setLogoPreview(settingsToUpdate.logoUrl);
-      } else {
-        setLogoPreview(null);
-      }
-      toast({ title: 'General Settings Saved', description: 'Site settings have been updated successfully.' });
+      setInitialSettings(settingsToUpdate);
+      // No logoFile or logoPreview to manage anymore
+      
+      toast({ title: 'General Settings Saved', description: 'Site settings have been updated successfully. Logo feature is now managed separately or disabled.' });
     } catch (error: any) {
       console.error("Error during save process:", error);
       toast({ variant: 'destructive', title: 'Save Error', description: error.message || 'Could not save settings.' });
@@ -255,8 +212,8 @@ export default function GeneralSettingsPage() {
     <form onSubmit={handleSubmit} className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>Site Title & Logo</CardTitle>
-          <CardDescription>Manage the main title and logo for your website. These will be used in the header and footer.</CardDescription>
+          <CardTitle>Site Title</CardTitle>
+          <CardDescription>Manage the main title for your website. This will be used in the header, footer, and browser tabs.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
@@ -269,44 +226,7 @@ export default function GeneralSettingsPage() {
               disabled={isSaving}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="logoUpload">Site Logo (Max 2MB, PNG/JPG/SVG recommended)</Label>
-            <div className="flex items-center gap-4">
-              <Input id="logoUpload" type="file" accept="image/png, image/jpeg, image/svg+xml, image/webp" onChange={handleLogoChange} className="max-w-xs" disabled={isSaving} key={logoFile ? 'file-selected' : 'no-file'} />
-              {(logoPreview || (initialSettings.logoUrl && initialSettings.logoUrl !== '')) && ( 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" type="button" disabled={isSaving}>
-                      <Trash2 className="mr-2 h-4 w-4" /> Remove Current Logo
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Confirm Logo Removal</AlertDialogTitle></AlertDialogHeader>
-                    <AlertDialogDescription>
-                      Are you sure you want to remove the current site logo? This action takes effect on the next save.
-                    </AlertDialogDescription>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => {
-                        setLogoFile(null);
-                        setLogoPreview(null);
-                        setSettings(prev => ({ ...prev, logoUrl: '' }));
-                      }} className="bg-destructive hover:bg-destructive/90">Confirm Removal</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </div>
-          {logoPreview ? (
-            <div className="mt-4 p-2 border rounded-md inline-block bg-muted/20 shadow-sm">
-              <Image src={logoPreview} alt="Site Logo Preview" width={150} height={50} className="object-contain rounded h-auto max-h-16" data-ai-hint="logo"/>
-            </div>
-          ) : (
-             <div className="mt-4 p-4 border rounded-md inline-flex items-center justify-center bg-muted/20 shadow-sm h-20 w-40 text-muted-foreground">
-                <ImageOff className="h-8 w-8" /> <span className="ml-2">No Site Logo</span>
-            </div>
-          )}
+          {/* Logo management UI removed */}
         </CardContent>
       </Card>
 
@@ -498,3 +418,5 @@ export default function GeneralSettingsPage() {
     </form>
   );
 }
+
+    
