@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import Image from 'next/image';
+import Link from 'next/link'; // Added this import
 import * as LucideIcons from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
