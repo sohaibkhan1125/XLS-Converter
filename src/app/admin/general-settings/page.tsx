@@ -19,12 +19,27 @@ import {
   deleteSharedSiteLogo,
   PREDEFINED_SOCIAL_MEDIA_PLATFORMS
 } from '@/lib/firebase-settings-service';
-import { Trash2, ImageOff, PlusCircle, XCircle } from 'lucide-react';
+import { Trash2, ImageOff, PlusCircle, XCircle, FileText, FileCode2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_SITE_TITLE = "XLSConvert";
+const DEFAULT_ROBOTS_TXT_CONTENT = `User-agent: *
+Allow: /
+# Sitemap: Replace_this_with_your_full_sitemap_url/sitemap.xml
+`;
+const DEFAULT_SITEMAP_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>REPLACE_THIS_WITH_YOUR_DOMAIN/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+`;
+
 
 export default function GeneralSettingsPage() {
   const { toast } = useToast();
@@ -34,6 +49,8 @@ export default function GeneralSettingsPage() {
     logoUrl: '',
     socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
     customScripts: [],
+    robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
+    sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
   });
   const [initialSettings, setInitialSettings] = useState<Partial<GeneralSiteSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +72,9 @@ export default function GeneralSettingsPage() {
         const newSettings = {
           ...currentSettings,
           socialLinks: mergedSocialLinks,
-          customScripts: currentSettings.customScripts || [], // Ensure customScripts is an array
+          customScripts: currentSettings.customScripts || [],
+          robotsTxtContent: currentSettings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
+          sitemapXmlContent: currentSettings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
         };
         setSettings(newSettings);
         setInitialSettings(newSettings); 
@@ -69,7 +88,9 @@ export default function GeneralSettingsPage() {
           adLoaderScript: '', 
           navItems: [],
           socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-          customScripts: []
+          customScripts: [],
+          robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
+          sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
         };
         setSettings(defaultSettingsWithSocial);
         setInitialSettings(defaultSettingsWithSocial);
@@ -85,6 +106,11 @@ export default function GeneralSettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const handleSettingChange = (field: keyof GeneralSiteSettings, value: any) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
 
   const handleLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -122,10 +148,6 @@ export default function GeneralSettingsPage() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleSiteTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSettings(prev => ({ ...prev, siteTitle: e.target.value }));
   };
 
   const handleSocialLinkChange = (id: string, field: 'url' | 'enabled', value: string | boolean) => {
@@ -197,7 +219,9 @@ export default function GeneralSettingsPage() {
         logoUrl: newLogoUrlIfUploaded,
         socialLinks: settings.socialLinks || [],
         customScripts: settings.customScripts || [],
-        adLoaderScript: initialSettings.adLoaderScript 
+        adLoaderScript: initialSettings.adLoaderScript,
+        robotsTxtContent: settings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
+        sitemapXmlContent: settings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
       };
 
       await updateGeneralSettings(settingsToUpdate);
@@ -235,7 +259,7 @@ export default function GeneralSettingsPage() {
             <Input 
               id="siteTitleInput" 
               value={settings.siteTitle || ''} 
-              onChange={handleSiteTitleChange} 
+              onChange={(e) => handleSettingChange('siteTitle', e.target.value)} 
               placeholder="e.g., XLSConvert Inc." 
               disabled={isSaving}
             />
@@ -389,8 +413,54 @@ export default function GeneralSettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><FileText className="mr-2 h-5 w-5 text-primary" />Robots.txt Content</CardTitle>
+          <CardDescription>
+            Manage the content of your <code className="bg-muted px-1 py-0.5 rounded text-sm">robots.txt</code> file. This file tells search engine crawlers which pages or files the crawler can or can&apos;t request from your site.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            id="robotsTxtContent"
+            value={settings.robotsTxtContent || ''}
+            onChange={(e) => handleSettingChange('robotsTxtContent', e.target.value)}
+            rows={10}
+            className="font-mono text-sm"
+            placeholder={DEFAULT_ROBOTS_TXT_CONTENT}
+            disabled={isSaving}
+          />
+           <p className="text-xs text-muted-foreground mt-2">
+            Changes will be available at <Link href="/robots.txt" target="_blank" className="underline text-primary hover:text-primary/80">/robots.txt</Link> after saving.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><FileCode2 className="mr-2 h-5 w-5 text-primary" />Sitemap (sitemap.xml) Content</CardTitle>
+          <CardDescription>
+            Manage the content of your <code className="bg-muted px-1 py-0.5 rounded text-sm">sitemap.xml</code> file. This helps search engines better crawl your site.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            id="sitemapXmlContent"
+            value={settings.sitemapXmlContent || ''}
+            onChange={(e) => handleSettingChange('sitemapXmlContent', e.target.value)}
+            rows={15}
+            className="font-mono text-sm"
+            placeholder={DEFAULT_SITEMAP_XML_CONTENT}
+            disabled={isSaving}
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Changes will be available at <Link href="/sitemap.xml" target="_blank" className="underline text-primary hover:text-primary/80">/sitemap.xml</Link> after saving.
+          </p>
+        </CardContent>
+      </Card>
       
-      <CardFooter className="flex justify-end mt-8">
+      <CardFooter className="flex justify-end mt-8 border-t pt-6">
         <Button type="submit" size="lg" disabled={isSaving || isLoading}>
           {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save General Settings'}
         </Button>

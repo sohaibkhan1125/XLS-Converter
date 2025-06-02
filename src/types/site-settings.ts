@@ -35,5 +35,7 @@ export interface GeneralSiteSettings {
   customScripts?: CustomScript[]; // For multiple custom scripts like GA, etc.
   activeThemeId?: string; // ID of the currently active theme
   seoSettings?: Record<string, PageSEOInfo>; // Key is page path (e.g., "/", "/about")
+  robotsTxtContent?: string;
+  sitemapXmlContent?: string;
   // future settings can be added here
 }

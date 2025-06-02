@@ -20,6 +20,23 @@ export const PREDEFINED_SOCIAL_MEDIA_PLATFORMS: Omit<SocialLink, 'url' | 'enable
   { id: 'github', name: 'Github', iconName: 'Github' },
 ];
 
+const DEFAULT_ROBOTS_TXT_CONTENT = `User-agent: *
+Allow: /
+# Sitemap: Replace_this_with_your_full_sitemap_url/sitemap.xml
+`;
+
+const DEFAULT_SITEMAP_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>REPLACE_THIS_WITH_YOUR_DOMAIN/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <!-- Add more URLs here -->
+</urlset>
+`;
+
 
 // Firestore functions
 export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> {
@@ -53,6 +70,14 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       if (!data.seoSettings) {
         data.seoSettings = {};
       }
+      // Ensure robotsTxtContent is initialized
+      if (data.robotsTxtContent === undefined) { // Check for undefined specifically
+        data.robotsTxtContent = DEFAULT_ROBOTS_TXT_CONTENT;
+      }
+      // Ensure sitemapXmlContent is initialized
+      if (data.sitemapXmlContent === undefined) { // Check for undefined specifically
+        data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
+      }
       return data;
     }
     // Return a default object if no settings are found
@@ -65,6 +90,8 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       customScripts: [],
       activeThemeId: DEFAULT_LIGHT_THEME_ID,
       seoSettings: {},
+      robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
+      sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
     };
   } catch (error) {
     console.error("Error fetching general settings:", error);
@@ -125,6 +152,13 @@ export function subscribeToGeneralSettings(
       if (!data.seoSettings) {
         data.seoSettings = {};
       }
+      // Robots.txt and Sitemap.xml Initialization
+      if (data.robotsTxtContent === undefined) {
+        data.robotsTxtContent = DEFAULT_ROBOTS_TXT_CONTENT;
+      }
+      if (data.sitemapXmlContent === undefined) {
+        data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
+      }
       callback(data);
     } else {
       callback({ 
@@ -136,6 +170,8 @@ export function subscribeToGeneralSettings(
         customScripts: [],
         activeThemeId: DEFAULT_LIGHT_THEME_ID,
         seoSettings: {},
+        robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
+        sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
       });
     }
   }, (error) => {
