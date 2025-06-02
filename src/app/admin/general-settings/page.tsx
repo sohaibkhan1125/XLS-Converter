@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import Image from 'next/image';
-import Link from 'next/link'; // Added this import
+import Link from 'next/link'; 
 import * as LucideIcons from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ import {
   deleteSharedSiteLogo,
   PREDEFINED_SOCIAL_MEDIA_PLATFORMS
 } from '@/lib/firebase-settings-service';
-import { Trash2, ImageOff, PlusCircle, XCircle, FileText, FileCode2 } from 'lucide-react';
+import { Trash2, ImageOff, PlusCircle, XCircle, FileText, FileCode2, Construction } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { v4 as uuidv4 } from 'uuid';
@@ -52,6 +52,7 @@ export default function GeneralSettingsPage() {
     customScripts: [],
     robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
     sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
+    maintenanceModeEnabled: false,
   });
   const [initialSettings, setInitialSettings] = useState<Partial<GeneralSiteSettings>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function GeneralSettingsPage() {
           customScripts: currentSettings.customScripts || [],
           robotsTxtContent: currentSettings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
           sitemapXmlContent: currentSettings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
+          maintenanceModeEnabled: currentSettings.maintenanceModeEnabled || false,
         };
         setSettings(newSettings);
         setInitialSettings(newSettings); 
@@ -92,6 +94,7 @@ export default function GeneralSettingsPage() {
           customScripts: [],
           robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
           sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
+          maintenanceModeEnabled: false,
         };
         setSettings(defaultSettingsWithSocial);
         setInitialSettings(defaultSettingsWithSocial);
@@ -223,6 +226,7 @@ export default function GeneralSettingsPage() {
         adLoaderScript: initialSettings.adLoaderScript,
         robotsTxtContent: settings.robotsTxtContent || DEFAULT_ROBOTS_TXT_CONTENT,
         sitemapXmlContent: settings.sitemapXmlContent || DEFAULT_SITEMAP_XML_CONTENT,
+        maintenanceModeEnabled: settings.maintenanceModeEnabled || false,
       };
 
       await updateGeneralSettings(settingsToUpdate);
@@ -461,6 +465,31 @@ export default function GeneralSettingsPage() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><Construction className="mr-2 h-5 w-5 text-primary" />Website Maintenance Mode</CardTitle>
+          <CardDescription>
+            Put your website into maintenance mode. Only the admin panel will be accessible.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-3">
+            <Switch
+              id="maintenanceMode"
+              checked={settings.maintenanceModeEnabled || false}
+              onCheckedChange={(checked) => handleSettingChange('maintenanceModeEnabled', checked)}
+              disabled={isSaving}
+            />
+            <Label htmlFor="maintenanceMode" className="text-base">
+              Enable Maintenance Mode
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            When enabled, all public pages will show a maintenance message. The <code className="bg-muted px-1 py-0.5 rounded text-sm">/admin</code> routes will remain accessible.
+          </p>
+        </CardContent>
+      </Card>
+
       <CardFooter className="flex justify-end mt-8 border-t pt-6">
         <Button type="submit" size="lg" disabled={isSaving || isLoading}>
           {isSaving ? <LoadingSpinner message="Saving..." /> : 'Save General Settings'}

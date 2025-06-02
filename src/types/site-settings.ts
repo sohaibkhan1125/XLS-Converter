@@ -37,5 +37,6 @@ export interface GeneralSiteSettings {
   seoSettings?: Record<string, PageSEOInfo>; // Key is page path (e.g., "/", "/about")
   robotsTxtContent?: string;
   sitemapXmlContent?: string;
+  maintenanceModeEnabled?: boolean; // Added for maintenance mode
   // future settings can be added here
 }

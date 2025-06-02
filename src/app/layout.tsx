@@ -10,6 +10,7 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import AdScriptInjector from '@/components/ads/ad-script-injector';
 import CustomScriptInjector from '@/components/core/custom-script-injector';
+import MaintenanceModeOverlay from '@/components/core/maintenance-mode-overlay'; // Import MaintenanceModeOverlay
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import type { GeneralSiteSettings } from '@/types/site-settings';
@@ -67,22 +68,6 @@ export default function RootLayout({
     applyTheme(activeThemeId);
   }, [activeThemeId]);
 
-  // For dynamic titles based on site settings (if needed in the future, currently reverted)
-  // const [siteTitle, setSiteTitle] = useState(DEFAULT_FALLBACK_TITLE);
-  // const [siteDescription, setSiteDescription] = useState(DEFAULT_FALLBACK_DESCRIPTION);
-  // useEffect(() => {
-  //   const unsubscribe = subscribeToGeneralSettings((settings) => {
-  //     if (settings) {
-  //       const title = settings.siteTitle || DEFAULT_FALLBACK_TITLE;
-  //       setSiteTitle(title);
-  //       document.title = title; // Update document title dynamically
-  //       const description = settings.siteDescription || `Convert PDFs with ${title}.`; // Example dynamic description
-  //       setSiteDescription(description);
-  //     }
-  //   });
-  //   return () => unsubscribe();
-  // }, []);
-
 
   const mainClassName = isAdminRoute 
     ? "flex-grow" 
@@ -97,6 +82,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>
+          <MaintenanceModeOverlay /> {/* Add MaintenanceModeOverlay here */}
           {!isAdminRoute && <AppHeader />}
           <AdScriptInjector /> 
           <CustomScriptInjector />

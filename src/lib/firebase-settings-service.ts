@@ -37,6 +37,20 @@ const DEFAULT_SITEMAP_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
 </urlset>
 `;
 
+const DEFAULT_GENERAL_SETTINGS: GeneralSiteSettings = {
+  siteTitle: 'XLSConvert',
+  logoUrl: undefined,
+  navItems: [],
+  adLoaderScript: '',
+  socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
+  customScripts: [],
+  activeThemeId: DEFAULT_LIGHT_THEME_ID,
+  seoSettings: {},
+  robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
+  sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
+  maintenanceModeEnabled: false, // Default for maintenance mode
+};
+
 
 // Firestore functions
 export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> {
@@ -71,28 +85,21 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
         data.seoSettings = {};
       }
       // Ensure robotsTxtContent is initialized
-      if (data.robotsTxtContent === undefined) { // Check for undefined specifically
+      if (data.robotsTxtContent === undefined) { 
         data.robotsTxtContent = DEFAULT_ROBOTS_TXT_CONTENT;
       }
       // Ensure sitemapXmlContent is initialized
-      if (data.sitemapXmlContent === undefined) { // Check for undefined specifically
+      if (data.sitemapXmlContent === undefined) { 
         data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
+      }
+      // Ensure maintenanceModeEnabled is initialized
+      if (data.maintenanceModeEnabled === undefined) {
+        data.maintenanceModeEnabled = false;
       }
       return data;
     }
     // Return a default object if no settings are found
-    return { 
-      siteTitle: 'XLSConvert', 
-      logoUrl: undefined, 
-      navItems: [], 
-      adLoaderScript: '',
-      socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-      customScripts: [],
-      activeThemeId: DEFAULT_LIGHT_THEME_ID,
-      seoSettings: {},
-      robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
-      sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
-    };
+    return { ...DEFAULT_GENERAL_SETTINGS };
   } catch (error) {
     console.error("Error fetching general settings:", error);
     throw error;
@@ -159,20 +166,13 @@ export function subscribeToGeneralSettings(
       if (data.sitemapXmlContent === undefined) {
         data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
       }
+      // Maintenance Mode Initialization
+      if (data.maintenanceModeEnabled === undefined) {
+        data.maintenanceModeEnabled = false;
+      }
       callback(data);
     } else {
-      callback({ 
-        siteTitle: 'XLSConvert', 
-        logoUrl: undefined, 
-        navItems: [], 
-        adLoaderScript: '',
-        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-        customScripts: [],
-        activeThemeId: DEFAULT_LIGHT_THEME_ID,
-        seoSettings: {},
-        robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
-        sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
-      });
+      callback({ ...DEFAULT_GENERAL_SETTINGS });
     }
   }, (error) => {
     console.error("Error in general settings subscription:", error);
