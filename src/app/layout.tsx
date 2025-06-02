@@ -10,7 +10,8 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import AdScriptInjector from '@/components/ads/ad-script-injector';
 import CustomScriptInjector from '@/components/core/custom-script-injector';
-import MaintenanceModeOverlay from '@/components/core/maintenance-mode-overlay'; // Import MaintenanceModeOverlay
+import MaintenanceModeOverlay from '@/components/core/maintenance-mode-overlay'; 
+import PopupInjector from '@/components/core/popup-injector'; // Import PopupInjector
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import type { GeneralSiteSettings } from '@/types/site-settings';
@@ -82,7 +83,8 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>
-          <MaintenanceModeOverlay /> {/* Add MaintenanceModeOverlay here */}
+          <MaintenanceModeOverlay /> 
+          <PopupInjector /> {/* Add PopupInjector here */}
           {!isAdminRoute && <AppHeader />}
           <AdScriptInjector /> 
           <CustomScriptInjector />
