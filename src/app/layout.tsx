@@ -1,7 +1,7 @@
 
 "use client"; 
 
-import type { Metadata } from 'next';
+import type { Metadata } from 'next'; // Metadata type is not used when 'use client'
 import { Geist } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/hooks/use-auth';
@@ -11,9 +11,10 @@ import AppFooter from '@/components/layout/footer';
 import AdScriptInjector from '@/components/ads/ad-script-injector';
 import CustomScriptInjector from '@/components/core/custom-script-injector';
 import { usePathname } from 'next/navigation';
-// Removed: import { useState, useEffect } from 'react';
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { useState, useEffect } from 'react';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { PREDEFINED_THEMES, DEFAULT_LIGHT_THEME_ID, type Theme, type ThemeColors } from '@/config/themes';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -30,8 +31,58 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith('/admin');
+  const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_LIGHT_THEME_ID);
 
-  // Removed siteTitle and siteDescription state and effect for dynamic settings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings && settings.activeThemeId) {
+        setActiveThemeId(settings.activeThemeId);
+      } else {
+        setActiveThemeId(DEFAULT_LIGHT_THEME_ID);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const applyTheme = (themeId: string) => {
+      const theme = PREDEFINED_THEMES.find(t => t.id === themeId) || PREDEFINED_THEMES.find(t => t.id === DEFAULT_LIGHT_THEME_ID);
+      if (theme) {
+        const root = document.documentElement;
+        Object.entries(theme.colors).forEach(([key, value]) => {
+          // CSS variable names are kebab-case like --primary-foreground
+          const cssVarName = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
+          if (value) { // Ensure value is not undefined for optional chart colors
+            root.style.setProperty(cssVarName, value);
+          }
+        });
+
+        if (theme.isDark) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      }
+    };
+    applyTheme(activeThemeId);
+  }, [activeThemeId]);
+
+  // For dynamic titles based on site settings (if needed in the future, currently reverted)
+  // const [siteTitle, setSiteTitle] = useState(DEFAULT_FALLBACK_TITLE);
+  // const [siteDescription, setSiteDescription] = useState(DEFAULT_FALLBACK_DESCRIPTION);
+  // useEffect(() => {
+  //   const unsubscribe = subscribeToGeneralSettings((settings) => {
+  //     if (settings) {
+  //       const title = settings.siteTitle || DEFAULT_FALLBACK_TITLE;
+  //       setSiteTitle(title);
+  //       document.title = title; // Update document title dynamically
+  //       const description = settings.siteDescription || `Convert PDFs with ${title}.`; // Example dynamic description
+  //       setSiteDescription(description);
+  //     }
+  //   });
+  //   return () => unsubscribe();
+  // }, []);
+
 
   const mainClassName = isAdminRoute 
     ? "flex-grow" 
@@ -42,6 +93,7 @@ export default function RootLayout({
       <head>
         <title>{DEFAULT_FALLBACK_TITLE}</title>
         <meta name="description" content={DEFAULT_FALLBACK_DESCRIPTION} />
+        {/* The CSS variables will be set via JS, no <style> tag needed here for theme colors */}
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>

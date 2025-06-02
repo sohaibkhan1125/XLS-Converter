@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Settings, Megaphone } from 'lucide-react'; // Removed PanelBottomClose
+import { LayoutDashboard, Settings, Megaphone, Palette } from 'lucide-react'; // Added Palette
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/general-settings', label: 'General Settings', icon: Settings },
   { href: '/admin/ads-management', label: 'Ads Management', icon: Megaphone },
+  { href: '/admin/color-scheme-settings', label: 'Color Scheme', icon: Palette }, // New Item
   // Add more admin navigation items here
   // { href: '/admin/users', label: 'Users', icon: Users },
 ];

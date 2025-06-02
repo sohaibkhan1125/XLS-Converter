@@ -27,6 +27,6 @@ export interface GeneralSiteSettings {
   adLoaderScript?: string; // For primary ad network script
   socialLinks?: SocialLink[];
   customScripts?: CustomScript[]; // For multiple custom scripts like GA, etc.
+  activeThemeId?: string; // ID of the currently active theme
   // future settings can be added here
 }
-

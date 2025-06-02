@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } fr
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firestore, storage, auth } from './firebase';
 import type { GeneralSiteSettings, SocialLink, CustomScript } from '@/types/site-settings'; // Added CustomScript
+import { DEFAULT_LIGHT_THEME_ID } from '@/config/themes'; // Import default theme ID
 
 const SETTINGS_COLLECTION = 'site_settings';
 const GENERAL_SETTINGS_DOC_ID = 'general_config';
@@ -44,6 +45,10 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       if (!data.customScripts) {
         data.customScripts = [];
       }
+      // Ensure activeThemeId is initialized
+      if (!data.activeThemeId) {
+        data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
+      }
       return data;
     }
     // Return a default object if no settings are found
@@ -53,7 +58,8 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       navItems: [], 
       adLoaderScript: '',
       socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-      customScripts: [] // Default empty custom scripts
+      customScripts: [],
+      activeThemeId: DEFAULT_LIGHT_THEME_ID,
     };
   } catch (error) {
     console.error("Error fetching general settings:", error);
@@ -106,6 +112,10 @@ export function subscribeToGeneralSettings(
       if (!data.customScripts) {
         data.customScripts = [];
       }
+      // Active Theme ID Initialization
+      if (!data.activeThemeId) {
+        data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
+      }
       callback(data);
     } else {
       callback({ 
@@ -114,7 +124,8 @@ export function subscribeToGeneralSettings(
         navItems: [], 
         adLoaderScript: '',
         socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-        customScripts: []
+        customScripts: [],
+        activeThemeId: DEFAULT_LIGHT_THEME_ID,
       });
     }
   }, (error) => {
