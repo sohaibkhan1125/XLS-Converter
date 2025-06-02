@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, type FormEvent, type ChangeEvent } from 'react';
@@ -13,7 +14,7 @@ import type { AllPopupSettings, PopupConfig, PopupType } from '@/types/popup-set
 import { DEFAULT_POPUP_SETTINGS } from '@/types/popup-settings';
 import { getPopupSettings, updatePopupSettings } from '@/lib/firebase-popup-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { Eye, MessageSquareText, AlignBottom, AlignTop, Tv2 } from 'lucide-react';
+import { Eye, MessageSquareText, PanelBottom, PanelTop, Tv2 } from 'lucide-react';
 
 type EditablePopupConfig = Omit<PopupConfig, 'id' | 'type' | 'lastUpdated'>;
 
@@ -206,8 +207,8 @@ export default function PopupManagerPage() {
       </Card>
 
       <div className="space-y-6">
-        {renderPopupForm('bottomPopup', AlignBottom)}
-        {renderPopupForm('topNavbarPopup', AlignTop)}
+        {renderPopupForm('bottomPopup', PanelBottom)}
+        {renderPopupForm('topNavbarPopup', PanelTop)}
         {renderPopupForm('centerScreenPopup', Tv2)}
       </div>
 
