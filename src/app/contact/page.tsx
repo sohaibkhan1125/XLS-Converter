@@ -1,22 +1,50 @@
 
 "use client"; 
 
-// Removed: import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react'; // Added useState
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Mail, Phone, MapPin } from "lucide-react";
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { usePathname } from 'next/navigation';
 
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function ContactPage() {
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+  const pathname = usePathname();
 
-  // Removed: useEffect for subscribeToGeneralSettings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+       if (settings?.seoSettings && settings.seoSettings[pathname]) {
+        const seoData = settings.seoSettings[pathname];
+        if (seoData?.title) document.title = seoData.title;
+        
+        let descriptionTag = document.querySelector('meta[name="description"]');
+        if (!descriptionTag) {
+          descriptionTag = document.createElement('meta');
+          descriptionTag.setAttribute('name', 'description');
+          document.head.appendChild(descriptionTag);
+        }
+        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+
+        let keywordsTag = document.querySelector('meta[name="keywords"]');
+        if (!keywordsTag) {
+          keywordsTag = document.createElement('meta');
+          keywordsTag.setAttribute('name', 'keywords');
+          document.head.appendChild(keywordsTag);
+        }
+        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      }
+    });
+    return () => unsubscribe();
+  }, [pathname]);
+
 
   return (
     <div className="space-y-12">
@@ -68,8 +96,8 @@ export default function ContactPage() {
               <Mail className="h-6 w-6 text-accent mt-1 shrink-0" />
               <div>
                 <h3 className="font-semibold text-foreground">Email Us</h3>
-                <p>For general inquiries: <a href="mailto:info@xlsconvert.com" className="text-primary hover:underline">info@xlsconvert.com</a></p>
-                <p>For support: <a href="mailto:support@xlsconvert.com" className="text-primary hover:underline">support@xlsconvert.com</a></p>
+                <p>For general inquiries: <a href={`mailto:info@${DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com`} className="text-primary hover:underline">info@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com</a></p>
+                <p>For support: <a href={`mailto:support@${DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com`} className="text-primary hover:underline">support@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com</a></p>
               </div>
             </div>
             <div className="flex items-start gap-4">

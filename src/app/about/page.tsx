@@ -1,18 +1,45 @@
 
 "use client";
 
-// Removed: import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react'; // Added useState
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrainCircuit, Zap, Users } from "lucide-react";
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { usePathname } from 'next/navigation';
 
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
 export default function AboutPage() {
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+  const pathname = usePathname();
 
-  // Removed: useEffect for subscribeToGeneralSettings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+      if (settings?.seoSettings && settings.seoSettings[pathname]) {
+        const seoData = settings.seoSettings[pathname];
+        if (seoData?.title) document.title = seoData.title;
+        
+        let descriptionTag = document.querySelector('meta[name="description"]');
+        if (!descriptionTag) {
+          descriptionTag = document.createElement('meta');
+          descriptionTag.setAttribute('name', 'description');
+          document.head.appendChild(descriptionTag);
+        }
+        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+
+        let keywordsTag = document.querySelector('meta[name="keywords"]');
+        if (!keywordsTag) {
+          keywordsTag = document.createElement('meta');
+          keywordsTag.setAttribute('name', 'keywords');
+          document.head.appendChild(keywordsTag);
+        }
+        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      }
+    });
+    return () => unsubscribe();
+  }, [pathname]);
 
   return (
     <div className="space-y-12">
@@ -38,7 +65,7 @@ export default function AboutPage() {
         </div>
         <div className="flex justify-center">
           <img
-            src="https://placehold.co/600x400.png?text=Our+Team+Working"
+            src="https://placehold.co/600x400.png"
             alt="Our team collaborating"
             className="rounded-lg shadow-xl object-cover"
             data-ai-hint="team collaboration"
@@ -90,7 +117,7 @@ export default function AboutPage() {
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="md:w-1/2 flex justify-center">
             <img
-              src="https://placehold.co/400x300.png?text=Founding+Idea"
+              src="https://placehold.co/400x300.png"
               alt="Founding idea sketch"
               className="rounded-lg shadow-md object-cover max-h-60"
               data-ai-hint="idea sketch"

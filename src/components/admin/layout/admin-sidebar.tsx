@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Settings, Megaphone, Palette } from 'lucide-react'; // Added Palette
+import { LayoutDashboard, Settings, Megaphone, Palette, SearchCheck } from 'lucide-react'; // Added SearchCheck for SEO
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +10,8 @@ const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/general-settings', label: 'General Settings', icon: Settings },
   { href: '/admin/ads-management', label: 'Ads Management', icon: Megaphone },
-  { href: '/admin/color-scheme-settings', label: 'Color Scheme', icon: Palette }, // New Item
+  { href: '/admin/color-scheme-settings', label: 'Color Scheme', icon: Palette },
+  { href: '/admin/seo-settings', label: 'SEO Settings', icon: SearchCheck }, // New Item
   // Add more admin navigation items here
   // { href: '/admin/users', label: 'Users', icon: Users },
 ];

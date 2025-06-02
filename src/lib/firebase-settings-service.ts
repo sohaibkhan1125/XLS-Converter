@@ -4,7 +4,7 @@
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firestore, storage, auth } from './firebase';
-import type { GeneralSiteSettings, SocialLink, CustomScript } from '@/types/site-settings'; // Added CustomScript
+import type { GeneralSiteSettings, SocialLink, CustomScript, PageSEOInfo } from '@/types/site-settings'; // Added PageSEOInfo
 import { DEFAULT_LIGHT_THEME_ID } from '@/config/themes'; // Import default theme ID
 
 const SETTINGS_COLLECTION = 'site_settings';
@@ -49,6 +49,10 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       if (!data.activeThemeId) {
         data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
       }
+      // Ensure seoSettings is initialized
+      if (!data.seoSettings) {
+        data.seoSettings = {};
+      }
       return data;
     }
     // Return a default object if no settings are found
@@ -60,6 +64,7 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
       socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
       customScripts: [],
       activeThemeId: DEFAULT_LIGHT_THEME_ID,
+      seoSettings: {},
     };
   } catch (error) {
     console.error("Error fetching general settings:", error);
@@ -116,6 +121,10 @@ export function subscribeToGeneralSettings(
       if (!data.activeThemeId) {
         data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
       }
+      // SEO Settings Initialization
+      if (!data.seoSettings) {
+        data.seoSettings = {};
+      }
       callback(data);
     } else {
       callback({ 
@@ -126,6 +135,7 @@ export function subscribeToGeneralSettings(
         socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
         customScripts: [],
         activeThemeId: DEFAULT_LIGHT_THEME_ID,
+        seoSettings: {},
       });
     }
   }, (error) => {

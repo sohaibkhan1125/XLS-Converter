@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PricingCard from '@/components/pricing/pricing-card';
@@ -11,6 +11,9 @@ import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // Added usePathname
+import type { GeneralSiteSettings } from '@/types/site-settings'; // Added GeneralSiteSettings
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; // Added subscribeToGeneralSettings
 
 const PAYPAL_CLIENT_ID = "AQS8CKbKYudDa2HRF17WPTWoA_oAUUWPR7ciQCk-oF-2jeiHS6rU1h5GNL-zXZ5zdtppGWFwQIxSXaQb";
 
@@ -18,6 +21,33 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const { toast } = useToast();
   const { currentUser } = useAuth();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings?.seoSettings && settings.seoSettings[pathname]) {
+        const seoData = settings.seoSettings[pathname];
+        if (seoData?.title) document.title = seoData.title;
+        
+        let descriptionTag = document.querySelector('meta[name="description"]');
+        if (!descriptionTag) {
+          descriptionTag = document.createElement('meta');
+          descriptionTag.setAttribute('name', 'description');
+          document.head.appendChild(descriptionTag);
+        }
+        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+
+        let keywordsTag = document.querySelector('meta[name="keywords"]');
+        if (!keywordsTag) {
+          keywordsTag = document.createElement('meta');
+          keywordsTag.setAttribute('name', 'keywords');
+          document.head.appendChild(keywordsTag);
+        }
+        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      }
+    });
+    return () => unsubscribe();
+  }, [pathname]);
 
   const handleSelectPlan = (planId: PlanType['id'], cycle: 'monthly' | 'annual') => {
     const selectedPlan = PRICING_PLANS.find(p => p.id === planId);

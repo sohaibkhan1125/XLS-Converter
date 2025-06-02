@@ -18,11 +18,12 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { usePathname } from 'next/navigation';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert"; // This can be used as a base for SEO title if not set
 
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -42,9 +43,37 @@ export default function HomePage() {
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  const pathname = usePathname();
+  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted siteTitle logic
 
-  // Removed: useEffect for subscribeToGeneralSettings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      if (settings?.seoSettings && settings.seoSettings[pathname]) {
+        const seoData = settings.seoSettings[pathname];
+        if (seoData?.title) document.title = seoData.title;
+        
+        let descriptionTag = document.querySelector('meta[name="description"]');
+        if (!descriptionTag) {
+          descriptionTag = document.createElement('meta');
+          descriptionTag.setAttribute('name', 'description');
+          document.head.appendChild(descriptionTag);
+        }
+        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+
+        let keywordsTag = document.querySelector('meta[name="keywords"]');
+        if (!keywordsTag) {
+          keywordsTag = document.createElement('meta');
+          keywordsTag.setAttribute('name', 'keywords');
+          document.head.appendChild(keywordsTag);
+        }
+        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      }
+      // Reverted siteTitle dynamic update for component content
+      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK);
+    });
+    return () => unsubscribe();
+  }, [pathname]);
+
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);

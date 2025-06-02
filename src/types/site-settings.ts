@@ -20,6 +20,12 @@ export interface CustomScript {
   enabled: boolean; // Whether the script should be injected
 }
 
+export interface PageSEOInfo {
+  title?: string;
+  description?: string;
+  keywords?: string; // Comma-separated string
+}
+
 export interface GeneralSiteSettings {
   siteTitle?: string;
   logoUrl?: string;
@@ -28,5 +34,6 @@ export interface GeneralSiteSettings {
   socialLinks?: SocialLink[];
   customScripts?: CustomScript[]; // For multiple custom scripts like GA, etc.
   activeThemeId?: string; // ID of the currently active theme
+  seoSettings?: Record<string, PageSEOInfo>; // Key is page path (e.g., "/", "/about")
   // future settings can be added here
 }
