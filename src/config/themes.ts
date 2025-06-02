@@ -204,5 +204,137 @@ export const PREDEFINED_THEMES: Theme[] = [
       ring: "258 52% 51%",
     }
   },
+  {
+    id: "sunset-orange",
+    name: "Sunset Orange",
+    isDark: false,
+    colors: {
+      background: "30 100% 97%", // Very light orange
+      foreground: "25 50% 25%",  // Dark brown-orange
+      card: "30 100% 98%",       // Almost white with orange hint
+      cardForeground: "25 50% 25%",
+      popover: "30 100% 98%",
+      popoverForeground: "25 50% 25%",
+      primary: "24 96% 53%",     // Bright orange (#FF6600)
+      primaryForeground: "0 0% 100%", // White
+      secondary: "39 89% 50%",    // Lighter orange/yellow (#FFA500)
+      secondaryForeground: "25 50% 25%", // Dark brown-orange for contrast
+      muted: "30 80% 92%",        // Light orange
+      mutedForeground: "25 40% 50%", // Muted brown-orange
+      accent: "190 70% 50%",     // Contrasting teal
+      accentForeground: "0 0% 100%", // White
+      destructive: "0 70% 55%",    // Red
+      destructiveForeground: "0 0% 100%",
+      border: "30 70% 88%",       // Softer orange border
+      input: "30 80% 94%",        // Light orange input background
+      ring: "24 96% 53%",
+    }
+  },
+  {
+    id: "oceanic-teal",
+    name: "Oceanic Teal",
+    isDark: false,
+    colors: {
+      background: "180 30% 96%", // Very light teal
+      foreground: "180 25% 20%",  // Dark teal
+      card: "180 30% 98%",       // Almost white with teal hint
+      cardForeground: "180 25% 20%",
+      popover: "180 30% 98%",
+      popoverForeground: "180 25% 20%",
+      primary: "174 72% 45%",     // Teal (#20C997)
+      primaryForeground: "0 0% 100%", // White
+      secondary: "180 40% 60%",    // Lighter teal/cyan
+      secondaryForeground: "180 25% 20%", // Dark teal for contrast
+      muted: "180 25% 90%",        // Light muted teal
+      mutedForeground: "180 20% 50%", // Muted teal
+      accent: "210 80% 60%",     // Contrasting blue
+      accentForeground: "0 0% 100%", // White
+      destructive: "0 70% 55%",    // Red
+      destructiveForeground: "0 0% 100%",
+      border: "180 20% 85%",       // Softer teal border
+      input: "180 25% 92%",        // Light teal input background
+      ring: "174 72% 45%",
+    }
+  },
+  {
+    id: "rose-quartz-pink",
+    name: "Rose Quartz Pink",
+    isDark: false,
+    colors: {
+      background: "330 60% 97%", // Very light pink
+      foreground: "330 30% 30%",  // Dark dusty rose
+      card: "330 60% 98%",       // Almost white with pink hint
+      cardForeground: "330 30% 30%",
+      popover: "330 60% 98%",
+      popoverForeground: "330 30% 30%",
+      primary: "336 70% 65%",     // Soft pink (#F080AA)
+      primaryForeground: "330 30% 30%", // Dark dusty rose
+      secondary: "330 40% 80%",    // Lighter pastel pink
+      secondaryForeground: "330 30% 30%",
+      muted: "330 50% 92%",        // Light pink
+      mutedForeground: "330 25% 55%", // Muted rose
+      accent: "260 60% 70%",     // Contrasting lavender
+      accentForeground: "0 0% 100%",
+      destructive: "0 70% 55%",    // Red
+      destructiveForeground: "0 0% 100%",
+      border: "330 40% 88%",       // Softer pink border
+      input: "330 50% 94%",        // Light pink input background
+      ring: "336 70% 65%",
+    }
+  },
+  {
+    id: "espresso-brown",
+    name: "Espresso Brown",
+    isDark: true,
+    colors: {
+      background: "30 20% 10%",  // Very dark brown
+      foreground: "30 15% 85%",   // Light beige/cream
+      card: "30 20% 15%",        // Dark brown
+      cardForeground: "30 15% 85%",
+      popover: "30 20% 15%",
+      popoverForeground: "30 15% 85%",
+      primary: "35 60% 55%",      // Rich coffee brown (#A0522D - sienna, adjusted HSL)
+      primaryForeground: "30 15% 95%", // Off-white
+      secondary: "30 30% 40%",     // Medium dark brown
+      secondaryForeground: "30 15% 90%",
+      muted: "30 15% 25%",         // Muted dark brown
+      mutedForeground: "30 10% 65%",  // Muted beige
+      accent: "45 70% 60%",      // Contrasting gold/amber
+      accentForeground: "30 20% 10%",
+      destructive: "0 60% 50%",     // Deep red
+      destructiveForeground: "30 15% 95%",
+      border: "30 15% 20%",        // Dark brown border
+      input: "30 15% 18%",         // Dark input background
+      ring: "35 60% 55%",
+    }
+  },
+  {
+    id: "graphite-mono",
+    name: "Graphite Mono",
+    isDark: true,
+    colors: {
+      background: "240 6% 10%",  // Very dark grey
+      foreground: "240 5% 90%",   // Light grey
+      card: "240 6% 12%",        // Darker grey
+      cardForeground: "240 5% 90%",
+      popover: "240 6% 12%",
+      popoverForeground: "240 5% 90%",
+      primary: "240 3% 75%",      // Medium-light grey (for primary actions)
+      primaryForeground: "240 6% 10%",  // Very dark grey (for text on primary)
+      secondary: "240 4% 30%",     // Medium dark grey
+      secondaryForeground: "240 5% 85%",
+      muted: "240 5% 20%",         // Muted dark grey
+      mutedForeground: "240 4% 60%",  // Muted medium grey
+      accent: "0 0% 100%",       // White (as a stark accent)
+      accentForeground: "240 6% 10%",
+      destructive: "0 70% 50%",     // Red (for destructive actions)
+      destructiveForeground: "240 5% 90%",
+      border: "240 5% 18%",        // Dark grey border
+      input: "240 5% 16%",         // Dark input background
+      ring: "240 3% 75%",
+    }
+  }
   // Add more themes here if needed
 ];
+
+    
