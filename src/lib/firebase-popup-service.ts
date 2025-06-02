@@ -1,3 +1,4 @@
+
 "use client";
 
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
@@ -7,17 +8,20 @@ import { DEFAULT_POPUP_SETTINGS } from '@/types/popup-settings';
 
 const SETTINGS_COLLECTION = 'site_settings';
 const POPUPS_CONFIG_DOC_ID = 'popups_config'; // Single document to hold all popup settings
+const FULL_POPUPS_PATH = `${SETTINGS_COLLECTION}/${POPUPS_CONFIG_DOC_ID}`;
 
 /**
  * Fetches all popup configurations from Firestore.
  * Returns default settings if no configuration is found.
  */
 export async function getPopupSettings(): Promise<AllPopupSettings> {
+  const docRef = doc(firestore, SETTINGS_COLLECTION, POPUPS_CONFIG_DOC_ID);
+  console.log(`[PopupService] Attempting to GET popup settings from path: ${FULL_POPUPS_PATH}`);
   try {
-    const docRef = doc(firestore, SETTINGS_COLLECTION, POPUPS_CONFIG_DOC_ID);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data() as Partial<AllPopupSettings>;
+      console.log(`[PopupService] Successfully fetched popup settings from ${FULL_POPUPS_PATH}. Data:`, data);
       // Merge with defaults to ensure all popup types are present
       return {
         bottomPopup: { ...DEFAULT_POPUP_SETTINGS.bottomPopup, ...data.bottomPopup },
@@ -26,9 +30,10 @@ export async function getPopupSettings(): Promise<AllPopupSettings> {
         lastUpdated: data.lastUpdated || serverTimestamp(),
       };
     }
+    console.log(`[PopupService] No popup settings document found at ${FULL_POPUPS_PATH}. Returning defaults.`);
     return { ...DEFAULT_POPUP_SETTINGS, lastUpdated: serverTimestamp() }; // Return deep copy of defaults
   } catch (error) {
-    console.error("Error fetching popup settings:", error);
+    console.error(`[PopupService] Error fetching popup settings from ${FULL_POPUPS_PATH}:`, error);
     // In case of error, return defaults to prevent app crash
     return { ...DEFAULT_POPUP_SETTINGS, lastUpdated: serverTimestamp() };
   }
@@ -39,30 +44,30 @@ export async function getPopupSettings(): Promise<AllPopupSettings> {
  * Requires admin authentication.
  */
 export async function updatePopupSettings(settings: AllPopupSettings): Promise<void> {
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error("Authentication required to update popup settings.");
-    }
-    // Note: Admin check (e.g., exists in 'admins' collection) should ideally happen here
-    // or be enforced by Firestore rules for `/site_settings/popups_config`.
-    // For now, relying on admin panel access control.
+  const currentUser = auth.currentUser;
+  const userUidForLog = currentUser ? currentUser.uid : 'null (unauthenticated)';
+  console.log(`[PopupService] Attempting to UPDATE popup settings at path: ${FULL_POPUPS_PATH}. User UID: ${userUidForLog}`);
 
+  if (!currentUser) {
+    console.error(`[PopupService] Update failed: Authentication required to update popup settings at ${FULL_POPUPS_PATH}.`);
+    throw new Error("Authentication required to update popup settings.");
+  }
+  
+  // Note: The actual admin check (exists in 'admins' collection) is enforced by Firestore security rules.
+  // This client-side check primarily ensures a user is logged in.
+
+  try {
     const docRef = doc(firestore, SETTINGS_COLLECTION, POPUPS_CONFIG_DOC_ID);
     const settingsToSave: AllPopupSettings = {
       ...settings,
       lastUpdated: serverTimestamp(),
     };
-    // Ensure individual popups also get a lastUpdated timestamp if they were modified.
-    // This might be redundant if the top-level lastUpdated is sufficient.
-    // settingsToSave.bottomPopup.lastUpdated = serverTimestamp();
-    // settingsToSave.topNavbarPopup.lastUpdated = serverTimestamp();
-    // settingsToSave.centerScreenPopup.lastUpdated = serverTimestamp();
     
-    await setDoc(docRef, settingsToSave, { merge: true }); // Merge to not overwrite other potential fields in site_settings if this doc was shared (it's not, currently)
+    await setDoc(docRef, settingsToSave, { merge: true });
+    console.log(`[PopupService] Successfully updated popup settings at ${FULL_POPUPS_PATH}.`);
   } catch (error) {
-    console.error("Error updating popup settings in Firestore:", error);
-    throw error;
+    console.error(`[PopupService] Error updating popup settings in Firestore at ${FULL_POPUPS_PATH}. User UID: ${userUidForLog}. Error:`, error);
+    throw error; // Re-throw to be handled by the calling UI component (e.g., to show a toast)
   }
 }
 
@@ -75,9 +80,12 @@ export function subscribeToPopupSettings(
   callback: (settings: AllPopupSettings) => void
 ): Unsubscribe {
   const docRef = doc(firestore, SETTINGS_COLLECTION, POPUPS_CONFIG_DOC_ID);
+  console.log(`[PopupService] Subscribing to popup settings at path: ${FULL_POPUPS_PATH}`);
+
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       const data = docSnap.data() as Partial<AllPopupSettings>;
+      console.log(`[PopupService] Subscription update received for ${FULL_POPUPS_PATH}. Data:`, data);
        // Merge with defaults to ensure all popup types are present
       const fullSettings = {
         bottomPopup: { ...DEFAULT_POPUP_SETTINGS.bottomPopup, ...data.bottomPopup },
@@ -87,24 +95,26 @@ export function subscribeToPopupSettings(
       };
       callback(fullSettings);
     } else {
+      console.log(`[PopupService] Subscription: No document at ${FULL_POPUPS_PATH}. Using defaults.`);
       callback({ ...DEFAULT_POPUP_SETTINGS }); // Return deep copy of defaults
     }
   }, (error) => {
-    console.error("Error in popup settings subscription:", error);
+    console.error(`[PopupService] Error in popup settings subscription for ${FULL_POPUPS_PATH}:`, error);
     callback({ ...DEFAULT_POPUP_SETTINGS }); // Fallback to defaults on error
   });
   return unsubscribe;
 }
 
-// You'll also need to update Firestore security rules to allow admins to read/write to 'site_settings/popups_config'.
-// Example rule (add to your existing rules):
+// Firestore security rules reminder (to be placed in Firebase console):
 /*
-match /site_settings/popups_config {
-  // Allow public read if popups are for everyone, or restrict if needed.
-  // For now, assuming admin reads/writes, frontend reads.
-  allow read: if true; // Or if request.auth != null for logged-in users only
-  
-  // Allow write access only if the requesting user is an admin.
-  allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ... other rules ...
+
+    match /site_settings/popups_config {
+      allow read: if true; // Or if request.auth != null;
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+  }
 }
 */
