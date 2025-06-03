@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Rules for the 'admins' collection
+    // This collection stores UIDs of users who are administrators.
+    match /admins/{adminId} {
+      // Allow any authenticated user to read admin documents.
+      // For tighter security, you might restrict this to only other admins
+      // or disallow client-side reads entirely if admin UIDs are not needed by clients.
+      allow read: if request.auth != null;
+
+      // Allow an authenticated user to create their own admin document.
+      // This is primarily for the initial admin signup.
+      // For modifying/deleting admin records after initial setup, consider Cloud Functions
+      // or a more privileged role for enhanced security.
+      allow write: if request.auth != null && request.auth.uid == adminId;
+    }
+
+    // Rules for General Site Settings
+    // Document path: /site_settings/general_config
+    match /site_settings/general_config {
+      // Allow public read access as these settings are needed by the frontend.
+      allow read: if true;
+
+      // Allow write access only if the user is authenticated AND is an admin.
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Rules for Popup Settings
+    // Document path: /site_settings/popups_config
+    match /site_settings/popups_config {
+      // Allow public read access for the frontend to display popups.
+      // If popups should only be for logged-in users, change to:
+      // allow read: if request.auth != null;
+      allow read: if true;
+
+      // Allow write access (create, update) only if the user
+      // is authenticated AND is an admin.
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Rules for user profiles in the 'users' collection
+    match /users/{userId} {
+      // Allow a user to:
+      // - Create their own profile document (e.g., upon signup).
+      // - Read their own profile document.
+      // - Update their own profile document.
+      // Client-side deletion is disallowed for now to prevent accidental data loss.
+      allow create, read, update: if request.auth != null && request.auth.uid == userId;
+
+      // If you want admins to also be able to read user profiles, you could use:
+      // allow read: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      // allow write: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); // If admins can also edit
+    }
+
+    // Rules for Conversion Logs
+    // Collection: conversion_logs
+    match /conversion_logs/{logId} {
+      // Allow any client to create conversion logs.
+      // For better security in a production environment, this might be restricted
+      // to authenticated users, or handled via a backend function that validates
+      // the conversion event before logging.
+      allow create: if true;
+
+      // Allow only authenticated admins to read conversion logs.
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      
+      // Generally, logs shouldn't be updated or deleted from the client.
+      allow update, delete: if false;
+    }
+
+    // --- Obsolete Rules Section (Consider Deleting if No Longer Needed) ---
+    // The 'daily_conversion_metrics' feature was removed.
+    // If you are sure it's no longer used, you can delete this block.
+    // If you might re-enable it, you can keep it commented out or as is.
+    /*
+    match /daily_conversion_metrics/{dateString} {
+      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow write: if request.auth != null;
+    }
+    */
+
+  }
+}
