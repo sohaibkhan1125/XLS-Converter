@@ -5,10 +5,10 @@ import type React from 'react';
 import { PayPalButtons, usePayPalScriptReducer, type PayPalButtonsComponentProps } from "@paypal/react-paypal-js";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { Button } from '@/components/ui/button'; // Added Button
+// Removed Button import as direct trial button is removed
 import { cn } from '@/lib/utils';
 import type { Plan, PlanFeature } from '@/config/pricing';
-import { CheckCircle2, XCircle, Clock } from 'lucide-react'; // Added Clock for trial
+import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface PricingCardProps {
@@ -39,7 +39,7 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
             value: displayPrice.toFixed(2),
             currency_code: "USD"
           },
-          description: `${plan.name} Plan - ${billingCycle}ly`
+          description: `${plan.name} Plan - ${billingCycle}ly` + (plan.trialDays ? ` (Includes ${plan.trialDays}-Day Trial)` : '')
         }]
       });
     },
@@ -57,7 +57,7 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
             description: `Order ID: ${data.orderID}. Thank you for your purchase.`,
           });
         }
-        onSelectPlan(plan.id, billingCycle); // Activate plan after successful payment
+        onSelectPlan(plan.id, billingCycle); // Activate plan (including trial phase) after successful payment
       } catch (error) {
         console.error("PayPal Capture Error:", error);
         toast({
@@ -83,10 +83,6 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
     }
   };
 
-  const handleStartTrial = () => {
-    onSelectPlan(plan.id, billingCycle);
-  };
-
   return (
     <Card className={cn(
       "flex flex-col shadow-lg transition-all duration-300 ease-in-out",
@@ -110,7 +106,7 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
         {plan.trialDays && plan.trialDays > 0 && (
           <div className="text-center text-sm font-medium text-accent-foreground bg-accent/80 p-2 rounded-md flex items-center justify-center gap-2">
             <Clock className="h-4 w-4" />
-            Includes {plan.trialDays}-Day Free Trial
+            Includes {plan.trialDays}-Day Trial Period
           </div>
         )}
         <ul className="space-y-3">
@@ -135,26 +131,16 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan }: Pricin
         </ul>
       </CardContent>
       <CardFooter className="p-6 mt-auto min-h-[80px] flex items-center justify-center">
-        {plan.trialDays && plan.trialDays > 0 ? (
-          <Button 
-            onClick={handleStartTrial} 
-            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-            size="lg"
-          >
-            {plan.ctaText || `Start ${plan.trialDays}-Day Free Trial`}
-          </Button>
+        {isPending ? (
+          <LoadingSpinner message="Loading payment options..." />
+        ) : isRejected ? (
+          <p className="text-destructive text-center text-sm">
+            Could not load PayPal. Please refresh the page or check your internet connection.
+          </p>
         ) : (
-          isPending ? (
-            <LoadingSpinner message="Loading payment options..." />
-          ) : isRejected ? (
-            <p className="text-destructive text-center text-sm">
-              Could not load PayPal. Please refresh the page or check your internet connection.
-            </p>
-          ) : (
-            <div className="w-full">
-              <PayPalButtons {...paypalButtonOptions} />
-            </div>
-          )
+          <div className="w-full">
+            <PayPalButtons {...paypalButtonOptions} />
+          </div>
         )}
       </CardFooter>
     </Card>

@@ -24,8 +24,8 @@ export interface ActivePlan {
   usedConversions: number;
   activatedAt: number;
   billingCycle: 'monthly' | 'annual';
-  isTrial?: boolean; // Added for trial
-  trialEndsAt?: number; // Added for trial
+  isTrial?: boolean; 
+  trialEndsAt?: number; 
 }
 
 export interface PlanDetails {
@@ -33,44 +33,32 @@ export interface PlanDetails {
   name: string;
   conversions: number;
   cycle: 'monthly' | 'annual';
-  price: number; // For display on toast, etc.
-  trialDays?: number; // Added for trial
+  price: number; 
+  trialDays?: number;
 }
 
 
 // --- Plan Management Functions ---
 
 function getPlanKey(userId: string | null): string {
-  return userId ? `${PLAN_KEY_PREFIX}${userId}` : `${PLAN_KEY_PREFIX}guest_plan`; // Guest plan key
+  return userId ? `${PLAN_KEY_PREFIX}${userId}` : `${PLAN_KEY_PREFIX}guest_plan`;
 }
 
 export function activatePlan(userId: string | null, planDetails: PlanDetails): ActivePlan {
   const planKey = getPlanKey(userId);
   let newPlan: ActivePlan;
 
-  if (planDetails.trialDays && planDetails.trialDays > 0) {
-    console.log(`[LocalStorageLimits] Activating trial for plan: ${planDetails.name}, ${planDetails.trialDays} days`);
-    newPlan = {
-      name: planDetails.name,
-      totalConversions: planDetails.conversions, // Use plan's conversions for trial
-      usedConversions: 0,
-      activatedAt: Date.now(),
-      billingCycle: planDetails.cycle, // Store intended cycle for post-trial
-      isTrial: true,
-      trialEndsAt: Date.now() + TRIAL_DURATION_MS(planDetails.trialDays),
-    };
-  } else {
-    console.log(`[LocalStorageLimits] Activating paid plan: ${planDetails.name}`);
-    newPlan = {
-      name: planDetails.name,
-      totalConversions: planDetails.conversions,
-      usedConversions: 0,
-      activatedAt: Date.now(),
-      billingCycle: planDetails.cycle,
-      isTrial: false,
-    };
-  }
-
+  console.log(`[LocalStorageLimits] Activating plan: ${planDetails.name}, Trial Days: ${planDetails.trialDays}`);
+  newPlan = {
+    name: planDetails.name,
+    totalConversions: planDetails.conversions,
+    usedConversions: 0,
+    activatedAt: Date.now(),
+    billingCycle: planDetails.cycle,
+    isTrial: planDetails.trialDays && planDetails.trialDays > 0 ? true : false,
+    trialEndsAt: planDetails.trialDays && planDetails.trialDays > 0 ? Date.now() + TRIAL_DURATION_MS(planDetails.trialDays) : undefined,
+  };
+  
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(planKey, JSON.stringify(newPlan));
@@ -91,24 +79,32 @@ export function getActivePlan(userId: string | null): ActivePlan | null {
     const plan = JSON.parse(item) as ActivePlan;
     const now = Date.now();
 
-    if (plan.isTrial) {
-      if (plan.trialEndsAt && now > plan.trialEndsAt) {
-        console.log(`[LocalStorageLimits] Trial for plan ${plan.name} expired. Removing.`);
-        localStorage.removeItem(planKey); // Clean up expired trial
-        return null;
-      }
-      // Trial is active
-      return plan;
-    } else {
-      // Paid plan
-      const planDuration = plan.billingCycle === 'monthly' ? MONTH_MS : YEAR_MS;
-      if (now - plan.activatedAt > planDuration) {
-        console.log(`[LocalStorageLimits] Paid plan ${plan.name} expired. Removing.`);
-        localStorage.removeItem(planKey); // Clean up expired paid plan
-        return null;
-      }
-      return plan;
+    // Check overall plan expiration based on billing cycle from activation date
+    const planDuration = plan.billingCycle === 'monthly' ? MONTH_MS : YEAR_MS;
+    if (now - plan.activatedAt > planDuration) {
+      console.log(`[LocalStorageLimits] Paid plan ${plan.name} main duration expired. Removing.`);
+      localStorage.removeItem(planKey); // Clean up expired paid plan
+      return null;
     }
+
+    // If the plan is within its main duration, it's considered active.
+    // The `isTrial` and `trialEndsAt` fields are now primarily informational for the UI
+    // to indicate if the user is within that initial phase of their paid plan.
+    // The trial ending does not invalidate the plan if the main duration is still active.
+    
+    // Optional: If you want to update the plan in localStorage to set isTrial=false after trialEndsAt:
+    // if (plan.isTrial && plan.trialEndsAt && now > plan.trialEndsAt) {
+    //   const updatedPlan = { ...plan, isTrial: false };
+    //   try {
+    //     localStorage.setItem(planKey, JSON.stringify(updatedPlan));
+    //     return updatedPlan; // Return the updated plan state
+    //   } catch (error) {
+    //     console.error("[LocalStorageLimits] Error updating plan to non-trial state:", error);
+    //     // Fall through to return original plan if update fails
+    //   }
+    // }
+
+    return plan;
   } catch (error) {
     console.error("[LocalStorageLimits] Error reading active plan from local storage:", error);
     localStorage.removeItem(planKey); // Remove potentially corrupted data
@@ -172,21 +168,23 @@ export interface LimitStatus {
   onPlan: boolean;
   planName?: string;
   isPlanExhausted?: boolean; // True if on a plan but quota is used up
-  isTrial?: boolean; // True if currently on a trial
-  trialEndsAt?: number; // Timestamp if on trial
+  isTrial?: boolean; // True if currently within the initial trial phase of a paid plan
+  trialEndsAt?: number; // Timestamp if in trial phase
 }
 
 export function checkConversionLimit(userId: string | null): LimitStatus {
   const activePlan = getActivePlan(userId);
+  const now = Date.now();
 
   if (activePlan) {
+    const isCurrentlyInTrialPhase = activePlan.isTrial && activePlan.trialEndsAt && now < activePlan.trialEndsAt;
     if (activePlan.usedConversions < activePlan.totalConversions) {
       return {
         allowed: true,
         remaining: activePlan.totalConversions - activePlan.usedConversions,
         onPlan: true,
         planName: activePlan.name,
-        isTrial: activePlan.isTrial,
+        isTrial: isCurrentlyInTrialPhase,
         trialEndsAt: activePlan.trialEndsAt,
       };
     } else {
@@ -197,7 +195,7 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
         onPlan: true,
         planName: activePlan.name,
         isPlanExhausted: true,
-        isTrial: activePlan.isTrial,
+        isTrial: isCurrentlyInTrialPhase,
         trialEndsAt: activePlan.trialEndsAt,
       };
     }
@@ -206,8 +204,7 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
   // Fallback to free tier logic if no active/valid plan
   const freeTierKey = getFreeTierKey(userId);
   const freeTierLimit = getFreeTierLimit(userId);
-  const now = Date.now();
-
+  
   const allTimestamps = getStoredFreeTierTimestamps(freeTierKey);
   const validTimestamps = allTimestamps.filter(record => (now - record.timestamp) < FREE_TIER_WINDOW_MS);
 
@@ -231,12 +228,9 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 export function recordConversion(userId: string | null): void {
   console.log(`[LocalStorageLimits] recordConversion called for user: ${userId || 'guest'}.`);
 
-  // Removed call to incrementDailyConversionCounter()
-
-  // This part handles local storage limits for plans/free tier
   if (consumePlanConversion(userId)) {
-    console.log("[LocalStorageLimits] Local conversion recorded against user's plan/trial.");
-    return; // Conversion recorded against the plan
+    console.log("[LocalStorageLimits] Local conversion recorded against user's plan.");
+    return; 
   }
 
   console.log("[LocalStorageLimits] Recording local conversion against free tier.");

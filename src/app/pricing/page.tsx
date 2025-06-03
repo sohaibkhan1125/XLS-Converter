@@ -59,19 +59,18 @@ export default function PricingPage() {
       conversions: cycle === 'monthly' ? selectedPlan.monthlyConversions : selectedPlan.annualConversions,
       cycle: cycle,
       price: cycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualPrice,
-      trialDays: selectedPlan.trialDays, // Pass trialDays
+      trialDays: selectedPlan.trialDays, 
     };
 
     const activatedPlan = activatePlan(currentUser ? currentUser.uid : null, planDetailsToActivate);
 
-    if (activatedPlan.isTrial) {
+    if (activatedPlan.isTrial && activatedPlan.trialEndsAt && activatedPlan.trialEndsAt > Date.now() && selectedPlan.trialDays) {
       toast({
-        title: `${activatedPlan.name} Trial Started!`,
-        description: `Your ${selectedPlan.trialDays}-day free trial has begun. You have ${activatedPlan.totalConversions} conversions available.`,
+        title: `${activatedPlan.name} Plan Activated!`,
+        description: `Your purchase includes an initial ${selectedPlan.trialDays}-day trial period. You have ${activatedPlan.totalConversions} conversions available.`,
         duration: 7000,
       });
     } else {
-      // This part is now typically reached after PayPal payment success
       toast({
         title: `${activatedPlan.name} Plan Activated!`,
         description: `You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}. Your conversions will be available immediately.`,
@@ -89,7 +88,7 @@ export default function PricingPage() {
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-muted-foreground">
             Choose the plan that best suits your PDF to Excel conversion needs. Get more with annual billing!
-            All plans now include a 7-day free trial.
+            All paid plans include an initial 7-day trial period.
           </p>
         </div>
 
@@ -116,7 +115,7 @@ export default function PricingPage() {
         <div className="mt-16 text-center">
           <h3 className="text-2xl font-semibold text-foreground">Not sure which plan is right for you?</h3>
           <p className="text-muted-foreground mt-2 mb-6">
-            You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service before starting a trial or paid plan.
+            You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service before choosing a paid plan.
           </p>
           {!currentUser && (
              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -134,16 +133,16 @@ export default function PricingPage() {
           <h3 className="text-2xl font-semibold text-center text-primary mb-6">Frequently Asked Questions</h3>
           <div className="space-y-4">
             <div>
-              <h4 className="font-medium text-foreground">How does the 7-day free trial work?</h4>
-              <p className="text-muted-foreground">Select any plan to start your 7-day free trial. You'll get access to the plan's conversion limits for 7 days. No credit card required to start the trial. After the trial, you can choose to subscribe to continue using the plan.</p>
+              <h4 className="font-medium text-foreground">How does the 7-day trial period work with paid plans?</h4>
+              <p className="text-muted-foreground">When you purchase a plan, the first 7 days are considered a trial period. You get full access to the plan's features and conversion limits. If you're not satisfied, you can request a refund within these 7 days (subject to terms). The payment covers the entire first billing cycle (month or year).</p>
             </div>
             <div>
               <h4 className="font-medium text-foreground">Can I change my plan later?</h4>
-              <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan at any time. Changes will apply from the next billing cycle or after your current trial ends.</p>
+              <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan. Changes will typically apply from the next billing cycle. Contact support for assistance.</p>
             </div>
             <div>
-              <h4 className="font-medium text-foreground">What happens if I exceed my conversions during the trial or on a plan?</h4>
-              <p className="text-muted-foreground">If you exceed your plan's conversion limit (trial or paid), you'll be prompted to upgrade your plan or wait until your quota renews. Alternatively, you can purchase conversion packs (coming soon).</p>
+              <h4 className="font-medium text-foreground">What happens if I exceed my conversions?</h4>
+              <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait until your quota renews at the start of your next billing cycle.</p>
             </div>
           </div>
         </div>
