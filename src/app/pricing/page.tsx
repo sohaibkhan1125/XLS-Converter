@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react';
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PricingCard from '@/components/pricing/pricing-card';
@@ -11,9 +11,9 @@ import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation'; // Added usePathname
-import type { GeneralSiteSettings } from '@/types/site-settings'; // Added GeneralSiteSettings
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; // Added subscribeToGeneralSettings
+import { usePathname } from 'next/navigation';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const PAYPAL_CLIENT_ID = "AQS8CKbKYudDa2HRF17WPTWoA_oAUUWPR7ciQCk-oF-2jeiHS6rU1h5GNL-zXZ5zdtppGWFwQIxSXaQb";
 
@@ -59,18 +59,25 @@ export default function PricingPage() {
       conversions: cycle === 'monthly' ? selectedPlan.monthlyConversions : selectedPlan.annualConversions,
       cycle: cycle,
       price: cycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualPrice,
+      trialDays: selectedPlan.trialDays, // Pass trialDays
     };
 
     const activatedPlan = activatePlan(currentUser ? currentUser.uid : null, planDetailsToActivate);
 
-    toast({
-      title: `${activatedPlan.name} Plan Activated!`,
-      description: `You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}. Your conversions will be available immediately.`,
-      duration: 7000, // Increased duration for this important message
-    });
-
-    // Payment success is handled by PayPalButtons in PricingCard,
-    // this function is now primarily for activating the plan locally after payment.
+    if (activatedPlan.isTrial) {
+      toast({
+        title: `${activatedPlan.name} Trial Started!`,
+        description: `Your ${selectedPlan.trialDays}-day free trial has begun. You have ${activatedPlan.totalConversions} conversions available.`,
+        duration: 7000,
+      });
+    } else {
+      // This part is now typically reached after PayPal payment success
+      toast({
+        title: `${activatedPlan.name} Plan Activated!`,
+        description: `You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}. Your conversions will be available immediately.`,
+        duration: 7000,
+      });
+    }
   };
 
   return (
@@ -82,6 +89,7 @@ export default function PricingPage() {
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-muted-foreground">
             Choose the plan that best suits your PDF to Excel conversion needs. Get more with annual billing!
+            All plans now include a 7-day free trial.
           </p>
         </div>
 
@@ -100,7 +108,7 @@ export default function PricingPage() {
               key={plan.id}
               plan={plan}
               billingCycle={billingCycle}
-              onSelectPlan={handleSelectPlan} // This will be called after successful PayPal payment
+              onSelectPlan={handleSelectPlan}
             />
           ))}
         </div>
@@ -108,7 +116,7 @@ export default function PricingPage() {
         <div className="mt-16 text-center">
           <h3 className="text-2xl font-semibold text-foreground">Not sure which plan is right for you?</h3>
           <p className="text-muted-foreground mt-2 mb-6">
-            You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service.
+            You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service before starting a trial or paid plan.
           </p>
           {!currentUser && (
              <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -126,16 +134,16 @@ export default function PricingPage() {
           <h3 className="text-2xl font-semibold text-center text-primary mb-6">Frequently Asked Questions</h3>
           <div className="space-y-4">
             <div>
+              <h4 className="font-medium text-foreground">How does the 7-day free trial work?</h4>
+              <p className="text-muted-foreground">Select any plan to start your 7-day free trial. You'll get access to the plan's conversion limits for 7 days. No credit card required to start the trial. After the trial, you can choose to subscribe to continue using the plan.</p>
+            </div>
+            <div>
               <h4 className="font-medium text-foreground">Can I change my plan later?</h4>
-              <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan at any time. Changes will apply from the next billing cycle.</p>
+              <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan at any time. Changes will apply from the next billing cycle or after your current trial ends.</p>
             </div>
             <div>
-              <h4 className="font-medium text-foreground">What happens if I exceed my monthly/annual conversions?</h4>
-              <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait until your quota renews. Alternatively, you can purchase conversion packs (coming soon).</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-foreground">Is there a free trial?</h4>
-              <p className="text-muted-foreground">We offer a free tier with limited conversions so you can try our service. Guests get 1 conversion, and signed-up users get 5 conversions, resetting every 24 hours if not on a paid plan.</p>
+              <h4 className="font-medium text-foreground">What happens if I exceed my conversions during the trial or on a plan?</h4>
+              <p className="text-muted-foreground">If you exceed your plan's conversion limit (trial or paid), you'll be prompted to upgrade your plan or wait until your quota renews. Alternatively, you can purchase conversion packs (coming soon).</p>
             </div>
           </div>
         </div>

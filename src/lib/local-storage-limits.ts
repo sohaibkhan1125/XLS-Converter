@@ -12,6 +12,7 @@ const FREE_TIER_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PLAN_KEY_PREFIX = "XLSCONVERT_ACTIVE_PLAN_";
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000; // Approx 30 days
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000; // Approx 365 days
+const TRIAL_DURATION_MS = (days: number) => days * 24 * 60 * 60 * 1000;
 
 interface ConversionRecord {
   timestamp: number;
@@ -23,6 +24,8 @@ export interface ActivePlan {
   usedConversions: number;
   activatedAt: number;
   billingCycle: 'monthly' | 'annual';
+  isTrial?: boolean; // Added for trial
+  trialEndsAt?: number; // Added for trial
 }
 
 export interface PlanDetails {
@@ -31,24 +34,43 @@ export interface PlanDetails {
   conversions: number;
   cycle: 'monthly' | 'annual';
   price: number; // For display on toast, etc.
+  trialDays?: number; // Added for trial
 }
 
 
 // --- Plan Management Functions ---
 
 function getPlanKey(userId: string | null): string {
-  return userId ? `${PLAN_KEY_PREFIX}${userId}` : `${PLAN_KEY_PREFIX}guest`;
+  return userId ? `${PLAN_KEY_PREFIX}${userId}` : `${PLAN_KEY_PREFIX}guest_plan`; // Guest plan key
 }
 
 export function activatePlan(userId: string | null, planDetails: PlanDetails): ActivePlan {
   const planKey = getPlanKey(userId);
-  const newPlan: ActivePlan = {
-    name: planDetails.name,
-    totalConversions: planDetails.conversions,
-    usedConversions: 0,
-    activatedAt: Date.now(),
-    billingCycle: planDetails.cycle,
-  };
+  let newPlan: ActivePlan;
+
+  if (planDetails.trialDays && planDetails.trialDays > 0) {
+    console.log(`[LocalStorageLimits] Activating trial for plan: ${planDetails.name}, ${planDetails.trialDays} days`);
+    newPlan = {
+      name: planDetails.name,
+      totalConversions: planDetails.conversions, // Use plan's conversions for trial
+      usedConversions: 0,
+      activatedAt: Date.now(),
+      billingCycle: planDetails.cycle, // Store intended cycle for post-trial
+      isTrial: true,
+      trialEndsAt: Date.now() + TRIAL_DURATION_MS(planDetails.trialDays),
+    };
+  } else {
+    console.log(`[LocalStorageLimits] Activating paid plan: ${planDetails.name}`);
+    newPlan = {
+      name: planDetails.name,
+      totalConversions: planDetails.conversions,
+      usedConversions: 0,
+      activatedAt: Date.now(),
+      billingCycle: planDetails.cycle,
+      isTrial: false,
+    };
+  }
+
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(planKey, JSON.stringify(newPlan));
@@ -68,13 +90,25 @@ export function getActivePlan(userId: string | null): ActivePlan | null {
 
     const plan = JSON.parse(item) as ActivePlan;
     const now = Date.now();
-    const planDuration = plan.billingCycle === 'monthly' ? MONTH_MS : YEAR_MS;
 
-    if (now - plan.activatedAt > planDuration) {
-      localStorage.removeItem(planKey); // Clean up "expired" plan
-      return null;
+    if (plan.isTrial) {
+      if (plan.trialEndsAt && now > plan.trialEndsAt) {
+        console.log(`[LocalStorageLimits] Trial for plan ${plan.name} expired. Removing.`);
+        localStorage.removeItem(planKey); // Clean up expired trial
+        return null;
+      }
+      // Trial is active
+      return plan;
+    } else {
+      // Paid plan
+      const planDuration = plan.billingCycle === 'monthly' ? MONTH_MS : YEAR_MS;
+      if (now - plan.activatedAt > planDuration) {
+        console.log(`[LocalStorageLimits] Paid plan ${plan.name} expired. Removing.`);
+        localStorage.removeItem(planKey); // Clean up expired paid plan
+        return null;
+      }
+      return plan;
     }
-    return plan;
   } catch (error) {
     console.error("[LocalStorageLimits] Error reading active plan from local storage:", error);
     localStorage.removeItem(planKey); // Remove potentially corrupted data
@@ -138,6 +172,8 @@ export interface LimitStatus {
   onPlan: boolean;
   planName?: string;
   isPlanExhausted?: boolean; // True if on a plan but quota is used up
+  isTrial?: boolean; // True if currently on a trial
+  trialEndsAt?: number; // Timestamp if on trial
 }
 
 export function checkConversionLimit(userId: string | null): LimitStatus {
@@ -150,6 +186,8 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
         remaining: activePlan.totalConversions - activePlan.usedConversions,
         onPlan: true,
         planName: activePlan.name,
+        isTrial: activePlan.isTrial,
+        trialEndsAt: activePlan.trialEndsAt,
       };
     } else {
       // Plan exists but conversions are exhausted.
@@ -159,6 +197,8 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
         onPlan: true,
         planName: activePlan.name,
         isPlanExhausted: true,
+        isTrial: activePlan.isTrial,
+        trialEndsAt: activePlan.trialEndsAt,
       };
     }
   }
@@ -178,13 +218,13 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
   const remainingConversions = freeTierLimit - validTimestamps.length;
 
   if (remainingConversions > 0) {
-    return { allowed: true, remaining: remainingConversions, onPlan: false };
+    return { allowed: true, remaining: remainingConversions, onPlan: false, isTrial: false };
   } else {
     const oldestValidTimestamp = validTimestamps.length > 0
       ? validTimestamps.sort((a, b) => a.timestamp - b.timestamp)[0].timestamp
       : now;
     const timeToWaitMs = (oldestValidTimestamp + FREE_TIER_WINDOW_MS) - now;
-    return { allowed: false, remaining: 0, timeToWaitMs: Math.max(0, timeToWaitMs), onPlan: false };
+    return { allowed: false, remaining: 0, timeToWaitMs: Math.max(0, timeToWaitMs), onPlan: false, isTrial: false };
   }
 }
 
@@ -195,7 +235,7 @@ export function recordConversion(userId: string | null): void {
 
   // This part handles local storage limits for plans/free tier
   if (consumePlanConversion(userId)) {
-    console.log("[LocalStorageLimits] Local conversion recorded against user's plan.");
+    console.log("[LocalStorageLimits] Local conversion recorded against user's plan/trial.");
     return; // Conversion recorded against the plan
   }
 
