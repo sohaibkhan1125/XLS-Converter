@@ -26,6 +26,23 @@ export interface PageSEOInfo {
   keywords?: string; // Comma-separated string
 }
 
+export type PaymentGatewayType = 'paypal' | 'stripe';
+
+export interface PaymentGatewayCredentials {
+  clientId?: string; // PayPal Client ID / Stripe Publishable Key
+  clientSecret?: string; // PayPal Secret (WARN: PROD INSECURE) / Stripe Secret Key (WARN: PROD INSECURE)
+  webhookSecret?: string; // Stripe Webhook Secret (WARN: PROD INSECURE)
+  // Add other gateway-specific fields as needed
+}
+
+export interface PaymentGatewaySetting {
+  id: PaymentGatewayType;
+  name: string;
+  iconName: keyof typeof import('lucide-react');
+  enabled: boolean;
+  credentials: PaymentGatewayCredentials;
+}
+
 export interface GeneralSiteSettings {
   siteTitle?: string;
   logoUrl?: string;
@@ -37,6 +54,7 @@ export interface GeneralSiteSettings {
   seoSettings?: Record<string, PageSEOInfo>; // Key is page path (e.g., "/", "/about")
   robotsTxtContent?: string;
   sitemapXmlContent?: string;
-  maintenanceModeEnabled?: boolean; // Added for maintenance mode
+  maintenanceModeEnabled?: boolean;
+  paymentGateways?: PaymentGatewaySetting[]; // Added for payment gateways
   // future settings can be added here
 }

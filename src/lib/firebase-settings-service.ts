@@ -4,8 +4,9 @@
 import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firestore, storage, auth } from './firebase';
-import type { GeneralSiteSettings, SocialLink, CustomScript, PageSEOInfo } from '@/types/site-settings'; // Added PageSEOInfo
-import { DEFAULT_LIGHT_THEME_ID } from '@/config/themes'; // Import default theme ID
+import type { GeneralSiteSettings, SocialLink, CustomScript, PageSEOInfo, PaymentGatewaySetting, PaymentGatewayType } from '@/types/site-settings';
+import { DEFAULT_LIGHT_THEME_ID } from '@/config/themes';
+// import { Landmark, CreditCard } from 'lucide-react'; // Icons are set in default settings now
 
 const SETTINGS_COLLECTION = 'site_settings';
 const GENERAL_SETTINGS_DOC_ID = 'general_config';
@@ -19,6 +20,13 @@ export const PREDEFINED_SOCIAL_MEDIA_PLATFORMS: Omit<SocialLink, 'url' | 'enable
   { id: 'youtube', name: 'Youtube', iconName: 'Youtube' },
   { id: 'github', name: 'Github', iconName: 'Github' },
 ];
+
+// Define the known payment gateways and their static configuration
+export const PREDEFINED_PAYMENT_GATEWAYS_CONFIG: Pick<PaymentGatewaySetting, 'id' | 'name' | 'iconName'>[] = [
+  { id: 'paypal', name: 'PayPal', iconName: 'Landmark' }, // Landmark icon for PayPal
+  { id: 'stripe', name: 'Stripe', iconName: 'CreditCard' },
+];
+
 
 const DEFAULT_ROBOTS_TXT_CONTENT = `User-agent: *
 Allow: /
@@ -48,7 +56,23 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSiteSettings = {
   seoSettings: {},
   robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
   sitemapXmlContent: DEFAULT_SITEMAP_XML_CONTENT,
-  maintenanceModeEnabled: false, // Default for maintenance mode
+  maintenanceModeEnabled: false,
+  paymentGateways: [ // Default structure for known payment gateways
+    {
+      id: 'paypal',
+      name: 'PayPal',
+      iconName: 'Landmark',
+      enabled: false,
+      credentials: { clientId: '' },
+    },
+    {
+      id: 'stripe',
+      name: 'Stripe',
+      iconName: 'CreditCard',
+      enabled: false,
+      credentials: { clientId: '', clientSecret: '' },
+    },
+  ],
 };
 
 
@@ -58,48 +82,51 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
     const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      const data = docSnap.data() as GeneralSiteSettings;
-      // Ensure socialLinks is initialized
-      if (!data.socialLinks) {
-        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
-      } else {
-        const savedLinkIds = new Set(data.socialLinks.map(sl => sl.id));
-        const mergedLinks = [...data.socialLinks];
-        PREDEFINED_SOCIAL_MEDIA_PLATFORMS.forEach(p => {
-          if (!savedLinkIds.has(p.id)) {
-            mergedLinks.push({ ...p, url: '', enabled: false });
+      const data = docSnap.data() as Partial<GeneralSiteSettings>; // Data from Firestore might be partial
+      
+      // Merge with defaults, ensuring all predefined structures are present
+      const mergedSettings: GeneralSiteSettings = {
+        ...DEFAULT_GENERAL_SETTINGS, // Start with all defaults
+        ...data, // Overlay with saved data
+        // Deep merge for arrays of objects like socialLinks, customScripts, paymentGateways
+        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(defaultPlatform => {
+          const savedLink = data.socialLinks?.find(sl => sl.id === defaultPlatform.id);
+          return savedLink ? { ...defaultPlatform, ...savedLink } : { ...defaultPlatform, url: '', enabled: false };
+        }),
+        customScripts: data.customScripts || DEFAULT_GENERAL_SETTINGS.customScripts,
+        paymentGateways: PREDEFINED_PAYMENT_GATEWAYS_CONFIG.map(defaultGatewayConfig => {
+          const savedGateway = data.paymentGateways?.find(sg => sg.id === defaultGatewayConfig.id);
+          const defaultFullGateway = DEFAULT_GENERAL_SETTINGS.paymentGateways?.find(dfg => dfg.id === defaultGatewayConfig.id)
+            || { // Absolute fallback, should not be needed if DEFAULT_GENERAL_SETTINGS is correct
+                id: defaultGatewayConfig.id,
+                name: defaultGatewayConfig.name,
+                iconName: defaultGatewayConfig.iconName,
+                enabled: false,
+                credentials: {}
+               };
+          if (savedGateway) {
+            return { 
+              ...defaultFullGateway, // Base with name, icon
+              ...savedGateway, // Saved status, credentials
+              credentials: { ...defaultFullGateway.credentials, ...savedGateway.credentials } // Merge credentials
+            };
           }
-        });
-        data.socialLinks = mergedLinks;
-      }
-      // Ensure customScripts is initialized
-      if (!data.customScripts) {
-        data.customScripts = [];
-      }
-      // Ensure activeThemeId is initialized
-      if (!data.activeThemeId) {
-        data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
-      }
-      // Ensure seoSettings is initialized
-      if (!data.seoSettings) {
-        data.seoSettings = {};
-      }
-      // Ensure robotsTxtContent is initialized
-      if (data.robotsTxtContent === undefined) { 
-        data.robotsTxtContent = DEFAULT_ROBOTS_TXT_CONTENT;
-      }
-      // Ensure sitemapXmlContent is initialized
-      if (data.sitemapXmlContent === undefined) { 
-        data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
-      }
-      // Ensure maintenanceModeEnabled is initialized
-      if (data.maintenanceModeEnabled === undefined) {
-        data.maintenanceModeEnabled = false;
-      }
-      return data;
+          return defaultFullGateway;
+        }),
+        // Ensure other potentially missing fields also get defaults
+        siteTitle: data.siteTitle || DEFAULT_GENERAL_SETTINGS.siteTitle,
+        activeThemeId: data.activeThemeId || DEFAULT_GENERAL_SETTINGS.activeThemeId,
+        robotsTxtContent: data.robotsTxtContent === undefined ? DEFAULT_GENERAL_SETTINGS.robotsTxtContent : data.robotsTxtContent,
+        sitemapXmlContent: data.sitemapXmlContent === undefined ? DEFAULT_GENERAL_SETTINGS.sitemapXmlContent : data.sitemapXmlContent,
+        maintenanceModeEnabled: data.maintenanceModeEnabled === undefined ? DEFAULT_GENERAL_SETTINGS.maintenanceModeEnabled : data.maintenanceModeEnabled,
+        navItems: data.navItems && data.navItems.length > 0 ? data.navItems : DEFAULT_GENERAL_SETTINGS.navItems,
+        seoSettings: data.seoSettings || DEFAULT_GENERAL_SETTINGS.seoSettings,
+        adLoaderScript: data.adLoaderScript || DEFAULT_GENERAL_SETTINGS.adLoaderScript,
+        logoUrl: data.logoUrl || DEFAULT_GENERAL_SETTINGS.logoUrl,
+      };
+      return mergedSettings;
     }
-    // Return a default object if no settings are found
-    return { ...DEFAULT_GENERAL_SETTINGS };
+    return { ...DEFAULT_GENERAL_SETTINGS }; // Return a deep copy of defaults
   } catch (error) {
     console.error("Error fetching general settings:", error);
     throw error;
@@ -115,7 +142,13 @@ export async function updateGeneralSettings(settings: Partial<GeneralSiteSetting
     }
 
     const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
-    await setDoc(docRef, { ...settings, lastUpdated: serverTimestamp() }, { merge: true });
+    // Ensure paymentGateways is an array, even if partial update sends undefined
+    const settingsToSave = {
+      ...settings,
+      paymentGateways: settings.paymentGateways || [], // Ensure it's an array
+      lastUpdated: serverTimestamp()
+    };
+    await setDoc(docRef, settingsToSave, { merge: true });
   } catch (error) {
     console.error("Error updating general settings in Firestore:", error);
     throw error;
@@ -128,51 +161,37 @@ export function subscribeToGeneralSettings(
   const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
-      const data = docSnap.data() as GeneralSiteSettings;
-      // Social Links Merging
-      if (!data.socialLinks) {
-        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false }));
-      } else {
-        const currentSocialLinks = data.socialLinks || [];
-        const savedLinkIds = new Set(currentSocialLinks.map(sl => sl.id));
-        const mergedLinks = [...currentSocialLinks];
-        
-        PREDEFINED_SOCIAL_MEDIA_PLATFORMS.forEach(p => {
-          if (!savedLinkIds.has(p.id)) {
-            mergedLinks.push({ ...p, url: '', enabled: false });
+      const data = docSnap.data() as Partial<GeneralSiteSettings>;
+       const mergedSettings: GeneralSiteSettings = {
+        ...DEFAULT_GENERAL_SETTINGS,
+        ...data,
+        socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(defaultPlatform => {
+          const savedLink = data.socialLinks?.find(sl => sl.id === defaultPlatform.id);
+          return savedLink ? { ...defaultPlatform, ...savedLink } : { ...defaultPlatform, url: '', enabled: false };
+        }),
+        customScripts: data.customScripts || DEFAULT_GENERAL_SETTINGS.customScripts,
+        paymentGateways: PREDEFINED_PAYMENT_GATEWAYS_CONFIG.map(defaultGatewayConfig => {
+          const savedGateway = data.paymentGateways?.find(sg => sg.id === defaultGatewayConfig.id);
+           const defaultFullGateway = DEFAULT_GENERAL_SETTINGS.paymentGateways?.find(dfg => dfg.id === defaultGatewayConfig.id)
+             || { id: defaultGatewayConfig.id, name: defaultGatewayConfig.name, iconName: defaultGatewayConfig.iconName, enabled: false, credentials: {} };
+          if (savedGateway) {
+            return { ...defaultFullGateway, ...savedGateway, credentials: { ...defaultFullGateway.credentials, ...savedGateway.credentials } };
           }
-        });
-        data.socialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
-            const found = mergedLinks.find(ml => ml.id === p_defined.id);
-            return found || { ...p_defined, url: '', enabled: false };
-        });
-      }
-      // Custom Scripts Initialization
-      if (!data.customScripts) {
-        data.customScripts = [];
-      }
-      // Active Theme ID Initialization
-      if (!data.activeThemeId) {
-        data.activeThemeId = DEFAULT_LIGHT_THEME_ID;
-      }
-      // SEO Settings Initialization
-      if (!data.seoSettings) {
-        data.seoSettings = {};
-      }
-      // Robots.txt and Sitemap.xml Initialization
-      if (data.robotsTxtContent === undefined) {
-        data.robotsTxtContent = DEFAULT_ROBOTS_TXT_CONTENT;
-      }
-      if (data.sitemapXmlContent === undefined) {
-        data.sitemapXmlContent = DEFAULT_SITEMAP_XML_CONTENT;
-      }
-      // Maintenance Mode Initialization
-      if (data.maintenanceModeEnabled === undefined) {
-        data.maintenanceModeEnabled = false;
-      }
-      callback(data);
+          return defaultFullGateway;
+        }),
+        siteTitle: data.siteTitle || DEFAULT_GENERAL_SETTINGS.siteTitle,
+        activeThemeId: data.activeThemeId || DEFAULT_GENERAL_SETTINGS.activeThemeId,
+        robotsTxtContent: data.robotsTxtContent === undefined ? DEFAULT_GENERAL_SETTINGS.robotsTxtContent : data.robotsTxtContent,
+        sitemapXmlContent: data.sitemapXmlContent === undefined ? DEFAULT_GENERAL_SETTINGS.sitemapXmlContent : data.sitemapXmlContent,
+        maintenanceModeEnabled: data.maintenanceModeEnabled === undefined ? DEFAULT_GENERAL_SETTINGS.maintenanceModeEnabled : data.maintenanceModeEnabled,
+        navItems: data.navItems && data.navItems.length > 0 ? data.navItems : DEFAULT_GENERAL_SETTINGS.navItems,
+        seoSettings: data.seoSettings || DEFAULT_GENERAL_SETTINGS.seoSettings,
+        adLoaderScript: data.adLoaderScript || DEFAULT_GENERAL_SETTINGS.adLoaderScript,
+        logoUrl: data.logoUrl || DEFAULT_GENERAL_SETTINGS.logoUrl,
+      };
+      callback(mergedSettings);
     } else {
-      callback({ ...DEFAULT_GENERAL_SETTINGS });
+      callback({ ...DEFAULT_GENERAL_SETTINGS }); // Return a deep copy of defaults
     }
   }, (error) => {
     console.error("Error in general settings subscription:", error);

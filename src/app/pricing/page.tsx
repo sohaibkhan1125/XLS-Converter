@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PricingCard from '@/components/pricing/pricing-card';
@@ -12,19 +12,27 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { GeneralSiteSettings } from '@/types/site-settings';
+import type { GeneralSiteSettings, PaymentGatewaySetting } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import LoadingSpinner from '@/components/core/loading-spinner';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from 'lucide-react';
 
-const PAYPAL_CLIENT_ID = "AQS8CKbKYudDa2HRF17WPTWoA_oAUUWPR7ciQCk-oF-2jeiHS6rU1h5GNL-zXZ5zdtppGWFwQIxSXaQb";
+// Removed hardcoded PAYPAL_CLIENT_ID
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const { toast } = useToast();
   const { currentUser } = useAuth();
   const pathname = usePathname();
+  const [generalSettings, setGeneralSettings] = useState<GeneralSiteSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
-  useEffect(() => {
+  const fetchSettings = useCallback(() => {
+    setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
+      setGeneralSettings(settings);
+      setIsLoadingSettings(false);
       if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
         if (seoData?.title) document.title = seoData.title;
@@ -48,6 +56,10 @@ export default function PricingPage() {
     });
     return () => unsubscribe();
   }, [pathname]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSelectPlan = (planId: PlanType['id'], cycle: 'monthly' | 'annual') => {
     const selectedPlan = PRICING_PLANS.find(p => p.id === planId);
@@ -79,74 +91,98 @@ export default function PricingPage() {
     }
   };
 
+  if (isLoadingSettings) {
+    return (
+      <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+        <LoadingSpinner message="Loading pricing information..." />
+      </div>
+    );
+  }
+
+  const paypalSettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
+
   return (
-    <PayPalScriptProvider options={{ clientId: PAYPAL_CLIENT_ID, currency: "USD" }}>
-      <div className="container mx-auto py-12 px-4 md:px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight text-primary sm:text-5xl lg:text-6xl">
-            Find the Perfect Plan
-          </h1>
-          <p className="mt-4 max-w-2xl mx-auto text-xl text-muted-foreground">
-            Choose the plan that best suits your PDF to Excel conversion needs. Get more with annual billing!
-            All paid plans include an initial 7-day trial period.
-          </p>
-        </div>
+    <div className="container mx-auto py-12 px-4 md:px-6">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-extrabold tracking-tight text-primary sm:text-5xl lg:text-6xl">
+          Find the Perfect Plan
+        </h1>
+        <p className="mt-4 max-w-2xl mx-auto text-xl text-muted-foreground">
+          Choose the plan that best suits your PDF to Excel conversion needs. Get more with annual billing!
+          All paid plans include an initial 7-day trial period.
+        </p>
+      </div>
 
-        <div className="flex justify-center mb-10">
-          <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
-            <TabsList className="grid w-full grid-cols-2 md:w-[200px]">
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="annual">Annual (Save ~50%)</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-          {PRICING_PLANS.map((plan) => (
-            <PricingCard
-              key={plan.id}
-              plan={plan}
-              billingCycle={billingCycle}
-              onSelectPlan={handleSelectPlan}
-            />
-          ))}
-        </div>
+      {!paypalSettings && (
+        <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Payment Gateway Not Configured</AlertTitle>
+          <AlertDescription>
+            Online payments are currently unavailable. Please contact support or an administrator needs to configure a payment gateway.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <div className="mt-16 text-center">
-          <h3 className="text-2xl font-semibold text-foreground">Not sure which plan is right for you?</h3>
-          <p className="text-muted-foreground mt-2 mb-6">
-            You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service before choosing a paid plan.
-          </p>
-          {!currentUser && (
-             <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="/signup">Sign Up for Free Conversions</Link>
-            </Button>
-          )}
-          {currentUser && (
-             <Button asChild size="lg" variant="outline">
-              <Link href="/">Go to Converter</Link>
-            </Button>
-          )}
-        </div>
+      {paypalSettings && (
+        <>
+          <div className="flex justify-center mb-10">
+            <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
+              <TabsList className="grid w-full grid-cols-2 md:w-[200px]">
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="annual">Annual (Save ~50%)</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          
+          <PayPalScriptProvider options={{ clientId: paypalSettings.credentials.clientId!, currency: "USD" }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+              {PRICING_PLANS.map((plan) => (
+                <PricingCard
+                  key={plan.id}
+                  plan={plan}
+                  billingCycle={billingCycle}
+                  onSelectPlan={handleSelectPlan}
+                />
+              ))}
+            </div>
+          </PayPalScriptProvider>
+        </>
+      )}
 
-        <div className="mt-16 p-8 bg-card rounded-lg shadow-md">
-          <h3 className="text-2xl font-semibold text-center text-primary mb-6">Frequently Asked Questions</h3>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-foreground">How does the 7-day trial period work with paid plans?</h4>
-              <p className="text-muted-foreground">When you purchase a plan, the first 7 days are considered a trial period. You get full access to the plan's features and conversion limits. If you're not satisfied, you can request a refund within these 7 days (subject to terms). The payment covers the entire first billing cycle (month or year).</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-foreground">Can I change my plan later?</h4>
-              <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan. Changes will typically apply from the next billing cycle. Contact support for assistance.</p>
-            </div>
-            <div>
-              <h4 className="font-medium text-foreground">What happens if I exceed my conversions?</h4>
-              <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait until your quota renews at the start of your next billing cycle.</p>
-            </div>
+      <div className="mt-16 text-center">
+        <h3 className="text-2xl font-semibold text-foreground">Not sure which plan is right for you?</h3>
+        <p className="text-muted-foreground mt-2 mb-6">
+          You can start with our free tier (1 conversion for guests, 5 for logged-in users) to test out the service before choosing a paid plan.
+        </p>
+        {!currentUser && (
+           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Link href="/signup">Sign Up for Free Conversions</Link>
+          </Button>
+        )}
+        {currentUser && (
+           <Button asChild size="lg" variant="outline">
+            <Link href="/">Go to Converter</Link>
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-16 p-8 bg-card rounded-lg shadow-md">
+        <h3 className="text-2xl font-semibold text-center text-primary mb-6">Frequently Asked Questions</h3>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-medium text-foreground">How does the 7-day trial period work with paid plans?</h4>
+            <p className="text-muted-foreground">When you purchase a plan, the first 7 days are considered a trial period. You get full access to the plan's features and conversion limits. If you're not satisfied, you can request a refund within these 7 days (subject to terms). The payment covers the entire first billing cycle (month or year).</p>
+          </div>
+          <div>
+            <h4 className="font-medium text-foreground">Can I change my plan later?</h4>
+            <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan. Changes will typically apply from the next billing cycle. Contact support for assistance.</p>
+          </div>
+          <div>
+            <h4 className="font-medium text-foreground">What happens if I exceed my conversions?</h4>
+            <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait until your quota renews at the start of your next billing cycle.</p>
           </div>
         </div>
       </div>
-    </PayPalScriptProvider>
+    </div>
   );
 }

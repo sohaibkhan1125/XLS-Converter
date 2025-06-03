@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Settings, Megaphone, Palette, SearchCheck, MessageSquarePlus, FileCode2, Bot, Construction } from 'lucide-react'; // Added FileCode2 for Robots/Sitemap, Bot for AI, Construction for Maintenance
+import { LayoutDashboard, Settings, Megaphone, Palette, SearchCheck, MessageSquarePlus, CreditCard, Bot, Construction } from 'lucide-react'; // Added CreditCard
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ export const adminNavItems = [
   { href: '/admin/color-scheme-settings', label: 'Color Scheme', icon: Palette },
   { href: '/admin/seo-settings', label: 'SEO Settings', icon: SearchCheck }, 
   { href: '/admin/popup-manager', label: 'Popup Manager', icon: MessageSquarePlus },
+  { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard }, // New item
   // Example for future: { href: '/admin/ai-content-rules', label: 'AI Content Rules', icon: Bot },
 ];
 
