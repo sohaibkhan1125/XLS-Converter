@@ -1,7 +1,7 @@
 
 "use client";
 
-// Removed: import { incrementDailyConversionCounter } from './firebase-metrics-service';
+import { logConversionToFirestore } from './firebase-analytics-service';
 
 const GUEST_FREE_TIER_KEY_PREFIX = "XLSCONVERT_GUEST_CONVERSIONS";
 const USER_FREE_TIER_KEY_PREFIX = "XLSCONVERT_USER_CONVERSIONS_";
@@ -86,24 +86,9 @@ export function getActivePlan(userId: string | null): ActivePlan | null {
       localStorage.removeItem(planKey); // Clean up expired paid plan
       return null;
     }
-
-    // If the plan is within its main duration, it's considered active.
-    // The `isTrial` and `trialEndsAt` fields are now primarily informational for the UI
-    // to indicate if the user is within that initial phase of their paid plan.
-    // The trial ending does not invalidate the plan if the main duration is still active.
     
-    // Optional: If you want to update the plan in localStorage to set isTrial=false after trialEndsAt:
-    // if (plan.isTrial && plan.trialEndsAt && now > plan.trialEndsAt) {
-    //   const updatedPlan = { ...plan, isTrial: false };
-    //   try {
-    //     localStorage.setItem(planKey, JSON.stringify(updatedPlan));
-    //     return updatedPlan; // Return the updated plan state
-    //   } catch (error) {
-    //     console.error("[LocalStorageLimits] Error updating plan to non-trial state:", error);
-    //     // Fall through to return original plan if update fails
-    //   }
-    // }
-
+    // If the plan is within its main duration, it's considered active.
+    // The trial ending does not invalidate the plan if the main duration is still active.
     return plan;
   } catch (error) {
     console.error("[LocalStorageLimits] Error reading active plan from local storage:", error);
@@ -230,19 +215,24 @@ export function recordConversion(userId: string | null): void {
 
   if (consumePlanConversion(userId)) {
     console.log("[LocalStorageLimits] Local conversion recorded against user's plan.");
-    return; 
+  } else {
+    console.log("[LocalStorageLimits] Recording local conversion against free tier.");
+    const freeTierKey = getFreeTierKey(userId);
+    const now = Date.now();
+    const allTimestamps = getStoredFreeTierTimestamps(freeTierKey);
+    const validTimestamps = allTimestamps.filter(
+      (record) => now - record.timestamp < FREE_TIER_WINDOW_MS
+    );
+    validTimestamps.push({ timestamp: now });
+    saveFreeTierTimestamps(freeTierKey, validTimestamps);
+    console.log(`[LocalStorageLimits] Free tier timestamps updated for ${freeTierKey}. Current count in window: ${validTimestamps.length}`);
   }
 
-  console.log("[LocalStorageLimits] Recording local conversion against free tier.");
-  const freeTierKey = getFreeTierKey(userId);
-  const now = Date.now();
-  const allTimestamps = getStoredFreeTierTimestamps(freeTierKey);
-  const validTimestamps = allTimestamps.filter(
-    (record) => now - record.timestamp < FREE_TIER_WINDOW_MS
-  );
-  validTimestamps.push({ timestamp: now });
-  saveFreeTierTimestamps(freeTierKey, validTimestamps);
-  console.log(`[LocalStorageLimits] Free tier timestamps updated for ${freeTierKey}. Current count in window: ${validTimestamps.length}`);
+  // After local logic, log to Firestore for analytics
+  const userType = userId ? 'loggedIn' : 'guest';
+  logConversionToFirestore(userType, userId || undefined).catch(error => {
+    console.warn("[LocalStorageLimits] Failed to log conversion to Firestore analytics:", error);
+  });
 }
 
 // --- Utility ---
