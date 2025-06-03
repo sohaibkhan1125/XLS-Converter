@@ -1,15 +1,13 @@
 
 "use client";
 
-import { AuthForm, type AuthFormValues } from "@/components/auth/auth-form";
+import { AuthForm, type AuthFormSubmitValues, type SignupValues } from "@/components/auth/auth-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, type SignUpData } from "@/hooks/use-auth"; // Import SignUpData
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
 
@@ -18,9 +16,6 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false); 
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
-
-  // Removed: useEffect for subscribeToGeneralSettings
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -28,15 +23,21 @@ export default function SignupPage() {
     }
   }, [currentUser, authLoading, router]);
 
-  const handleSignup = async (values: AuthFormValues) => {
+  const handleSignup = async (formValues: AuthFormSubmitValues) => {
     setIsLoading(true);
+    // AuthFormSubmitValues includes confirmPassword, but SignUpData for the hook does not.
+    // The schema in AuthForm already validated confirmPassword.
+    const signupData: SignUpData = {
+      email: formValues.email,
+      password: formValues.password,
+      firstName: formValues.firstName,
+      lastName: formValues.lastName,
+    };
     try {
-      await signUp(values);
+      await signUp(signupData);
       toast({ title: "Signup Successful", description: `Welcome to ${DEFAULT_SITE_TITLE_FALLBACK}!` });
-      // router.push("/"); // This will be handled by useEffect above
     } catch (error: any) {
-      // Error is handled by AuthForm
-      console.error("Signup page error (Email/Pass):", error);
+      console.error("Signup page error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +60,7 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent>
           <AuthForm 
+            mode="signup"
             onSubmit={handleSignup} 
             submitButtonText="Sign Up" 
             isLoading={isLoading}

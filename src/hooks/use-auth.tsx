@@ -11,22 +11,36 @@ import {
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { auth } from '@/lib/firebase';
-import type { AuthFormValues } from '@/components/auth/auth-form';
 import { checkIfAdminUserExistsInFirestore } from '@/lib/firebase-admin-service'; 
+import { createUserProfileInFirestore } from '@/lib/firebase-user-service'; // Import new service
+
+// Updated to include name fields for signup
+export interface SignUpData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+// For basic email/password sign-in
+export interface SignInData {
+  email: string;
+  password: string;
+}
 
 interface AuthContextType {
   currentUser: User | null; // This user is confirmed NOT to be an admin
   loading: boolean;
-  signUp: (values: AuthFormValues) => Promise<User | null>;
-  signIn: (values: AuthFormValues) => Promise<User | null>;
+  signUp: (data: SignUpData) => Promise<User | null>;
+  signIn: (data: SignInData) => Promise<User | null>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null); // Raw Firebase auth user
-  const [currentUser, setCurrentUser] = useState<User | null>(null); // Validated non-admin user
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null); 
+  const [currentUser, setCurrentUser] = useState<User | null>(null); 
   const [loading, setLoading] = useState(true);
 
   const validateAndSetCurrentUser = useCallback(async (user: User | null) => {
@@ -34,9 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       const isActualAdmin = await checkIfAdminUserExistsInFirestore(user.uid);
       if (isActualAdmin) {
-        setCurrentUser(null); // If user is an admin, don't set them as currentUser for main site
+        setCurrentUser(null); 
       } else {
-        setCurrentUser(user); // User is not an admin, set as currentUser
+        setCurrentUser(user); 
       }
     } else {
       setCurrentUser(null);
@@ -46,8 +60,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribeOnAuthStateChanged = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user); // Store raw Firebase user first
-      validateAndSetCurrentUser(user); // Then validate and set current user (or null if admin)
+      setFirebaseUser(user); 
+      validateAndSetCurrentUser(user); 
     }, (error) => {
       console.error("Main AuthState Error:", error);
       setFirebaseUser(null);
@@ -60,12 +74,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [validateAndSetCurrentUser]);
 
-  const signUp = async (values: AuthFormValues): Promise<User | null> => {
+  const signUp = async (data: SignUpData): Promise<User | null> => {
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      // onAuthStateChanged will validate if this new user is an admin and set currentUser accordingly.
-      return userCredential.user;
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      if (userCredential.user) {
+        // After successful auth user creation, create their profile in Firestore
+        await createUserProfileInFirestore(
+          userCredential.user.uid,
+          data.firstName,
+          data.lastName,
+          data.email
+        );
+        // onAuthStateChanged will handle setting currentUser after validation.
+        return userCredential.user;
+      }
+      return null; // Should not happen if createUserWithEmailAndPassword succeeds
     } catch (error) {
       console.error("Sign up error:", error);
       throw error as AuthError; 
@@ -74,10 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signIn = async (values: AuthFormValues): Promise<User | null> => {
+  const signIn = async (data: SignInData): Promise<User | null> => {
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       if (userCredential.user) {
         const isActualAdmin = await checkIfAdminUserExistsInFirestore(userCredential.user.uid);
         if (isActualAdmin) {
@@ -86,13 +110,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
           throw new Error("Admin accounts should use the admin login panel.");
         }
-        // Not an admin, onAuthStateChanged would handle setting currentUser.
-        // For immediate feedback:
         setCurrentUser(userCredential.user);
         setLoading(false);
         return userCredential.user;
       }
-      setLoading(false); // Should not be reached if userCredential.user is null
+      setLoading(false); 
       return null;
     } catch (error) {
       console.error("Sign in error:", error);
@@ -106,7 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true); 
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will set firebaseUser and currentUser to null.
     } catch (error) {
       console.error("Sign out error:", error);
       setLoading(false); 

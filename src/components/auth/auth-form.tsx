@@ -18,31 +18,55 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 
-const formSchema = z.object({
+// Base schema for login and common fields for signup
+const baseSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export type AuthFormValues = z.infer<typeof formSchema>;
+// Schema specifically for signup, extending base and adding new fields + password confirmation
+const signupSchema = baseSchema.extend({
+  firstName: z.string().min(1, { message: "First name is required." }),
+  lastName: z.string().min(1, { message: "Last name is required." }),
+  confirmPassword: z.string().min(6, { message: "Confirm password must be at least 6 characters." }),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"], // Show error on confirmPassword field
+});
+
+// Type for form values submitted by this form.
+// For login, only email/password are relevant. For signup, all are.
+export type AuthFormSubmitValues = z.infer<typeof signupSchema>;
+// For page-level handling, we can have more specific types if needed:
+export type LoginValues = z.infer<typeof baseSchema>;
+export type SignupValues = z.infer<typeof signupSchema>;
+
 
 interface AuthFormProps {
-  onSubmit: (values: AuthFormValues) => Promise<any>; // For email/password
+  mode: 'login' | 'signup';
+  onSubmit: (values: AuthFormSubmitValues) => Promise<any>;
   submitButtonText: string;
-  isLoading?: boolean; // General loading state for the form
+  isLoading?: boolean; 
 }
 
-export function AuthForm({ onSubmit, submitButtonText, isLoading = false }: AuthFormProps) {
+export function AuthForm({ mode, onSubmit, submitButtonText, isLoading = false }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
 
-  const form = useForm<AuthFormValues>({
-    resolver: zodResolver(formSchema),
+  // Determine the schema to use based on the mode
+  const currentSchema = mode === 'signup' ? signupSchema : baseSchema;
+
+  const form = useForm<AuthFormSubmitValues>({ // Use the most comprehensive type for form state
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       email: "",
       password: "",
+      firstName: "", // Initialize all fields
+      lastName: "",
+      confirmPassword: "",
     },
   });
 
-  async function handleSubmit(values: AuthFormValues) {
+  async function handleSubmit(values: AuthFormSubmitValues) {
     setError(null);
     try {
       await onSubmit(values);
@@ -56,19 +80,12 @@ export function AuthForm({ onSubmit, submitButtonText, isLoading = false }: Auth
       switch (err.code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
-        case 'auth/invalid-credential': // Common for wrong email/pass or user not found
+        case 'auth/invalid-credential':
           setError("Invalid email or password.");
           break;
         case 'auth/email-already-in-use':
           setError("This email is already registered.");
           break;
-        // Removed Google Sign-In specific errors as the button is removed.
-        // case 'auth/popup-closed-by-user':
-        //   setError("Google Sign-In cancelled. Please try again.");
-        //   break;
-        // case 'auth/account-exists-with-different-credential':
-        //    setError("An account already exists with this email address using a different sign-in method.");
-        //    break;
         default:
           setError(err.message || "An unexpected error occurred.");
       }
@@ -88,6 +105,36 @@ export function AuthForm({ onSubmit, submitButtonText, isLoading = false }: Auth
       )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          {mode === 'signup' && (
+            <>
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
           <FormField
             control={form.control}
             name="email"
@@ -114,6 +161,21 @@ export function AuthForm({ onSubmit, submitButtonText, isLoading = false }: Auth
               </FormItem>
             )}
           />
+          {mode === 'signup' && (
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input placeholder="••••••••" {...field} type="password" disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
             {isLoading ? "Processing..." : submitButtonText}
           </Button>

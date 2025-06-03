@@ -1,7 +1,7 @@
 
 "use client";
 
-import { AuthForm, type AuthFormValues } from "@/components/auth/auth-form";
+import { AuthForm, type AuthFormSubmitValues, type LoginValues } from "@/components/auth/auth-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -13,34 +13,34 @@ export default function LoginPage() {
   const { signIn, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false); // Local loading for form submission
+  const [isLoading, setIsLoading] = useState(false); 
 
-  // Redirect if user is already logged in
   useEffect(() => {
     if (!authLoading && currentUser) {
       router.push("/");
     }
   }, [currentUser, authLoading, router]);
 
-  const handleLogin = async (values: AuthFormValues) => {
+  const handleLogin = async (formValues: AuthFormSubmitValues) => { // Accepts all fields from form
     setIsLoading(true);
+    const loginData: LoginValues = { // Extract only relevant fields for login
+      email: formValues.email,
+      password: formValues.password,
+    };
     try {
-      await signIn(values);
+      await signIn(loginData);
       toast({ title: "Login Successful", description: "Welcome back!" });
-      // router.push("/"); // This will be handled by useEffect above
     } catch (error: any) {
-      // Error is handled by AuthForm
       console.error("Login page error (Email/Pass):", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Prevent rendering login form if auth is still loading or user is already logged in
   if (authLoading || (!authLoading && currentUser)) {
     return (
       <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-        <p>Loading...</p> {/* Or a spinner component */}
+        <p>Loading...</p> 
       </div>
     );
   }
@@ -54,6 +54,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <AuthForm 
+            mode="login"
             onSubmit={handleLogin} 
             submitButtonText="Log In" 
             isLoading={isLoading} 
