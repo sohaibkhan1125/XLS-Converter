@@ -1,7 +1,7 @@
 
 "use client"; 
 
-import type { Metadata } from 'next'; // Metadata type is not used when 'use client'
+// Metadata type is not used when 'use client'
 import { Geist } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/hooks/use-auth';
@@ -23,7 +23,7 @@ const geistSans = Geist({
   subsets: ['latin'],
 });
 
-const DEFAULT_FALLBACK_TITLE = "XLSConvert - PDF to Excel Converter";
+export const DEFAULT_SITE_NAME_FALLBACK = "Bank Statement Converter - Convert PDF File into Excel";
 const DEFAULT_FALLBACK_DESCRIPTION = "Easily convert your PDF files to structured Excel spreadsheets.";
 
 export default function RootLayout({
@@ -77,7 +77,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>{DEFAULT_FALLBACK_TITLE}</title>
+        <title>{DEFAULT_SITE_NAME_FALLBACK}</title>
         <meta name="description" content={DEFAULT_FALLBACK_DESCRIPTION} />
         {/* The CSS variables will be set via JS, no <style> tag needed here for theme colors */}
       </head>
