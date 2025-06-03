@@ -1,25 +1,31 @@
 
 "use client";
 
-import { useEffect, useState } from 'react'; // Added useState
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrainCircuit, Zap, Users } from "lucide-react";
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME = "Our Application";
 
 export default function AboutPage() {
-  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
-      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+      const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
+      setDisplayedSiteTitle(currentSiteTitle);
+
       if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) document.title = seoData.title;
+        if (seoData?.title) {
+            document.title = seoData.title;
+        } else {
+            document.title = `About ${currentSiteTitle}`; // Fallback document title
+        }
         
         let descriptionTag = document.querySelector('meta[name="description"]');
         if (!descriptionTag) {
@@ -27,7 +33,11 @@ export default function AboutPage() {
           descriptionTag.setAttribute('name', 'description');
           document.head.appendChild(descriptionTag);
         }
-        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+        if (seoData?.description) {
+            descriptionTag.setAttribute('content', seoData.description);
+        } else {
+            descriptionTag.setAttribute('content', `Learn more about ${currentSiteTitle} and our mission.`);
+        }
 
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
@@ -36,6 +46,10 @@ export default function AboutPage() {
           document.head.appendChild(keywordsTag);
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      } else {
+         document.title = `About ${currentSiteTitle}`;
+         let descriptionTag = document.querySelector('meta[name="description"]');
+         if(descriptionTag) descriptionTag.setAttribute('content', `Learn more about ${currentSiteTitle} and our mission.`);
       }
     });
     return () => unsubscribe();
@@ -44,7 +58,7 @@ export default function AboutPage() {
   return (
     <div className="space-y-12">
       <section className="text-center py-10 bg-card shadow-lg rounded-lg">
-        <h1 className="text-5xl font-extrabold text-primary mb-4">About {DEFAULT_SITE_TITLE_FALLBACK}</h1>
+        <h1 className="text-5xl font-extrabold text-primary mb-4">About {displayedSiteTitle}</h1>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
           Streamlining your data workflow by effortlessly transforming PDF documents into structured Excel spreadsheets.
         </p>
@@ -54,7 +68,7 @@ export default function AboutPage() {
         <div>
           <h2 className="text-3xl font-semibold text-foreground mb-4">Our Mission</h2>
           <p className="text-lg text-muted-foreground mb-4">
-            At {DEFAULT_SITE_TITLE_FALLBACK}, our mission is to provide an intuitive, efficient, and reliable solution for individuals and businesses
+            At {displayedSiteTitle}, our mission is to provide an intuitive, efficient, and reliable solution for individuals and businesses
             to overcome the challenges of manual data extraction from PDFs. We believe in empowering users with tools
             that save time, reduce errors, and enhance productivity.
           </p>
@@ -125,12 +139,12 @@ export default function AboutPage() {
           </div>
           <div className="md:w-1/2">
             <p className="text-lg text-muted-foreground mb-4">
-              {DEFAULT_SITE_TITLE_FALLBACK} started from a simple observation: too much time was being wasted manually transcribing data
+              {displayedSiteTitle} started from a simple observation: too much time was being wasted manually transcribing data
               from PDFs into spreadsheets. We knew there had to be a better way.
             </p>
             <p className="text-lg text-muted-foreground">
               Driven by a passion for technology and a desire to solve real-world problems, our team embarked on a journey
-              to create a seamless, AI-driven conversion tool. Today, {DEFAULT_SITE_TITLE_FALLBACK} stands as a testament to that vision,
+              to create a seamless, AI-driven conversion tool. Today, {displayedSiteTitle} stands as a testament to that vision,
               helping users worldwide unlock the value hidden within their PDF documents.
             </p>
           </div>

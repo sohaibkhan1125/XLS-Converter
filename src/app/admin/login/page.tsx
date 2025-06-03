@@ -9,19 +9,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import LoadingSpinner from "@/components/core/loading-spinner";
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "Admin Panel"; // Fallback for admin pages
 
 export default function AdminLoginPage() {
   const { adminSignIn, adminUser, loading: authLoading } = useAdminAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
 
-  // Removed: useEffect for subscribeToGeneralSettings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+        // Use a specific admin panel title, or the site title, or a generic fallback
+        setDisplayedSiteTitle(settings?.siteTitle ? `${settings.siteTitle} Admin` : GENERIC_APP_NAME_FALLBACK);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!authLoading && adminUser) {
@@ -62,7 +68,7 @@ export default function AdminLoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">Admin Panel Login</CardTitle>
-          <CardDescription>Access the {DEFAULT_SITE_TITLE_FALLBACK} administration area.</CardDescription>
+          <CardDescription>Access the {displayedSiteTitle} administration area.</CardDescription>
         </CardHeader>
         <CardContent>
           <AdminAuthForm 

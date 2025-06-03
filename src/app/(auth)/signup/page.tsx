@@ -1,17 +1,19 @@
 
 "use client";
 
-import { AuthForm, type AuthFormSubmitValues } from "@/components/auth/auth-form"; // Removed SignupValues as AuthForm handles types
+import { AuthForm, type AuthFormSubmitValues } from "@/components/auth/auth-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button"; // Added
+import { Button } from "@/components/ui/button";
 import { useAuth, type SignUpData } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import LoadingSpinner from "@/components/core/loading-spinner"; // Added
+import LoadingSpinner from "@/components/core/loading-spinner";
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "Our Service";
 
 // Simple Google Icon SVG (can be moved to a shared components/icons if used elsewhere)
 const GoogleIcon = () => (
@@ -25,11 +27,19 @@ const GoogleIcon = () => (
 );
 
 export default function SignupPage() {
-  const { signUp, signInWithGoogle, currentUser, loading: authLoading } = useAuth(); // Added signInWithGoogle
+  const { signUp, signInWithGoogle, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false); 
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false); // Added
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      setDisplayedSiteTitle(settings?.siteTitle || GENERIC_APP_NAME_FALLBACK);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -42,12 +52,12 @@ export default function SignupPage() {
     const signupData: SignUpData = {
       email: formValues.email,
       password: formValues.password,
-      firstName: formValues.firstName!, // Assert non-null as it's required by signup schema
-      lastName: formValues.lastName!,   // Assert non-null
+      firstName: formValues.firstName!, 
+      lastName: formValues.lastName!,   
     };
     try {
       await signUp(signupData);
-      toast({ title: "Signup Successful", description: `Welcome to ${DEFAULT_SITE_TITLE_FALLBACK}!` });
+      toast({ title: "Signup Successful", description: `Welcome to ${displayedSiteTitle}!` });
     } catch (error: any) {
       console.error("Signup page error (Email/Pass):", error);
       toast({ variant: "destructive", title: "Signup Failed", description: error.message || "An unexpected error occurred." });
@@ -61,9 +71,8 @@ export default function SignupPage() {
     try {
       const user = await signInWithGoogle();
       if (user) {
-        toast({ title: "Google Sign-Up Successful", description: `Welcome to ${DEFAULT_SITE_TITLE_FALLBACK}!` });
+        toast({ title: "Google Sign-Up Successful", description: `Welcome to ${displayedSiteTitle}!` });
       }
-      // Redirect is handled by useEffect
     } catch (error: any) {
       console.error("Signup page error (Google):", error);
       toast({ variant: "destructive", title: "Google Sign-Up Failed", description: error.message || "Could not sign up with Google." });
@@ -85,7 +94,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">Create Account</CardTitle>
-          <CardDescription>Sign up to start converting your PDFs to Excel with more benefits.</CardDescription>
+          <CardDescription>Sign up to start converting your PDFs to Excel with {displayedSiteTitle}.</CardDescription>
         </CardHeader>
         <CardContent>
           <AuthForm 

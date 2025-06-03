@@ -3,13 +3,17 @@
 
 import { AuthForm, type AuthFormSubmitValues, type LoginValues } from "@/components/auth/auth-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button"; // Added
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import LoadingSpinner from "@/components/core/loading-spinner"; // Added
+import LoadingSpinner from "@/components/core/loading-spinner";
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+
+const GENERIC_APP_NAME_FALLBACK = "Our Service";
 
 // Simple Google Icon SVG
 const GoogleIcon = () => (
@@ -24,11 +28,19 @@ const GoogleIcon = () => (
 
 
 export default function LoginPage() {
-  const { signIn, signInWithGoogle, currentUser, loading: authLoading } = useAuth(); // Added signInWithGoogle
+  const { signIn, signInWithGoogle, currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false); 
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false); // Added
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      setDisplayedSiteTitle(settings?.siteTitle || GENERIC_APP_NAME_FALLBACK);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -47,7 +59,6 @@ export default function LoginPage() {
       toast({ title: "Login Successful", description: "Welcome back!" });
     } catch (error: any) {
       console.error("Login page error (Email/Pass):", error);
-      // Error toast is handled by AuthForm or useAuth hook now
       toast({ variant: "destructive", title: "Login Failed", description: error.message || "An unexpected error occurred." });
     } finally {
       setIsLoading(false);
@@ -61,7 +72,6 @@ export default function LoginPage() {
       if (user) {
         toast({ title: "Google Sign-In Successful", description: "Welcome!" });
       }
-      // Redirect is handled by useEffect
     } catch (error: any) {
       console.error("Login page error (Google):", error);
       toast({ variant: "destructive", title: "Google Sign-In Failed", description: error.message || "Could not sign in with Google." });
@@ -83,7 +93,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">Welcome Back!</CardTitle>
-          <CardDescription>Log in to access your PDF to Excel conversions.</CardDescription>
+          <CardDescription>Log in to access your {displayedSiteTitle} conversions.</CardDescription>
         </CardHeader>
         <CardContent>
           <AuthForm 

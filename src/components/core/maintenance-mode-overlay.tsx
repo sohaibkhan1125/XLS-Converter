@@ -8,27 +8,34 @@ import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import AppLogo from '@/components/layout/app-logo'; // For displaying the site logo
 import { Construction } from 'lucide-react'; // Icon for maintenance
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "Our Website";
 
 export default function MaintenanceModeOverlay() {
   const [settings, setSettings] = useState<GeneralSiteSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
 
   useEffect(() => {
+    setIsLoading(true);
     const unsubscribe = subscribeToGeneralSettings((fetchedSettings) => {
       setSettings(fetchedSettings);
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
+
+  if (isLoading) { // Don't render anything until settings are loaded
+    return null;
+  }
 
   const isMaintenanceModeActive = settings?.maintenanceModeEnabled || false;
   const isAdminRoute = pathname.startsWith('/admin');
 
   if (!isMaintenanceModeActive || isAdminRoute) {
-    return null; // Don't render anything if maintenance mode is off or if it's an admin page
+    return null;
   }
 
-  const siteTitle = settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK;
+  const siteTitle = settings?.siteTitle || GENERIC_APP_NAME_FALLBACK;
   const logoUrl = settings?.logoUrl;
 
   return (

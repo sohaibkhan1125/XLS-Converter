@@ -23,7 +23,7 @@ import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert"; // This can be used as a base for SEO title if not set
+const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
 
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -44,13 +44,20 @@ export default function HomePage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
-  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted siteTitle logic
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
+      const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
+      setDisplayedSiteTitle(currentSiteTitle);
+
       if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) document.title = seoData.title;
+        if (seoData?.title) {
+          document.title = seoData.title;
+        } else {
+          document.title = currentSiteTitle; // Fallback document title to site title
+        }
         
         let descriptionTag = document.querySelector('meta[name="description"]');
         if (!descriptionTag) {
@@ -67,9 +74,9 @@ export default function HomePage() {
           document.head.appendChild(keywordsTag);
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      } else {
+         document.title = currentSiteTitle; // Fallback document title
       }
-      // Reverted siteTitle dynamic update for component content
-      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK);
     });
     return () => unsubscribe();
   }, [pathname]);
@@ -190,7 +197,7 @@ export default function HomePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center text-primary flex items-center justify-center">
-            <Zap className="mr-2 h-8 w-8 text-primary" /> {DEFAULT_SITE_TITLE_FALLBACK}
+            <Zap className="mr-2 h-8 w-8 text-primary" /> {displayedSiteTitle}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
             Upload your PDF, preview the AI-structured data, and download it as an Excel file.
@@ -246,7 +253,7 @@ export default function HomePage() {
         isPlanExhausted={limitDialogContent.isPlanExhausted}
       />
 
-      <FeatureSection />
+      <FeatureSection siteTitle={displayedSiteTitle} />
     </div>
   );
 }

@@ -15,7 +15,7 @@ const mainSiteLinks: NavItem[] = [
   { id: 'contact', href: '/contact', label: 'Contact' },
   { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
 ];
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "My Application"; // Generic fallback
 const DEFAULT_SOCIAL_LINKS: SocialLink[] = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({
   ...p,
   url: '',
@@ -26,14 +26,16 @@ const DEFAULT_SOCIAL_LINKS: SocialLink[] = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map
 export default function AppFooter() {
   const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(DEFAULT_SOCIAL_LINKS);
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
-        setLogoUrl(settings.logoUrl); // Keep dynamic logo
-        // Ensure socialLinks are merged correctly if they exist, or use default
+        setLogoUrl(settings.logoUrl);
+        setDisplayedSiteTitle(settings.siteTitle || GENERIC_APP_NAME_FALLBACK);
+        
         const mergedSocialLinks = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p_defined => {
           const savedLink = settings.socialLinks?.find(sl => sl.id === p_defined.id);
           return savedLink ? { ...p_defined, ...savedLink } : { ...p_defined, url: '', enabled: false };
@@ -41,6 +43,7 @@ export default function AppFooter() {
         setSocialLinks(mergedSocialLinks);
       } else {
         setLogoUrl(undefined);
+        setDisplayedSiteTitle(GENERIC_APP_NAME_FALLBACK);
         setSocialLinks(DEFAULT_SOCIAL_LINKS);
       }
       setIsLoadingSettings(false);
@@ -48,8 +51,6 @@ export default function AppFooter() {
     return () => unsubscribe();
   }, []);
 
-  const displayTitleForLogoAndCopyright = DEFAULT_SITE_TITLE_FALLBACK;
-  const displayLogoUrlToPass = isLoadingSettings ? undefined : logoUrl;
   const enabledSocialLinks = socialLinks?.filter(link => link.enabled && link.url) || [];
 
   return (
@@ -57,7 +58,13 @@ export default function AppFooter() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
           <div className="flex-shrink-0 md:col-span-1 flex justify-center md:justify-start">
-            <AppLogo logoUrl={displayLogoUrlToPass} siteTitle={displayTitleForLogoAndCopyright} />
+            {isLoadingSettings ? 
+                <div className="flex items-center gap-2 text-primary">
+                    <div className="h-7 w-7 bg-muted rounded-full animate-pulse"></div>
+                    <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
+                </div>
+                : <AppLogo logoUrl={logoUrl} siteTitle={displayedSiteTitle} />
+            }
           </div>
           
           <nav className="flex flex-wrap justify-center md:col-span-1 gap-x-6 gap-y-2 text-sm">
@@ -68,11 +75,10 @@ export default function AppFooter() {
             ))}
           </nav>
 
-          {enabledSocialLinks.length > 0 && (
+          {!isLoadingSettings && enabledSocialLinks.length > 0 && (
             <div className="flex justify-center md:justify-end items-center gap-4 md:col-span-1">
               {enabledSocialLinks.map((link) => {
-                // @ts-ignore - LucideIcons is an object, iconName is a key
-                const IconComponent = LucideIcons[link.iconName] as LucideIcons.LucideIcon | undefined || LucideIcons.Link2;
+                const IconComponent = LucideIcons[link.iconName as keyof typeof LucideIcons] as LucideIcons.LucideIcon | undefined || LucideIcons.Link2;
                 return (
                   <Link key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.name}
                         className="text-muted-foreground hover:text-primary transition-colors">
@@ -84,7 +90,7 @@ export default function AppFooter() {
           )}
         </div>
         <div className="mt-8 text-center text-sm text-muted-foreground border-t border-border pt-8">
-          © {new Date().getFullYear()} {displayTitleForLogoAndCopyright}. All rights reserved.
+          © {new Date().getFullYear()} {displayedSiteTitle}. All rights reserved.
         </div>
       </div>
     </footer>

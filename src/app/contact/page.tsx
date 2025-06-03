@@ -1,7 +1,7 @@
 
 "use client"; 
 
-import { useEffect, useState } from 'react'; // Added useState
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,18 +12,31 @@ import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME = "Our Company";
+const GENERIC_EMAIL_DOMAIN_PART = "example.com";
 
 export default function ContactPage() {
-  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
+  const [contactEmail, setContactEmail] = useState<string>(`info@${GENERIC_EMAIL_DOMAIN_PART}`);
+  const [supportEmail, setSupportEmail] = useState<string>(`support@${GENERIC_EMAIL_DOMAIN_PART}`);
   const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
-      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+      const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
+      const emailDomainPart = currentSiteTitle.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '') || GENERIC_EMAIL_DOMAIN_PART.split('.')[0];
+      
+      setDisplayedSiteTitle(currentSiteTitle);
+      setContactEmail(`info@${emailDomainPart}.com`);
+      setSupportEmail(`support@${emailDomainPart}.com`);
+
        if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) document.title = seoData.title;
+        if (seoData?.title) {
+            document.title = seoData.title;
+        } else {
+            document.title = `Contact ${currentSiteTitle}`;
+        }
         
         let descriptionTag = document.querySelector('meta[name="description"]');
         if (!descriptionTag) {
@@ -31,7 +44,11 @@ export default function ContactPage() {
           descriptionTag.setAttribute('name', 'description');
           document.head.appendChild(descriptionTag);
         }
-        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+        if (seoData?.description) {
+            descriptionTag.setAttribute('content', seoData.description);
+        } else {
+            descriptionTag.setAttribute('content', `Get in touch with ${currentSiteTitle}.`);
+        }
 
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
@@ -40,6 +57,10 @@ export default function ContactPage() {
           document.head.appendChild(keywordsTag);
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      } else {
+         document.title = `Contact ${currentSiteTitle}`;
+         let descriptionTag = document.querySelector('meta[name="description"]');
+         if(descriptionTag) descriptionTag.setAttribute('content', `Get in touch with ${currentSiteTitle}.`);
       }
     });
     return () => unsubscribe();
@@ -96,8 +117,8 @@ export default function ContactPage() {
               <Mail className="h-6 w-6 text-accent mt-1 shrink-0" />
               <div>
                 <h3 className="font-semibold text-foreground">Email Us</h3>
-                <p>For general inquiries: <a href={`mailto:info@${DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com`} className="text-primary hover:underline">info@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com</a></p>
-                <p>For support: <a href={`mailto:support@${DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com`} className="text-primary hover:underline">support@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com</a></p>
+                <p>For general inquiries: <a href={`mailto:${contactEmail}`} className="text-primary hover:underline">{contactEmail}</a></p>
+                <p>For support: <a href={`mailto:${supportEmail}`} className="text-primary hover:underline">{supportEmail}</a></p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -112,7 +133,7 @@ export default function ContactPage() {
               <MapPin className="h-6 w-6 text-accent mt-1 shrink-0" />
               <div>
                 <h3 className="font-semibold text-foreground">Our Office</h3>
-                <p>{DEFAULT_SITE_TITLE_FALLBACK}</p>
+                <p>{displayedSiteTitle}</p>
                 <p>123 Innovation Drive</p>
                 <p>Tech City, TX 75001, USA</p>
               </div>

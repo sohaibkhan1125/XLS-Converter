@@ -28,7 +28,7 @@ const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'contact', href: '/contact', label: 'Contact' },
   { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
 ];
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "My App"; // More generic fallback
 
 export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
@@ -36,6 +36,7 @@ export default function AppHeader() {
   
   const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
   const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_LINKS);
+  const [siteTitleForLogo, setSiteTitleForLogo] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
@@ -44,9 +45,11 @@ export default function AppHeader() {
       if (settings) {
         setLogoUrl(settings.logoUrl);
         setNavItems(settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS);
+        setSiteTitleForLogo(settings.siteTitle || GENERIC_APP_NAME_FALLBACK);
       } else {
         setLogoUrl(undefined);
         setNavItems(DEFAULT_NAV_LINKS);
+        setSiteTitleForLogo(GENERIC_APP_NAME_FALLBACK);
       }
       setIsLoadingSettings(false);
     });
@@ -58,17 +61,20 @@ export default function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
-  // Site title is now static, logoUrl and navItems can remain dynamic from settings.
-  const siteTitleForLogo = DEFAULT_SITE_TITLE_FALLBACK;
-
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <AppLogo logoUrl={logoUrl} siteTitle={siteTitleForLogo} />
+        {isLoadingSettings ? 
+            <div className="flex items-center gap-2 text-primary">
+                <div className="h-7 w-7 bg-muted rounded-full animate-pulse"></div>
+                <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
+            </div>
+            : <AppLogo logoUrl={logoUrl} siteTitle={siteTitleForLogo} />
+        }
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {isLoadingSettings ? (
-            Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
+            Array.from({ length: navItems.length }).map((_, index) => ( // Use current navItems length for skeleton
               <div key={index} className="h-4 w-20 animate-pulse rounded-md bg-muted"></div>
             ))
           ) : (
@@ -81,8 +87,8 @@ export default function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {authLoading ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
+          {authLoading || isLoadingSettings ? ( // Consider isLoadingSettings for placeholder
+            <div className="h-10 w-10 animate-pulse rounded-full bg-muted sm:h-8 sm:w-20 sm:rounded-md"></div>
           ) : currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -136,7 +142,7 @@ export default function AppHeader() {
                 </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
-                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
+                     Array.from({ length: navItems.length }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (

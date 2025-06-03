@@ -7,19 +7,30 @@ import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME = "Our Company";
+const GENERIC_EMAIL_DOMAIN_PART = "example.com";
 
 export default function PrivacyPolicyPage() {
-  // const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
+  const [privacyEmail, setPrivacyEmail] = useState<string>(`privacy@${GENERIC_EMAIL_DOMAIN_PART}`);
   const [currentDate, setCurrentDate] = useState<string>('');
   const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
-      // setSiteTitle(settings?.siteTitle || DEFAULT_SITE_TITLE_FALLBACK); // Reverted
+      const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
+      const emailDomainPart = currentSiteTitle.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '') || GENERIC_EMAIL_DOMAIN_PART.split('.')[0];
+      
+      setDisplayedSiteTitle(currentSiteTitle);
+      setPrivacyEmail(`privacy@${emailDomainPart}.com`);
+
       if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) document.title = seoData.title;
+        if (seoData?.title) {
+            document.title = seoData.title;
+        } else {
+            document.title = `Privacy Policy - ${currentSiteTitle}`;
+        }
         
         let descriptionTag = document.querySelector('meta[name="description"]');
         if (!descriptionTag) {
@@ -27,7 +38,11 @@ export default function PrivacyPolicyPage() {
           descriptionTag.setAttribute('name', 'description');
           document.head.appendChild(descriptionTag);
         }
-        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
+        if (seoData?.description) {
+            descriptionTag.setAttribute('content', seoData.description);
+        } else {
+            descriptionTag.setAttribute('content', `Read the privacy policy for ${currentSiteTitle}.`);
+        }
 
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
@@ -36,6 +51,10 @@ export default function PrivacyPolicyPage() {
           document.head.appendChild(keywordsTag);
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      } else {
+         document.title = `Privacy Policy - ${currentSiteTitle}`;
+         let descriptionTag = document.querySelector('meta[name="description"]');
+         if(descriptionTag) descriptionTag.setAttribute('content', `Read the privacy policy for ${currentSiteTitle}.`);
       }
     });
     setCurrentDate(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
@@ -55,9 +74,9 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-foreground mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Welcome to {DEFAULT_SITE_TITLE_FALLBACK} (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). We are committed to protecting your personal information
+              Welcome to {displayedSiteTitle} (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). We are committed to protecting your personal information
               and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices
-              with regards to your personal information, please contact us at privacy@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com.
+              with regards to your personal information, please contact us at <a href={`mailto:${privacyEmail}`} className="text-primary hover:underline">{privacyEmail}</a>.
             </p>
             <p className="text-muted-foreground leading-relaxed mt-2">
               This privacy notice describes how we might use your information if you visit our website at [YourWebsiteURL.com],
@@ -183,10 +202,10 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-foreground mb-3">10. How Can You Contact Us About This Notice?</h2>
             <p className="text-muted-foreground leading-relaxed">
-              If you have questions or comments about this notice, you may email us at privacy@{DEFAULT_SITE_TITLE_FALLBACK.toLowerCase()}.com or by post to:
+              If you have questions or comments about this notice, you may email us at <a href={`mailto:${privacyEmail}`} className="text-primary hover:underline">{privacyEmail}</a> or by post to:
             </p>
             <p className="text-muted-foreground leading-relaxed mt-2">
-              {DEFAULT_SITE_TITLE_FALLBACK}<br />
+              {displayedSiteTitle}<br />
               Attn: Privacy Officer<br />
               123 Innovation Drive<br />
               Tech City, TX 75001, USA

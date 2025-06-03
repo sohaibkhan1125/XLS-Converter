@@ -9,19 +9,24 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import LoadingSpinner from "@/components/core/loading-spinner";
 import Link from "next/link";
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME_FALLBACK = "Admin Panel"; // Fallback for admin pages
 
 export default function AdminSignupPage() {
   const { adminSignUp, adminUser, loading: authLoading } = useAdminAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
 
-  // Removed: useEffect for subscribeToGeneralSettings
+  useEffect(() => {
+    const unsubscribe = subscribeToGeneralSettings((settings) => {
+      setDisplayedSiteTitle(settings?.siteTitle ? `${settings.siteTitle} Admin` : GENERIC_APP_NAME_FALLBACK);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!authLoading && adminUser) {
@@ -63,7 +68,7 @@ export default function AdminSignupPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">Create Admin Account</CardTitle>
-          <CardDescription>Set up an administrator account for {DEFAULT_SITE_TITLE_FALLBACK}.</CardDescription>
+          <CardDescription>Set up an administrator account for {displayedSiteTitle}.</CardDescription>
         </CardHeader>
         <CardContent>
           <AdminAuthForm 

@@ -1,11 +1,11 @@
 
 "use client";
 
-// Removed: import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, Download, BrainCircuit, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-// Removed: import type { GeneralSiteSettings } from '@/types/site-settings';
-// Removed: import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import type { GeneralSiteSettings } from '@/types/site-settings';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 
 interface Feature {
   icon: React.ElementType;
@@ -31,17 +31,30 @@ const features: Feature[] = [
   },
 ];
 
-const DEFAULT_SITE_TITLE_FALLBACK = "XLSConvert";
+const GENERIC_APP_NAME = "Our App";
 
-export default function FeatureSection() {
-  // Removed: const [siteTitle, setSiteTitle] = useState<string>(DEFAULT_SITE_TITLE_FALLBACK);
+interface FeatureSectionProps {
+  siteTitle?: string; // Allow siteTitle to be passed as a prop
+}
 
-  // Removed: useEffect for subscribeToGeneralSettings
+export default function FeatureSection({ siteTitle: propSiteTitle }: FeatureSectionProps) {
+  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(propSiteTitle || GENERIC_APP_NAME);
+
+  useEffect(() => {
+    if (!propSiteTitle) { // Only subscribe if title is not passed as a prop
+      const unsubscribe = subscribeToGeneralSettings((settings) => {
+        setDisplayedSiteTitle(settings?.siteTitle || GENERIC_APP_NAME);
+      });
+      return () => unsubscribe();
+    } else {
+        setDisplayedSiteTitle(propSiteTitle);
+    }
+  }, [propSiteTitle]);
 
   return (
     <section className="py-12 lg:py-16">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center text-primary mb-2">Why Choose {DEFAULT_SITE_TITLE_FALLBACK}?</h2>
+        <h2 className="text-3xl font-bold text-center text-primary mb-2">Why Choose {displayedSiteTitle}?</h2>
         <p className="text-lg text-muted-foreground text-center mb-10">
             Streamline your PDF to Excel workflow with powerful and intuitive features.
         </p>
