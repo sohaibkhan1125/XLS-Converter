@@ -4,7 +4,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartDataPoint } from "@/lib/firebase-analytics-service";
-import { ChartTooltipContent } from "@/components/ui/chart"; // Using ShadCN's tooltip content for styling
+import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 interface ConversionChartProps {
   data: ChartDataPoint[];
@@ -37,6 +37,13 @@ export default function ConversionChart({
     );
   }
 
+  const chartConfig = {
+    [dataKeyY]: { // Use the dynamic dataKeyY (e.g., "conversions")
+      label: "Conversions", // Or make this dynamic if needed
+      color: fillColor,
+    },
+  } satisfies ChartConfig;
+
   return (
     <Card>
       <CardHeader>
@@ -45,35 +52,37 @@ export default function ConversionChart({
       </CardHeader>
       <CardContent>
         <div className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey={dataKeyX}
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                fontSize={12}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                fontSize={12}
-                allowDecimals={false} 
-                width={30}
-              />
-              <Tooltip
-                cursor={{ fill: "hsl(var(--muted))" }}
-                content={<ChartTooltipContent 
-                            labelKey={dataKeyX} 
-                            nameKey={dataKeyY} 
-                            indicator="dot" 
-                         />}
-              />
-              <Bar dataKey={dataKeyY} fill={fillColor} radius={[4, 4, 0, 0]} barSize={40} />
-            </BarChart>
-          </ResponsiveContainer>
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey={dataKeyX}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  fontSize={12}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  fontSize={12}
+                  allowDecimals={false} 
+                  width={30}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted))" }}
+                  content={<ChartTooltipContent 
+                              labelKey={dataKeyX} 
+                              nameKey={dataKeyY} 
+                              indicator="dot" 
+                           />}
+                />
+                <Bar dataKey={dataKeyY} fill={fillColor} radius={[4, 4, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </div>
       </CardContent>
     </Card>
