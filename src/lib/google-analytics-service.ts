@@ -3,34 +3,49 @@
 
 // IMPORTANT: This is a STUBBED service.
 // You need to implement the actual Google Analytics 4 Data API calls.
-// This will involve:
-// 1. Setting up authentication:
-//    - For server-side calls (recommended): Use a Google Cloud Service Account.
-//      - Create a service account in Google Cloud Console.
-//      - Grant it the "Analytics Reader" role (or more specific permissions) for your GA4 property.
-//      - Download its JSON key file. Store this key securely (e.g., environment variable, secret manager).
-//      - Use the `google-auth-library` or `googleapis` to authenticate with this key.
-//    - For client-side calls (less common for this, might require user OAuth):
-//      - Use `gapi.client` with OAuth2.
-// 2. Using the Google Analytics Data API:
-//    - Install the `googleapis` package: `npm install googleapis`
-//    - Refer to the GA4 Data API documentation: https://developers.google.com/analytics/devguides/reporting/data/v1
-//    - You'll need your GA4 Property ID.
-// 3. Metrics & Dimensions:
-//    - Live Users: Use the Realtime API (e.g., `properties.runRealtimeReport`) with metric `activeUsers`.
-//    - Historical Visitors: Use the Data API (e.g., `properties.runReport`) with metrics like `totalUsers` or `sessions`
-//      and dimensions like `date` or `dateHour`.
+// This will involve authentication and using the googleapis library.
 
-// Example (Illustrative - actual implementation requires auth and proper API client usage)
-// import { google } from 'googleapis';
-// const analyticsdata = google.analyticsdata('v1beta');
-// const GA4_PROPERTY_ID = 'properties/YOUR_GA4_PROPERTY_ID'; // Replace with your Property ID
+import { format, subDays, eachDayOfInterval } from 'date-fns';
+
+export interface DailyTrendDataPoint {
+  date: string; // Formatted date string e.g., "MMM dd"
+  visitors: number;
+}
+
+export interface VisitorTypeDataPoint {
+  name: 'New Visitors' | 'Returning Visitors'; // 'name' is used by Recharts PieChart
+  value: number; // 'value' is used by Recharts PieChart
+  fill: string; // Color for the pie slice
+}
 
 export interface WebsiteAnalyticsData {
   liveUsers: number | null;
-  visitors24h: number | null;
-  visitors7d: number | null;
-  visitors30d: number | null;
+  totalPageViews7d: number | null;
+  bounceRate7d: number | null; // As a percentage, e.g., 45 for 45%
+
+  visitors7dTrend: DailyTrendDataPoint[];
+  visitors30dTrend: DailyTrendDataPoint[];
+  visitorTypes7d: VisitorTypeDataPoint[];
+}
+
+function generateMockTrendData(days: number): DailyTrendDataPoint[] {
+  const endDate = new Date();
+  const startDate = subDays(endDate, days - 1);
+  const dateInterval = eachDayOfInterval({ start: startDate, end: endDate });
+  
+  return dateInterval.map(day => ({
+    date: format(day, 'MMM dd'),
+    visitors: Math.floor(Math.random() * (days === 7 ? 200 : 150)) + (days === 7 ? 50 : 30),
+  }));
+}
+
+function generateMockVisitorTypes(): VisitorTypeDataPoint[] {
+  const newVisitors = Math.floor(Math.random() * 700) + 300; // 300-1000
+  const returningVisitors = Math.floor(Math.random() * 500) + 200; // 200-700
+  return [
+    { name: 'New Visitors', value: newVisitors, fill: 'hsl(var(--chart-1))' },
+    { name: 'Returning Visitors', value: returningVisitors, fill: 'hsl(var(--chart-2))' },
+  ];
 }
 
 /**
@@ -38,41 +53,87 @@ export interface WebsiteAnalyticsData {
  * Replace with actual GA4 Realtime API call.
  */
 export async function getLiveUsers(): Promise<number> {
-  console.warn("[GoogleAnalyticsService] getLiveUsers: Using mock data. Implement actual GA4 API call.");
-  // Mock implementation:
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-  return Math.floor(Math.random() * 50); // Random live users
+  console.warn("[GoogleAnalyticsService] getLiveUsers: Using mock data.");
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return Math.floor(Math.random() * 50);
 }
 
 /**
- * Fetches the number of unique visitors in the last 24 hours.
+ * Fetches data for the 7-day visitor trend.
  * Replace with actual GA4 Data API call.
  */
-export async function getVisitorsLast24Hours(): Promise<number> {
-  console.warn("[GoogleAnalyticsService] getVisitorsLast24Hours: Using mock data. Implement actual GA4 API call.");
-  // Mock implementation:
-  await new Promise(resolve => setTimeout(resolve, 700));
-  return Math.floor(Math.random() * 500) + 100;
+export async function getVisitors7dTrendData(): Promise<DailyTrendDataPoint[]> {
+  console.warn("[GoogleAnalyticsService] getVisitors7dTrendData: Using mock data.");
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return generateMockTrendData(7);
 }
 
 /**
- * Fetches the number of unique visitors in the last 7 days.
+ * Fetches data for the 30-day visitor trend.
  * Replace with actual GA4 Data API call.
  */
-export async function getVisitorsLast7Days(): Promise<number> {
-  console.warn("[GoogleAnalyticsService] getVisitorsLast7Days: Using mock data. Implement actual GA4 API call.");
-  // Mock implementation:
-  await new Promise(resolve => setTimeout(resolve, 900));
-  return Math.floor(Math.random() * 3000) + 500;
+export async function getVisitors30dTrendData(): Promise<DailyTrendDataPoint[]> {
+  console.warn("[GoogleAnalyticsService] getVisitors30dTrendData: Using mock data.");
+  await new Promise(resolve => setTimeout(resolve, 800));
+  return generateMockTrendData(30);
 }
 
 /**
- * Fetches the number of unique visitors in the last 30 days.
+ * Fetches data for new vs. returning visitors.
  * Replace with actual GA4 Data API call.
  */
-export async function getVisitorsLast30Days(): Promise<number> {
-  console.warn("[GoogleAnalyticsService] getVisitorsLast30Days: Using mock data. Implement actual GA4 API call.");
-  // Mock implementation:
-  await new Promise(resolve => setTimeout(resolve, 1100));
-  return Math.floor(Math.random() * 10000) + 2000;
+export async function getVisitorTypes7dData(): Promise<VisitorTypeDataPoint[]> {
+  console.warn("[GoogleAnalyticsService] getVisitorTypes7dData: Using mock data.");
+  await new Promise(resolve => setTimeout(resolve, 600));
+  return generateMockVisitorTypes();
+}
+
+/**
+ * Fetches total page views for the last 7 days.
+ * Replace with actual GA4 Data API call.
+ */
+export async function getTotalPageViews7d(): Promise<number> {
+    console.warn("[GoogleAnalyticsService] getTotalPageViews7d: Using mock data.");
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return Math.floor(Math.random() * 5000) + 1000;
+}
+
+/**
+ * Fetches bounce rate for the last 7 days.
+ * Replace with actual GA4 Data API call.
+ */
+export async function getBounceRate7d(): Promise<number> {
+    console.warn("[GoogleAnalyticsService] getBounceRate7d: Using mock data.");
+    await new Promise(resolve => setTimeout(resolve, 450));
+    return Math.floor(Math.random() * 50) + 20; // Bounce rate between 20% and 70%
+}
+
+// Function to fetch all data - this is what the dashboard page will call
+export async function fetchAllWebsiteAnalyticsData(): Promise<WebsiteAnalyticsData> {
+  console.warn("[GoogleAnalyticsService] fetchAllWebsiteAnalyticsData: Using MOCK data. Implement actual GA4 API calls.");
+  // Simulate parallel fetching
+  const [
+    liveUsers,
+    totalPageViews7d,
+    bounceRate7d,
+    visitors7dTrend,
+    visitors30dTrend,
+    visitorTypes7d
+  ] = await Promise.all([
+    getLiveUsers(),
+    getTotalPageViews7d(),
+    getBounceRate7d(),
+    getVisitors7dTrendData(),
+    getVisitors30dTrendData(),
+    getVisitorTypes7dData()
+  ]);
+
+  return {
+    liveUsers,
+    totalPageViews7d,
+    bounceRate7d,
+    visitors7dTrend,
+    visitors30dTrend,
+    visitorTypes7d
+  };
 }

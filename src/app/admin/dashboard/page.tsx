@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -11,14 +12,66 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { Users, Users2, CalendarClock } from 'lucide-react'; 
+import { Users, Users2, Eye, BarChart3, LineChart, PieChartIcon, TrendingUp, Percent } from 'lucide-react'; 
 import {
-  getLiveUsers,
-  getVisitorsLast24Hours,
-  getVisitorsLast7Days,
-  getVisitorsLast30Days,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig
+} from "@/components/ui/chart";
+import {
+  Bar,
+  BarChart,
+  Line,
+  Area,
+  AreaChart,
+  Pie,
+  PieChart as RechartsPieChart, // Renamed to avoid conflict with lucide icon
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip, // Explicit import for recharts tooltip if needed alongside shadcn
+  Legend as RechartsLegend,
+  Cell
+} from "recharts";
+
+import {
+  fetchAllWebsiteAnalyticsData,
   type WebsiteAnalyticsData,
+  type DailyTrendDataPoint,
+  type VisitorTypeDataPoint
 } from '@/lib/google-analytics-service';
+
+const initialAnalyticsData: WebsiteAnalyticsData = {
+  liveUsers: null,
+  totalPageViews7d: null,
+  bounceRate7d: null,
+  visitors7dTrend: [],
+  visitors30dTrend: [],
+  visitorTypes7d: [],
+};
+
+const trendChartConfig = {
+  visitors: {
+    label: "Visitors",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
+const visitorTypeChartConfig = {
+  newVisitors: {
+    label: "New Visitors",
+    color: "hsl(var(--chart-1))",
+  },
+  returningVisitors: {
+    label: "Returning Visitors",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig;
+
 
 export default function AdminDashboardPage() {
   const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
@@ -29,13 +82,9 @@ export default function AdminDashboardPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [errorLoadingUsers, setErrorLoadingUsers] = useState<string | null>(null);
 
-  const [websiteAnalytics, setWebsiteAnalytics] = useState<WebsiteAnalyticsData>({
-    liveUsers: null,
-    visitors24h: null,
-    visitors7d: null,
-    visitors30d: null,
-  });
+  const [websiteAnalytics, setWebsiteAnalytics] = useState<WebsiteAnalyticsData>(initialAnalyticsData);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
+  const [activeTrendView, setActiveTrendView] = useState<'7d' | '30d'>('7d');
 
   const fetchAdminUsers = useCallback(async () => {
     if (!adminUser) return;
@@ -56,21 +105,12 @@ export default function AdminDashboardPage() {
     if (!adminUser) return;
     setIsLoadingAnalytics(true);
     try {
-      // In a real implementation, these might be parallel promises
-      const live = await getLiveUsers();
-      const v24h = await getVisitorsLast24Hours();
-      const v7d = await getVisitorsLast7Days();
-      const v30d = await getVisitorsLast30Days();
-      setWebsiteAnalytics({
-        liveUsers: live,
-        visitors24h: v24h,
-        visitors7d: v7d,
-        visitors30d: v30d,
-      });
-      toast({ title: "Analytics Loaded", description: "Website visitor data (mocked) loaded." });
+      const data = await fetchAllWebsiteAnalyticsData();
+      setWebsiteAnalytics(data);
+      // toast({ title: "Analytics Loaded", description: "Website visitor data (mocked) loaded." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Analytics Error", description: `Failed to fetch website analytics: ${error.message}` });
-      setWebsiteAnalytics({ liveUsers: 0, visitors24h: 0, visitors7d: 0, visitors30d: 0 }); // Fallback
+      setWebsiteAnalytics(initialAnalyticsData); // Fallback
     } finally {
       setIsLoadingAnalytics(false);
     }
@@ -100,6 +140,8 @@ export default function AdminDashboardPage() {
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Verifying admin access..." /></div>;
   }
 
+  const currentTrendData = activeTrendView === '7d' ? websiteAnalytics.visitors7dTrend : websiteAnalytics.visitors30dTrend;
+
   return (
     <div className="space-y-8">
       <Card>
@@ -117,45 +159,147 @@ export default function AdminDashboardPage() {
       </Card>
 
       {/* Website Analytics Section */}
-      <Card>
+      <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Website Analytics (GA4)</CardTitle>
-          <CardDescription>Real-time and historical website visitor data from Google Analytics.</CardDescription>
+          <CardTitle className="text-xl font-semibold text-primary">Website Analytics (GA4)</CardTitle>
+          <CardDescription>Overview of your website visitor engagement.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Live Users"
-            value={websiteAnalytics.liveUsers}
-            icon={<Users className="h-5 w-5 text-muted-foreground" />}
-            isLoading={isLoadingAnalytics}
-            description="Users currently on site."
-          />
-          <StatCard
-            title="Visitors (Last 24h)"
-            value={websiteAnalytics.visitors24h}
-            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
-            isLoading={isLoadingAnalytics}
-            description="Total unique visitors."
-          />
-          <StatCard
-            title="Visitors (Last 7d)"
-            value={websiteAnalytics.visitors7d}
-            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
-            isLoading={isLoadingAnalytics}
-            description="Total unique visitors."
-          />
-          <StatCard
-            title="Visitors (Last 30d)"
-            value={websiteAnalytics.visitors30d}
-            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
-            isLoading={isLoadingAnalytics}
-            description="Total unique visitors."
-          />
+        <CardContent className="space-y-6">
+          {/* Top Stat Cards */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard
+              title="Live Users"
+              value={websiteAnalytics.liveUsers !== null ? websiteAnalytics.liveUsers.toLocaleString() : 'N/A'}
+              icon={<Eye className="h-5 w-5 text-accent" />}
+              isLoading={isLoadingAnalytics}
+              description="Users currently on site"
+            />
+            <StatCard
+              title="Page Views (Last 7d)"
+              value={websiteAnalytics.totalPageViews7d !== null ? websiteAnalytics.totalPageViews7d.toLocaleString() : 'N/A'}
+              icon={<TrendingUp className="h-5 w-5 text-accent" />}
+              isLoading={isLoadingAnalytics}
+              description="Total pages viewed"
+            />
+            <StatCard
+              title="Bounce Rate (Last 7d)"
+              value={websiteAnalytics.bounceRate7d !== null ? `${websiteAnalytics.bounceRate7d.toFixed(1)}%` : 'N/A'}
+              icon={<Percent className="h-5 w-5 text-accent" />}
+              isLoading={isLoadingAnalytics}
+              description="Avg. single-page sessions"
+            />
+          </div>
+
+          {/* Visitor Trends Line Chart */}
+          <Card className="pt-4">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Visitor Trends</CardTitle>
+                  <CardDescription>Unique visitors over the selected period.</CardDescription>
+                </div>
+                <Tabs value={activeTrendView} onValueChange={(value) => setActiveTrendView(value as '7d' | '30d')} className="w-auto">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="7d">Last 7 Days</TabsTrigger>
+                    <TabsTrigger value="30d">Last 30 Days</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </CardHeader>
+            <CardContent className="h-[300px] w-full">
+              {isLoadingAnalytics ? <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading trend data..." /></div> :
+                currentTrendData.length > 0 ? (
+                <ChartContainer config={trendChartConfig} className="h-full w-full">
+                  <AreaChart data={currentTrendData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false}/>
+                    <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                    <Area
+                      dataKey="visitors"
+                      type="natural"
+                      fill="var(--color-visitors)"
+                      fillOpacity={0.3}
+                      stroke="var(--color-visitors)"
+                      stackId="a"
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              ) : <p className="text-center text-muted-foreground pt-10">No trend data available.</p>}
+            </CardContent>
+          </Card>
+
+          {/* Daily Visits Bar Chart & Visitor Types Pie Chart (Side-by-side) */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="pt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Daily Visits (Last 7 Days)</CardTitle>
+                <CardDescription>Breakdown of visits per day.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px] w-full">
+                {isLoadingAnalytics ? <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading daily data..." /></div> :
+                  websiteAnalytics.visitors7dTrend.length > 0 ? (
+                  <ChartContainer config={trendChartConfig} className="h-full w-full">
+                    <BarChart data={websiteAnalytics.visitors7dTrend} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false}/>
+                      <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                      <Bar dataKey="visitors" fill="var(--color-visitors)" radius={4} />
+                    </BarChart>
+                  </ChartContainer>
+                ) : <p className="text-center text-muted-foreground pt-10">No daily visit data available.</p>}
+              </CardContent>
+            </Card>
+
+            <Card className="pt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Visitor Types (Last 7 Days)</CardTitle>
+                <CardDescription>New vs. Returning visitors.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px] w-full flex items-center justify-center">
+                {isLoadingAnalytics ? <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading visitor types..." /></div> :
+                  websiteAnalytics.visitorTypes7d.length > 0 ? (
+                  <ChartContainer config={visitorTypeChartConfig} className="h-full w-full aspect-square">
+                     <RechartsPieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                       <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" />} />
+                       <Pie
+                        data={websiteAnalytics.visitorTypes7d}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        innerRadius={50}
+                        labelLine={false}
+                        // label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
+                        //   const RADIAN = Math.PI / 180;
+                        //   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        //   const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        //   const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        //   return (
+                        //     <text x={x} y={y} fill="hsl(var(--card-foreground))" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs">
+                        //       {`${name} (${(percent * 100).toFixed(0)}%)`}
+                        //     </text>
+                        //   );
+                        // }}
+                      >
+                        {websiteAnalytics.visitorTypes7d.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                    </RechartsPieChart>
+                  </ChartContainer>
+                ) : <p className="text-center text-muted-foreground pt-10">No visitor type data available.</p>}
+              </CardContent>
+            </Card>
+          </div>
         </CardContent>
       </Card>
       
       {/* Admin Users List Section */}
-      <Card>
+      <Card className="shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className='space-y-1'>
                 <CardTitle className="text-xl font-medium">Admin Users</CardTitle>
@@ -174,26 +318,28 @@ export default function AdminDashboardPage() {
           ) : adminUsersList.length === 0 ? (
             <p>No admin users found.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Date Joined</TableHead>
-                  <TableHead>Admin UID</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {adminUsersList.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.email}</TableCell>
-                    <TableCell>
-                      {user.createdAt ? format(user.createdAt, 'PPP p') : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{user.id}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Date Joined</TableHead>
+                    <TableHead>Admin UID</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {adminUsersList.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell>
+                        {user.createdAt ? format(user.createdAt, 'PPP p') : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{user.id}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -204,7 +350,7 @@ export default function AdminDashboardPage() {
 // Helper component for Stat Cards
 interface StatCardProps {
   title: string;
-  value: number | null;
+  value: string | number;
   icon: React.ReactNode;
   isLoading: boolean;
   description?: string;
@@ -212,17 +358,27 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, isLoading, description }: StatCardProps) {
   return (
-    <Card>
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         {icon}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">
-          {isLoading ? <span className="text-sm">Loading...</span> : value ?? 'N/A'}
+        <div className="text-2xl font-bold text-foreground">
+          {isLoading ? <Skeleton className="h-8 w-24" /> : value}
         </div>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        {description && !isLoading && <p className="text-xs text-muted-foreground pt-1">{description}</p>}
+        {isLoading && <Skeleton className="h-4 w-32 mt-1" />}
       </CardContent>
     </Card>
   );
+}
+
+function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("animate-pulse rounded-md bg-muted/50", className)}
+      {...props}
+    />
+  )
 }
