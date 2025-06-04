@@ -333,8 +333,270 @@ export const PREDEFINED_THEMES: Theme[] = [
       input: "240 5% 16%",         // Dark input background
       ring: "240 3% 75%",
     }
+  },
+  // New Themes Start Here
+  {
+    id: "minty-fresh-light",
+    name: "Minty Fresh Light",
+    isDark: false,
+    colors: {
+      background: "150 50% 96%", // Pale mint
+      foreground: "150 25% 20%", // Dark mint-green
+      card: "150 50% 98%",       // Very pale mint
+      cardForeground: "150 25% 20%",
+      popover: "150 50% 98%",
+      popoverForeground: "150 25% 20%",
+      primary: "160 60% 45%",     // Bright mint
+      primaryForeground: "0 0% 100%",
+      secondary: "155 40% 70%",    // Lighter mint
+      secondaryForeground: "150 25% 20%",
+      muted: "150 30% 90%",        // Light muted mint
+      mutedForeground: "150 20% 50%",
+      accent: "200 70% 60%",     // Sky blue
+      accentForeground: "0 0% 100%",
+      destructive: "0 70% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "150 30% 85%",
+      input: "150 40% 92%",
+      ring: "160 60% 45%",
+    }
+  },
+  {
+    id: "charcoal-slate-dark",
+    name: "Charcoal Slate Dark",
+    isDark: true,
+    colors: {
+      background: "220 15% 10%", // Very dark blue-grey
+      foreground: "220 10% 85%", // Light grey-blue
+      card: "220 15% 15%",       // Dark blue-grey
+      cardForeground: "220 10% 85%",
+      popover: "220 15% 15%",
+      popoverForeground: "220 10% 85%",
+      primary: "210 60% 55%",     // Medium slate blue
+      primaryForeground: "0 0% 100%",
+      secondary: "220 10% 30%",    // Darker slate
+      secondaryForeground: "220 10% 80%",
+      muted: "220 10% 25%",
+      mutedForeground: "220 8% 60%",
+      accent: "30 70% 60%",      // Amber/Orange
+      accentForeground: "0 0% 0%",
+      destructive: "0 60% 50%",
+      destructiveForeground: "0 0% 100%",
+      border: "220 10% 20%",
+      input: "220 10% 18%",
+      ring: "210 60% 55%",
+    }
+  },
+  {
+    id: "lavender-dream-light",
+    name: "Lavender Dream Light",
+    isDark: false,
+    colors: {
+      background: "270 60% 97%", // Very light lavender
+      foreground: "270 30% 30%", // Dark muted purple
+      card: "270 60% 98%",
+      cardForeground: "270 30% 30%",
+      popover: "270 60% 98%",
+      popoverForeground: "270 30% 30%",
+      primary: "265 70% 65%",     // Soft lavender
+      primaryForeground: "0 0% 100%",
+      secondary: "275 50% 80%",    // Lighter pastel purple
+      secondaryForeground: "270 30% 30%",
+      muted: "270 40% 92%",
+      mutedForeground: "270 25% 55%",
+      accent: "330 70% 70%",     // Soft pink
+      accentForeground: "0 0% 0%",
+      destructive: "0 70% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "270 40% 88%",
+      input: "270 50% 94%",
+      ring: "265 70% 65%",
+    }
+  },
+  {
+    id: "midnight-blue-dark",
+    name: "Midnight Blue Dark",
+    isDark: true,
+    colors: {
+      background: "225 30% 8%",  // Very dark desaturated blue
+      foreground: "220 20% 90%", // Light cool grey
+      card: "225 30% 12%",       // Dark blue
+      cardForeground: "220 20% 90%",
+      popover: "225 30% 12%",
+      popoverForeground: "220 20% 90%",
+      primary: "215 70% 50%",     // Bright blue
+      primaryForeground: "0 0% 100%",
+      secondary: "230 20% 25%",    // Darker muted blue
+      secondaryForeground: "220 15% 85%",
+      muted: "230 15% 20%",
+      mutedForeground: "220 10% 60%",
+      accent: "180 60% 50%",     // Teal accent
+      accentForeground: "0 0% 0%",
+      destructive: "0 65% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "230 15% 18%",
+      input: "230 15% 16%",
+      ring: "215 70% 50%",
+    }
+  },
+  {
+    id: "sandstone-warm-light",
+    name: "Sandstone Warm Light",
+    isDark: false,
+    colors: {
+      background: "35 40% 95%", // Pale sandy beige
+      foreground: "30 25% 25%", // Dark warm brown
+      card: "35 40% 97%",
+      cardForeground: "30 25% 25%",
+      popover: "35 40% 97%",
+      popoverForeground: "30 25% 25%",
+      primary: "30 70% 50%",      // Terracotta orange
+      primaryForeground: "0 0% 100%",
+      secondary: "40 50% 75%",     // Light sand
+      secondaryForeground: "30 25% 25%",
+      muted: "35 30% 90%",
+      mutedForeground: "30 20% 55%",
+      accent: "120 40% 50%",     // Olive green
+      accentForeground: "0 0% 100%",
+      destructive: "0 70% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "35 30% 85%",
+      input: "35 35% 92%",
+      ring: "30 70% 50%",
+    }
+  },
+  {
+    id: "deep-forest-dark",
+    name: "Deep Forest Dark",
+    isDark: true,
+    colors: {
+      background: "120 25% 8%",  // Very dark green
+      foreground: "100 15% 88%", // Light desaturated green-grey
+      card: "120 25% 12%",       // Dark forest green
+      cardForeground: "100 15% 88%",
+      popover: "120 25% 12%",
+      popoverForeground: "100 15% 88%",
+      primary: "130 50% 45%",     // Rich forest green
+      primaryForeground: "0 0% 100%",
+      secondary: "110 20% 25%",    // Darker muted green
+      secondaryForeground: "100 10% 80%",
+      muted: "110 15% 20%",
+      mutedForeground: "100 10% 60%",
+      accent: "40 60% 55%",      // Goldenrod
+      accentForeground: "0 0% 0%",
+      destructive: "0 60% 50%",
+      destructiveForeground: "0 0% 100%",
+      border: "110 15% 18%",
+      input: "110 15% 16%",
+      ring: "130 50% 45%",
+    }
+  },
+  {
+    id: "coral-peach-light",
+    name: "Coral Peach Light",
+    isDark: false,
+    colors: {
+      background: "20 80% 96%", // Pale peach
+      foreground: "10 40% 30%", // Dark brownish-red
+      card: "20 80% 98%",
+      cardForeground: "10 40% 30%",
+      popover: "20 80% 98%",
+      popoverForeground: "10 40% 30%",
+      primary: "10 80% 60%",      // Bright coral
+      primaryForeground: "0 0% 100%",
+      secondary: "25 70% 80%",     // Lighter peach
+      secondaryForeground: "10 40% 30%",
+      muted: "20 60% 92%",
+      mutedForeground: "10 30% 55%",
+      accent: "170 50% 55%",     // Seafoam green
+      accentForeground: "0 0% 0%",
+      destructive: "350 70% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "20 60% 88%",
+      input: "20 70% 94%",
+      ring: "10 80% 60%",
+    }
+  },
+  {
+    id: "steel-blue-dark",
+    name: "Steel Blue Dark",
+    isDark: true,
+    colors: {
+      background: "210 20% 12%", // Dark steel blue
+      foreground: "200 15% 88%", // Light grey-blue
+      card: "210 20% 18%",
+      cardForeground: "200 15% 88%",
+      popover: "210 20% 18%",
+      popoverForeground: "200 15% 88%",
+      primary: "205 65% 50%",     // Medium steel blue
+      primaryForeground: "0 0% 100%",
+      secondary: "215 15% 30%",    // Darker muted steel blue
+      secondaryForeground: "200 10% 80%",
+      muted: "215 12% 25%",
+      mutedForeground: "200 10% 65%",
+      accent: "0 0% 75%",       // Light grey accent
+      accentForeground: "0 0% 0%",
+      destructive: "0 55% 50%",
+      destructiveForeground: "0 0% 100%",
+      border: "215 12% 22%",
+      input: "215 12% 20%",
+      ring: "205 65% 50%",
+    }
+  },
+  {
+    id: "cream-coffee-light",
+    name: "Cream & Coffee Light",
+    isDark: false,
+    colors: {
+      background: "40 50% 96%", // Creamy off-white
+      foreground: "30 30% 20%", // Dark coffee brown
+      card: "40 50% 98%",
+      cardForeground: "30 30% 20%",
+      popover: "40 50% 98%",
+      popoverForeground: "30 30% 20%",
+      primary: "35 50% 45%",      // Medium coffee brown
+      primaryForeground: "0 0% 100%",
+      secondary: "45 40% 85%",     // Light beige
+      secondaryForeground: "30 30% 20%",
+      muted: "40 30% 92%",
+      mutedForeground: "30 25% 50%",
+      accent: "200 50% 55%",     // Dusty blue
+      accentForeground: "0 0% 100%",
+      destructive: "0 70% 55%",
+      destructiveForeground: "0 0% 100%",
+      border: "40 30% 88%",
+      input: "40 40% 94%",
+      ring: "35 50% 45%",
+    }
+  },
+  {
+    id: "nightshade-purple-dark",
+    name: "Nightshade Purple Dark",
+    isDark: true,
+    colors: {
+      background: "270 25% 10%", // Very dark purple
+      foreground: "280 15% 88%", // Light lavender-grey
+      card: "270 25% 15%",
+      cardForeground: "280 15% 88%",
+      popover: "270 25% 15%",
+      popoverForeground: "280 15% 88%",
+      primary: "275 60% 55%",     // Rich purple
+      primaryForeground: "0 0% 100%",
+      secondary: "265 20% 28%",    // Darker muted purple
+      secondaryForeground: "280 10% 80%",
+      muted: "265 15% 22%",
+      mutedForeground: "280 10% 65%",
+      accent: "240 70% 65%",     // Electric blue
+      accentForeground: "0 0% 0%",
+      destructive: "350 60% 50%",
+      destructiveForeground: "0 0% 100%",
+      border: "265 15% 20%",
+      input: "265 15% 18%",
+      ring: "275 60% 55%",
+    }
   }
   // Add more themes here if needed
 ];
 
     
+
