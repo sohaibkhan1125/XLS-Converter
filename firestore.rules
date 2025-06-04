@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -50,35 +51,33 @@ service cloud.firestore {
       // Client-side deletion is disallowed for now to prevent accidental data loss.
       allow create, read, update: if request.auth != null && request.auth.uid == userId;
 
-      // If you want admins to also be able to read user profiles, you could use:
+      // Example for admin access to user profiles (currently commented out):
       // allow read: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
       // allow write: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); // If admins can also edit
     }
 
     // Rules for Conversion Logs
     // Collection: conversion_logs
+    // These logs might still be created by the application even if not displayed on the admin dashboard.
     match /conversion_logs/{logId} {
-      // Allow any client to create conversion logs.
-      // For better security in a production environment, this might be restricted
-      // to authenticated users, or handled via a backend function that validates
-      // the conversion event before logging.
+      // Allow any client to create conversion logs (e.g., from local-storage-limits.ts).
+      // For enhanced security in production, consider restricting this or using a Cloud Function.
       allow create: if true;
 
-      // Allow only authenticated admins to read conversion logs.
+      // Allow only authenticated admins to read conversion logs (e.g., for direct inspection in Firebase console).
       allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
       
       // Generally, logs shouldn't be updated or deleted from the client.
       allow update, delete: if false;
     }
 
-    // --- Obsolete Rules Section (Consider Deleting if No Longer Needed) ---
-    // The 'daily_conversion_metrics' feature was removed.
-    // If you are sure it's no longer used, you can delete this block.
-    // If you might re-enable it, you can keep it commented out or as is.
+    // --- Obsolete Rules Section (Kept for reference or if feature is re-enabled) ---
+    // The 'daily_conversion_metrics' feature was removed from the admin dashboard.
     /*
     match /daily_conversion_metrics/{dateString} {
       allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-      allow write: if request.auth != null;
+      // If writes were from a trusted server/function, this rule would be different.
+      // allow write: if request.auth != null; // Example, adjust based on write source
     }
     */
 
