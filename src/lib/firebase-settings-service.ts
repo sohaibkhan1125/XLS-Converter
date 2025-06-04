@@ -47,7 +47,7 @@ const DEFAULT_SITEMAP_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
 
 const DEFAULT_GENERAL_SETTINGS: GeneralSiteSettings = {
   siteTitle: 'XLSConvert',
-  logoUrl: undefined,
+  logoUrl: null, // Changed from undefined to null
   navItems: [],
   adLoaderScript: '',
   socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
@@ -122,7 +122,7 @@ export async function getGeneralSettings(): Promise<GeneralSiteSettings | null> 
         navItems: data.navItems && data.navItems.length > 0 ? data.navItems : DEFAULT_GENERAL_SETTINGS.navItems,
         seoSettings: data.seoSettings || DEFAULT_GENERAL_SETTINGS.seoSettings,
         adLoaderScript: data.adLoaderScript || DEFAULT_GENERAL_SETTINGS.adLoaderScript,
-        logoUrl: data.logoUrl || DEFAULT_GENERAL_SETTINGS.logoUrl,
+        logoUrl: data.logoUrl ?? DEFAULT_GENERAL_SETTINGS.logoUrl, // Use nullish coalescing for clarity, ensures it resolves to null if data.logoUrl is undefined
       };
       return mergedSettings;
     }
@@ -143,11 +143,38 @@ export async function updateGeneralSettings(settings: Partial<GeneralSiteSetting
 
     const docRef = doc(firestore, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC_ID);
     // Ensure paymentGateways is an array, even if partial update sends undefined
+    // Filter out any top-level undefined values before sending to Firestore
+    const cleanedSettings: Partial<GeneralSiteSettings> = {};
+    for (const key in settings) {
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        const k = key as keyof GeneralSiteSettings;
+        if (settings[k] !== undefined) {
+          cleanedSettings[k] = settings[k];
+        }
+      }
+    }
+    
+    // If paymentGateways was explicitly passed as undefined in the original 'settings' object,
+    // it would have been filtered out by the loop above.
+    // If it was passed as null or an array, it would be in cleanedSettings.
+    // We need to ensure if it's provided as part of the update, it's an array.
+    if (cleanedSettings.paymentGateways !== undefined && !Array.isArray(cleanedSettings.paymentGateways)) {
+        // This case should ideally not happen if types are followed, but as a safeguard:
+        console.warn("PaymentGateways provided but not an array, defaulting to empty array for update.", cleanedSettings.paymentGateways);
+        cleanedSettings.paymentGateways = [];
+    }
+
+
     const settingsToSave = {
-      ...settings,
-      paymentGateways: settings.paymentGateways || [], // Ensure it's an array
+      ...cleanedSettings,
       lastUpdated: serverTimestamp()
     };
+
+    if (Object.keys(cleanedSettings).length === 0 && Object.keys(settings).length > 0) {
+        console.warn("UpdateGeneralSettings called with only undefined values. Only 'lastUpdated' will be set.");
+    }
+
+
     await setDoc(docRef, settingsToSave, { merge: true });
   } catch (error) {
     console.error("Error updating general settings in Firestore:", error);
@@ -187,7 +214,7 @@ export function subscribeToGeneralSettings(
         navItems: data.navItems && data.navItems.length > 0 ? data.navItems : DEFAULT_GENERAL_SETTINGS.navItems,
         seoSettings: data.seoSettings || DEFAULT_GENERAL_SETTINGS.seoSettings,
         adLoaderScript: data.adLoaderScript || DEFAULT_GENERAL_SETTINGS.adLoaderScript,
-        logoUrl: data.logoUrl || DEFAULT_GENERAL_SETTINGS.logoUrl,
+        logoUrl: data.logoUrl ?? DEFAULT_GENERAL_SETTINGS.logoUrl,
       };
       callback(mergedSettings);
     } else {
@@ -244,3 +271,4 @@ export async function deleteSharedSiteLogo(logoUrl: string): Promise<void> {
     }
   }
 }
+
