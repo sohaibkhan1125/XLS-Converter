@@ -44,6 +44,7 @@ import {
   type DailyTrendDataPoint,
   type VisitorTypeDataPoint
 } from '@/lib/google-analytics-service';
+import { cn } from "@/lib/utils"; // Added import for cn
 
 const initialAnalyticsData: WebsiteAnalyticsData = {
   liveUsers: null,
