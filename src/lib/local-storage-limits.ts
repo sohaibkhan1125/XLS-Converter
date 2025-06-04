@@ -87,8 +87,6 @@ export function getActivePlan(userId: string | null): ActivePlan | null {
       return null;
     }
     
-    // If the plan is within its main duration, it's considered active.
-    // The trial ending does not invalidate the plan if the main duration is still active.
     return plan;
   } catch (error) {
     console.error("[LocalStorageLimits] Error reading active plan from local storage:", error);
@@ -228,7 +226,8 @@ export function recordConversion(userId: string | null): void {
     console.log(`[LocalStorageLimits] Free tier timestamps updated for ${freeTierKey}. Current count in window: ${validTimestamps.length}`);
   }
 
-  // After local logic, log to Firestore for analytics
+  // Log to Firestore for analytics (if desired for backend tracking, even if not shown on dashboard)
+  // If you want to COMPLETELY remove conversion logging, comment out or delete the next 3 lines.
   const userType = userId ? 'loggedIn' : 'guest';
   logConversionToFirestore(userType, userId || undefined).catch(error => {
     console.warn("[LocalStorageLimits] Failed to log conversion to Firestore analytics:", error);

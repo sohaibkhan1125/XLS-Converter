@@ -11,12 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { ShieldAlert, TrendingUp, Users } from 'lucide-react'; 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ConversionChart from '@/components/admin/dashboard/conversion-chart';
-import { getTotalConversionsCount, getAggregatedConversionData, type ChartDataPoint } from '@/lib/firebase-analytics-service';
-
-type TimeRangeFilter = '24h' | '7d' | '30d';
+import { Users, Users2, CalendarClock } from 'lucide-react'; 
+import {
+  getLiveUsers,
+  getVisitorsLast24Hours,
+  getVisitorsLast7Days,
+  getVisitorsLast30Days,
+  type WebsiteAnalyticsData,
+} from '@/lib/google-analytics-service';
 
 export default function AdminDashboardPage() {
   const { adminUser, adminSignOut, loading: authLoading } = useAdminAuth();
@@ -27,12 +29,13 @@ export default function AdminDashboardPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [errorLoadingUsers, setErrorLoadingUsers] = useState<string | null>(null);
 
-  const [totalConversions, setTotalConversions] = useState<number | null>(null);
-  const [isLoadingTotalConversions, setIsLoadingTotalConversions] = useState(true);
-  
-  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRangeFilter>('24h');
-  const [conversionChartData, setConversionChartData] = useState<ChartDataPoint[]>([]);
-  const [isLoadingChartData, setIsLoadingChartData] = useState(true);
+  const [websiteAnalytics, setWebsiteAnalytics] = useState<WebsiteAnalyticsData>({
+    liveUsers: null,
+    visitors24h: null,
+    visitors7d: null,
+    visitors30d: null,
+  });
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
 
   const fetchAdminUsers = useCallback(async () => {
     if (!adminUser) return;
@@ -49,42 +52,35 @@ export default function AdminDashboardPage() {
     }
   }, [adminUser, toast]);
 
-  const fetchTotalConversions = useCallback(async () => {
+  const fetchWebsiteAnalytics = useCallback(async () => {
     if (!adminUser) return;
-    setIsLoadingTotalConversions(true);
+    setIsLoadingAnalytics(true);
     try {
-      const count = await getTotalConversionsCount();
-      setTotalConversions(count);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to fetch total conversions." });
-      setTotalConversions(0); // Fallback
+      // In a real implementation, these might be parallel promises
+      const live = await getLiveUsers();
+      const v24h = await getVisitorsLast24Hours();
+      const v7d = await getVisitorsLast7Days();
+      const v30d = await getVisitorsLast30Days();
+      setWebsiteAnalytics({
+        liveUsers: live,
+        visitors24h: v24h,
+        visitors7d: v7d,
+        visitors30d: v30d,
+      });
+      toast({ title: "Analytics Loaded", description: "Website visitor data (mocked) loaded." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Analytics Error", description: `Failed to fetch website analytics: ${error.message}` });
+      setWebsiteAnalytics({ liveUsers: 0, visitors24h: 0, visitors7d: 0, visitors30d: 0 }); // Fallback
     } finally {
-      setIsLoadingTotalConversions(false);
-    }
-  }, [adminUser, toast]);
-
-  const fetchChartData = useCallback(async (range: TimeRangeFilter) => {
-    if (!adminUser) return;
-    setIsLoadingChartData(true);
-    try {
-      const data = await getAggregatedConversionData(range);
-      setConversionChartData(data);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Chart Error", description: `Failed to fetch conversion data for ${range}.` });
-      setConversionChartData([]); // Fallback
-    } finally {
-      setIsLoadingChartData(false);
+      setIsLoadingAnalytics(false);
     }
   }, [adminUser, toast]);
 
   useEffect(() => {
     fetchAdminUsers();
-    fetchTotalConversions();
-  }, [fetchAdminUsers, fetchTotalConversions]);
+    fetchWebsiteAnalytics();
+  }, [fetchAdminUsers, fetchWebsiteAnalytics]);
 
-  useEffect(() => {
-    fetchChartData(selectedTimeRange);
-  }, [fetchChartData, selectedTimeRange]);
 
   const handleSignOut = async () => {
     try {
@@ -104,19 +100,8 @@ export default function AdminDashboardPage() {
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Verifying admin access..." /></div>;
   }
 
-  const getChartTitleAndDescription = (range: TimeRangeFilter) => {
-    switch (range) {
-      case '24h': return { title: 'Conversions - Last 24 Hours', description: 'Hourly breakdown of conversions.' };
-      case '7d': return { title: 'Conversions - Last 7 Days', description: 'Daily breakdown of conversions.' };
-      case '30d': return { title: 'Conversions - Last 30 Days', description: 'Daily breakdown of conversions.' };
-      default: return { title: 'Conversion Data', description: '' };
-    }
-  };
-
-  const chartConfig = getChartTitleAndDescription(selectedTimeRange);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>Admin Dashboard Overview</CardTitle>
@@ -131,71 +116,57 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Admin Users</CardTitle>
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoadingUsers ? <span className="text-sm">Loading...</span> : adminUsersList.length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Currently registered administrators.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Conversions</CardTitle>
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoadingTotalConversions ? <span className="text-sm">Loading...</span> : totalConversions ?? 'N/A'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Total PDF to Excel conversions processed.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      
+      {/* Website Analytics Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Conversion Analytics</CardTitle>
-           <Tabs value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as TimeRangeFilter)}>
-            <TabsList className="grid w-full grid-cols-3 md:w-[400px] mt-2">
-              <TabsTrigger value="24h">Last 24 Hours</TabsTrigger>
-              <TabsTrigger value="7d">Last 7 Days</TabsTrigger>
-              <TabsTrigger value="30d">Last 30 Days</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <CardTitle>Website Analytics (GA4)</CardTitle>
+          <CardDescription>Real-time and historical website visitor data from Google Analytics.</CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoadingChartData ? (
-            <div className="h-[350px] flex items-center justify-center">
-              <LoadingSpinner message={`Loading ${selectedTimeRange} conversion data...`} />
-            </div>
-          ) : (
-            <ConversionChart 
-              data={conversionChartData}
-              title={chartConfig.title}
-              description={chartConfig.description}
-              dataKeyX="name"
-              dataKeyY="conversions"
-            />
-          )}
+        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Live Users"
+            value={websiteAnalytics.liveUsers}
+            icon={<Users className="h-5 w-5 text-muted-foreground" />}
+            isLoading={isLoadingAnalytics}
+            description="Users currently on site."
+          />
+          <StatCard
+            title="Visitors (Last 24h)"
+            value={websiteAnalytics.visitors24h}
+            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
+            isLoading={isLoadingAnalytics}
+            description="Total unique visitors."
+          />
+          <StatCard
+            title="Visitors (Last 7d)"
+            value={websiteAnalytics.visitors7d}
+            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
+            isLoading={isLoadingAnalytics}
+            description="Total unique visitors."
+          />
+          <StatCard
+            title="Visitors (Last 30d)"
+            value={websiteAnalytics.visitors30d}
+            icon={<CalendarClock className="h-5 w-5 text-muted-foreground" />}
+            isLoading={isLoadingAnalytics}
+            description="Total unique visitors."
+          />
         </CardContent>
       </Card>
-
+      
+      {/* Admin Users List Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Admin Users List</CardTitle>
-          <CardDescription>List of all registered administrators.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className='space-y-1'>
+                <CardTitle className="text-xl font-medium">Admin Users</CardTitle>
+                <CardDescription>List of all registered administrators.</CardDescription>
+            </div>
+            <Users2 className="h-6 w-6 text-muted-foreground" />
         </CardHeader>
         <CardContent>
+            <div className="text-2xl font-bold mb-1">
+              {isLoadingUsers ? <span className="text-sm">Loading...</span> : adminUsersList.length}
+            </div>
           {isLoadingUsers ? (
             <LoadingSpinner message="Loading admin users..." />
           ) : errorLoadingUsers ? (
@@ -227,5 +198,31 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Helper component for Stat Cards
+interface StatCardProps {
+  title: string;
+  value: number | null;
+  icon: React.ReactNode;
+  isLoading: boolean;
+  description?: string;
+}
+
+function StatCard({ title, value, icon, isLoading, description }: StatCardProps) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {isLoading ? <span className="text-sm">Loading...</span> : value ?? 'N/A'}
+        </div>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </CardContent>
+    </Card>
   );
 }
