@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import dynamic from 'next/dynamic'; // For client-side only ReactQuill
+import dynamic from 'next/dynamic'; 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -19,11 +19,14 @@ import LoadingSpinner from '@/components/core/loading-spinner';
 import { slugify } from '@/lib/utils';
 import { createBlogPost, updateBlogPost, uploadBlogThumbnail, checkSlugExists } from '@/lib/firebase-blog-service';
 import type { BlogPost, BlogPostStatus } from '@/types/blog';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import 'react-quill/dist/quill.snow.css'; 
 import { AlertCircle, CheckCircle, UploadCloud, XCircle } from 'lucide-react';
 
 // Dynamically import ReactQuill to ensure it's only loaded client-side
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+const ReactQuill = dynamic(() => import('react-quill'), { 
+  ssr: false,
+  loading: () => <div className="h-[200px] w-full rounded-md border border-input animate-pulse bg-muted/50 flex items-center justify-center"><p>Loading editor...</p></div>,
+});
 
 const blogPostSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters long." }).max(150),
@@ -46,7 +49,7 @@ const quillModules = {
     [{ 'list': 'ordered'}, { 'list': 'bullet' }],
     [{ 'indent': '-1'}, { 'indent': '+1' }],
     [{ 'align': [] }],
-    ['link', 'image', 'video'], // Added video
+    ['link', 'image', 'video'], 
     ['blockquote', 'code-block'],
     [{ 'script': 'sub'}, { 'script': 'super' }],
     [{ 'color': [] }, { 'background': [] }],
@@ -62,7 +65,13 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(existingPost?.thumbnailImageUrl || null);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(!!existingPost?.slug);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
 
   const { control, register, handleSubmit, watch, setValue, getValues, formState: { errors, isDirty } } = useForm<BlogPostFormValues>({
     resolver: zodResolver(blogPostSchema),
@@ -78,15 +87,13 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
   const watchedTitle = watch('title');
   const watchedSlug = watch('slug');
 
-  // Auto-generate slug from title if not manually edited
   useEffect(() => {
-    if (watchedTitle && !slugManuallyEdited && !existingPost) { // Only for new posts or if slug wasn't set
+    if (watchedTitle && !slugManuallyEdited && !existingPost) { 
       const newSlug = slugify(watchedTitle);
       setValue('slug', newSlug, { shouldValidate: true, shouldDirty: true });
     }
   }, [watchedTitle, slugManuallyEdited, setValue, existingPost]);
   
-  // Debounced slug check
   const debouncedCheckSlug = useCallback(
     debounce(async (slugToTest: string) => {
       if (!slugToTest) {
@@ -121,7 +128,6 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
   const removeThumbnail = () => {
     setThumbnailFile(null);
     setThumbnailPreview(null);
-    // If editing, this implies the existing thumbnail might be removed on save
   };
 
   const onSubmitHandler: SubmitHandler<BlogPostFormValues> = async (data, event) => {
@@ -143,14 +149,13 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
         thumbnailUrl = await uploadBlogThumbnail(thumbnailFile, existingPost?.id);
         setIsUploading(false);
       } else if (!thumbnailPreview && existingPost?.thumbnailImageUrl) {
-        // If preview was removed and there was an existing image, it means user wants to remove it.
         thumbnailUrl = null; 
       }
 
       const postDataToSave = {
         ...data,
         status: statusToSet,
-        content: data.content, // Ensure content from ReactQuill is used
+        content: data.content, 
         thumbnailImageUrl: thumbnailUrl,
       };
       
@@ -162,7 +167,7 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
         toast({ title: "Blog Post Created", description: `"${data.title}" has been successfully created.` });
       }
       router.push('/admin/blog-manager');
-      router.refresh(); // To update the list on the manager page
+      router.refresh(); 
     } catch (error: any) {
       console.error("Error saving blog post:", error);
       toast({ variant: "destructive", title: "Save Error", description: error.message || "Could not save the blog post." });
@@ -262,20 +267,24 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
           <CardTitle>Main Content</CardTitle>
         </CardHeader>
         <CardContent>
-          <Controller
-            name="content"
-            control={control}
-            render={({ field }) => (
-              <ReactQuill
-                theme="snow"
-                value={field.value}
-                onChange={field.onChange}
-                modules={quillModules}
-                placeholder="Write your amazing blog post here..."
-                className={isLoading ? 'opacity-50 pointer-events-none' : ''}
-              />
-            )}
-          />
+          {isClient ? (
+            <Controller
+              name="content"
+              control={control}
+              render={({ field }) => (
+                <ReactQuill
+                  theme="snow"
+                  value={field.value}
+                  onChange={field.onChange}
+                  modules={quillModules}
+                  placeholder="Write your amazing blog post here..."
+                  className={isLoading ? 'opacity-50 pointer-events-none' : ''}
+                />
+              )}
+            />
+          ) : (
+             <div className="h-[200px] w-full rounded-md border border-input animate-pulse bg-muted/50 flex items-center justify-center"><p>Loading editor...</p></div>
+          )}
           {errors.content && <p className="text-sm text-destructive mt-2">{errors.content.message}</p>}
         </CardContent>
       </Card>
@@ -328,7 +337,6 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
   );
 }
 
-// Debounce helper function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
