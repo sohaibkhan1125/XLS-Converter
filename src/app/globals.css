@@ -103,56 +103,71 @@ body {
   }
 }
 
-/* React Quill Editor Styles */
-.ql-editor {
-  min-height: 200px; /* Or any desired height */
-  font-size: 1rem; /* Match your site's base font size */
-  line-height: 1.6;
-  border-radius: var(--radius);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  border: 1px solid hsl(var(--input));
-  padding: 0.75rem 1rem;
+/* TipTap Editor Styles */
+.ProseMirror {
+  @apply min-h-[250px] p-3 border border-input rounded-b-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring;
+  /* Apply Tailwind typography styles if @tailwindcss/typography is installed */
+  /* @apply prose prose-sm sm:prose lg:prose-lg xl:prose-2xl max-w-none; */
 }
 
-.ql-toolbar.ql-snow {
-  border-radius: var(--radius) var(--radius) 0 0;
-  border: 1px solid hsl(var(--input));
-  border-bottom: 0px; /* Remove bottom border if editor has its own top border */
-  background-color: hsl(var(--card)); /* Light background for toolbar */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
 }
 
-.ql-container.ql-snow {
-  border-radius: 0 0 var(--radius) var(--radius);
-  border: 1px solid hsl(var(--input));
-  background-color: hsl(var(--background));
+/* Basic styling for TipTap elements if not using Tailwind Typography plugin */
+.ProseMirror > * + * {
+  @apply mt-3;
+}
+.ProseMirror ul,
+.ProseMirror ol {
+  @apply pl-4 my-2;
+}
+.ProseMirror ul {
+  @apply list-disc;
+}
+.ProseMirror ol {
+  @apply list-decimal;
+}
+.ProseMirror li > p { /* Tiptap wraps list item content in <p> */
+  @apply my-0;
+}
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4, .ProseMirror h5, .ProseMirror h6 {
+  @apply font-semibold leading-tight mt-4 mb-2;
+}
+.ProseMirror h1 { @apply text-3xl; }
+.ProseMirror h2 { @apply text-2xl; }
+.ProseMirror h3 { @apply text-xl; }
+
+.ProseMirror code {
+  @apply bg-muted text-muted-foreground px-1 py-0.5 rounded-sm text-sm font-mono;
+}
+.ProseMirror pre {
+  @apply bg-muted text-muted-foreground p-3 rounded-md overflow-x-auto font-mono text-sm my-4;
+}
+.ProseMirror pre code {
+  @apply bg-transparent p-0;
+}
+.ProseMirror blockquote {
+  @apply pl-4 border-l-4 border-border italic my-4 text-muted-foreground;
+}
+.ProseMirror hr {
+  @apply border-t border-border my-4;
+}
+.ProseMirror img {
+  @apply max-w-full h-auto rounded-md my-2;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  @apply ring-2 ring-primary outline-none;
+}
+.ProseMirror a {
+  @apply text-primary underline cursor-pointer hover:text-primary/80;
 }
 
-/* Style Quill icons to match theme's foreground color */
-.ql-snow .ql-stroke {
-  stroke: hsl(var(--foreground));
-}
-.ql-snow .ql-fill {
-  fill: hsl(var(--foreground));
-}
-.ql-snow .ql-picker-label {
-  color: hsl(var(--foreground));
-}
-.ql-snow .ql-picker-options {
-  background-color: hsl(var(--popover));
-  border-color: hsl(var(--border));
-}
-.ql-snow .ql-picker-item:hover,
-.ql-snow .ql-picker-label:hover {
-  color: hsl(var(--primary));
-}
-.ql-snow .ql-picker-item.ql-selected {
-   color: hsl(var(--primary));
-}
-
-/* Ensure images in editor are responsive */
-.ql-editor img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius);
+/* Style for active toolbar buttons */
+.is-active {
+  @apply bg-primary/20 text-primary;
 }

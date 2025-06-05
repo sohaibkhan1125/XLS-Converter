@@ -5,8 +5,6 @@ import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-// Remove direct dynamic import of ReactQuill, import CustomQuill instead
-import dynamic from 'next/dynamic'; 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -14,21 +12,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { slugify } from '@/lib/utils';
 import { createBlogPost, updateBlogPost, uploadBlogThumbnail, checkSlugExists } from '@/lib/firebase-blog-service';
-import type { BlogPost, BlogPostStatus } from '@/types/blog';
-import 'react-quill/dist/quill.snow.css'; 
-import { AlertCircle, CheckCircle, UploadCloud, XCircle } from 'lucide-react';
-import CustomQuill from './CustomQuill'; // Import the new wrapper
+import type { BlogPost } from '@/types/blog';
+import { AlertCircle, CheckCircle, UploadCloud, XCircle, Bold, Italic, Underline, Strikethrough, List, ListOrdered, Heading1, Heading2, Heading3, Link as LinkIcon, Image as ImageIcon, Pilcrow, AlignLeft, AlignCenter, AlignRight, Quote, Code, Minus } from 'lucide-react';
+
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import TiptapLink from '@tiptap/extension-link';
+import TiptapImage from '@tiptap/extension-image';
+import Placeholder from '@tiptap/extension-placeholder';
+import UnderlineExtension from '@tiptap/extension-underline';
+
 
 const blogPostSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters long." }).max(150),
   shortDescription: z.string().min(10, { message: "Short description must be at least 10 characters." }).max(300),
   slug: z.string().min(3, { message: "Slug is required." }).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be lowercase, alphanumeric, with hyphens."),
-  content: z.string().min(50, { message: "Content must be at least 50 characters long." }),
+  content: z.string().min(50, { message: "Content must be rich and at least 50 characters long." }),
   status: z.enum(['draft', 'published']),
 });
 
@@ -38,20 +42,49 @@ interface BlogPostFormProps {
   existingPost?: BlogPost | null;
 }
 
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    [{ 'indent': '-1'}, { 'indent': '+1' }],
-    [{ 'align': [] }],
-    ['link', 'image', 'video'], 
-    ['blockquote', 'code-block'],
-    [{ 'script': 'sub'}, { 'script': 'super' }],
-    [{ 'color': [] }, { 'background': [] }],
-    ['clean']
-  ],
+const MenuBar = ({ editor }: { editor: Editor | null }) => {
+  if (!editor) {
+    return null;
+  }
+
+  const addImage = useCallback(() => {
+    const url = window.prompt('Enter image URL:');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+  const setLink = useCallback(() => {
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('Enter URL:', previousUrl);
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }, [editor]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/50">
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBold().run()} disabled={!editor.can().chain().focus().toggleBold().run()} className={editor.isActive('bold') ? 'is-active' : ''} title="Bold"> <Bold className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!editor.can().chain().focus().toggleItalic().run()} className={editor.isActive('italic') ? 'is-active' : ''} title="Italic"> <Italic className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleUnderline().run()} disabled={!editor.can().chain().focus().toggleUnderline().run()} className={editor.isActive('underline') ? 'is-active' : ''} title="Underline"> <Underline className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleStrike().run()} disabled={!editor.can().chain().focus().toggleStrike().run()} className={editor.isActive('strike') ? 'is-active' : ''} title="Strikethrough"> <Strikethrough className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''} title="Heading 1"> <Heading1 className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={editor.isActive('heading', { level: 2 }) ? 'is-active' : ''} title="Heading 2"> <Heading2 className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={editor.isActive('heading', { level: 3 }) ? 'is-active' : ''} title="Heading 3"> <Heading3 className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBulletList().run()} className={editor.isActive('bulletList') ? 'is-active' : ''} title="Bullet List"> <List className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={editor.isActive('orderedList') ? 'is-active' : ''} title="Ordered List"> <ListOrdered className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={editor.isActive('blockquote') ? 'is-active' : ''} title="Blockquote"> <Quote className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={editor.isActive('codeBlock') ? 'is-active' : ''} title="Code Block"> <Code className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={setLink} disabled={!editor.can().setLink({ href: '' })} className={editor.isActive('link') ? 'is-active' : ''} title="Add/Edit Link"> <LinkIcon className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={addImage} title="Add Image"> <ImageIcon className="h-4 w-4" /> </Button>
+      <Button type="button" variant="ghost" size="icon" onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal Rule"> <Minus className="h-4 w-4" /> </Button>
+    </div>
+  );
 };
+
 
 export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
   const router = useRouter();
@@ -75,7 +108,7 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
       title: existingPost?.title || '',
       shortDescription: existingPost?.shortDescription || '',
       slug: existingPost?.slug || '',
-      content: existingPost?.content || '',
+      content: existingPost?.content || '<p>Start writing your amazing blog post here...</p>', // Default content for TipTap
       status: existingPost?.status || 'draft',
     },
   });
@@ -267,16 +300,53 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
             <Controller
               name="content"
               control={control}
-              render={({ field }) => (
-                <CustomQuill // Use the CustomQuill wrapper here
-                  theme="snow"
-                  value={field.value}
-                  onChange={field.onChange}
-                  modules={quillModules}
-                  placeholder="Write your amazing blog post here..."
-                  className={isLoading ? 'opacity-50 pointer-events-none' : ''}
-                />
-              )}
+              render={({ field }) => {
+                // eslint-disable-next-line react-hooks/rules-of-hooks
+                const editor = useEditor({
+                  extensions: [
+                    StarterKit.configure({
+                      heading: { levels: [1, 2, 3] },
+                      codeBlock: { languageClassPrefix: 'language-' }, // for syntax highlighting if you add it later
+                    }),
+                    UnderlineExtension,
+                    TiptapLink.configure({
+                      openOnClick: false,
+                      autolink: true,
+                      linkOnPaste: true,
+                    }),
+                    TiptapImage.configure({
+                      inline: false, // Allow images to be block elements
+                      allowBase64: true, // Example: Allow pasting base64 images
+                    }),
+                    Placeholder.configure({
+                       placeholder: 'Write your amazing blog post here...',
+                    }),
+                  ],
+                  content: field.value,
+                  onUpdate: ({ editor }) => {
+                    field.onChange(editor.getHTML());
+                  },
+                  editorProps: {
+                    attributes: {
+                      class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl max-w-none focus:outline-none min-h-[250px] p-3 border border-input rounded-b-md',
+                    },
+                  },
+                });
+
+                // eslint-disable-next-line react-hooks/rules-of-hooks
+                useEffect(() => {
+                  return () => {
+                    editor?.destroy();
+                  };
+                }, [editor]);
+
+                return (
+                  <div>
+                    <MenuBar editor={editor} />
+                    <EditorContent editor={editor} />
+                  </div>
+                );
+              }}
             />
           ) : (
              <div className="h-[200px] w-full rounded-md border border-input animate-pulse bg-muted/50 flex items-center justify-center"><p>Loading editor...</p></div>
