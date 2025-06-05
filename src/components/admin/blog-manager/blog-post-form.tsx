@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useForm, Controller, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+// Remove direct dynamic import of ReactQuill, import CustomQuill instead
 import dynamic from 'next/dynamic'; 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -21,12 +22,7 @@ import { createBlogPost, updateBlogPost, uploadBlogThumbnail, checkSlugExists } 
 import type { BlogPost, BlogPostStatus } from '@/types/blog';
 import 'react-quill/dist/quill.snow.css'; 
 import { AlertCircle, CheckCircle, UploadCloud, XCircle } from 'lucide-react';
-
-// Dynamically import ReactQuill to ensure it's only loaded client-side
-const ReactQuill = dynamic(() => import('react-quill'), { 
-  ssr: false,
-  loading: () => <div className="h-[200px] w-full rounded-md border border-input animate-pulse bg-muted/50 flex items-center justify-center"><p>Loading editor...</p></div>,
-});
+import CustomQuill from './CustomQuill'; // Import the new wrapper
 
 const blogPostSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters long." }).max(150),
@@ -272,7 +268,7 @@ export default function BlogPostForm({ existingPost }: BlogPostFormProps) {
               name="content"
               control={control}
               render={({ field }) => (
-                <ReactQuill
+                <CustomQuill // Use the CustomQuill wrapper here
                   theme="snow"
                   value={field.value}
                   onChange={field.onChange}
@@ -350,4 +346,3 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 }
-
