@@ -102,3 +102,57 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* React Quill Editor Styles */
+.ql-editor {
+  min-height: 200px; /* Or any desired height */
+  font-size: 1rem; /* Match your site's base font size */
+  line-height: 1.6;
+  border-radius: var(--radius);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--input));
+  padding: 0.75rem 1rem;
+}
+
+.ql-toolbar.ql-snow {
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid hsl(var(--input));
+  border-bottom: 0px; /* Remove bottom border if editor has its own top border */
+  background-color: hsl(var(--card)); /* Light background for toolbar */
+}
+
+.ql-container.ql-snow {
+  border-radius: 0 0 var(--radius) var(--radius);
+  border: 1px solid hsl(var(--input));
+  background-color: hsl(var(--background));
+}
+
+/* Style Quill icons to match theme's foreground color */
+.ql-snow .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+.ql-snow .ql-fill {
+  fill: hsl(var(--foreground));
+}
+.ql-snow .ql-picker-label {
+  color: hsl(var(--foreground));
+}
+.ql-snow .ql-picker-options {
+  background-color: hsl(var(--popover));
+  border-color: hsl(var(--border));
+}
+.ql-snow .ql-picker-item:hover,
+.ql-snow .ql-picker-label:hover {
+  color: hsl(var(--primary));
+}
+.ql-snow .ql-picker-item.ql-selected {
+   color: hsl(var(--primary));
+}
+
+/* Ensure images in editor are responsive */
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}

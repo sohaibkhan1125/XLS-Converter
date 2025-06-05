@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { LayoutDashboard, Settings, Megaphone, Palette, SearchCheck, MessageSquarePlus, CreditCard, Bot, Construction } from 'lucide-react'; // Added CreditCard
+import { LayoutDashboard, Settings, Megaphone, Palette, SearchCheck, MessageSquarePlus, CreditCard, Bot, FileText } from 'lucide-react'; // Added FileText for Blog
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +13,8 @@ export const adminNavItems = [
   { href: '/admin/color-scheme-settings', label: 'Color Scheme', icon: Palette },
   { href: '/admin/seo-settings', label: 'SEO Settings', icon: SearchCheck }, 
   { href: '/admin/popup-manager', label: 'Popup Manager', icon: MessageSquarePlus },
-  { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard }, // New item
+  { href: '/admin/payment-gateways', label: 'Payment Gateways', icon: CreditCard },
+  { href: '/admin/blog-manager', label: 'Blog Manager', icon: FileText }, // New item
   // Example for future: { href: '/admin/ai-content-rules', label: 'AI Content Rules', icon: Bot },
 ];
 
@@ -28,7 +29,7 @@ export function AdminNavigationLinks({ onLinkClick }: { onLinkClick?: () => void
           onClick={onLinkClick}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted text-base md:text-sm", // Ensure text size is appropriate
-            pathname === item.href && "bg-muted text-primary font-medium"
+            (pathname === item.href || (item.href === '/admin/blog-manager' && pathname.startsWith('/admin/blog-manager'))) && "bg-muted text-primary font-medium"
           )}
         >
           <item.icon className="h-5 w-5 md:h-4 md:w-4" />

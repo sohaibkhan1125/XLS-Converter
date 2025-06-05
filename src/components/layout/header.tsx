@@ -23,6 +23,7 @@ import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 const DEFAULT_NAV_LINKS: NavItem[] = [
   { id: 'home', href: '/', label: 'Home' },
+  { id: 'blogs', href: '/blogs', label: 'Blogs' }, // Added Blogs Link
   { id: 'pricing', href: '/pricing', label: 'Pricing' },
   { id: 'about', href: '/about', label: 'About' },
   { id: 'contact', href: '/contact', label: 'Contact' },
@@ -44,7 +45,21 @@ export default function AppHeader() {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
         setLogoUrl(settings.logoUrl);
-        setNavItems(settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS);
+        // Ensure "Blogs" is present if custom nav items are set, otherwise use defaults which include "Blogs"
+        const baseNavItems = settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS;
+        if (!baseNavItems.find(item => item.id === 'blogs')) {
+            const blogsIndex = DEFAULT_NAV_LINKS.findIndex(item => item.id === 'blogs');
+            if (blogsIndex !== -1) {
+                 // Insert "Blogs" into a sensible position if missing, e.g., after "Home" or at the start
+                const homeIndex = baseNavItems.findIndex(item => item.id === 'home');
+                if (homeIndex !== -1) {
+                    baseNavItems.splice(homeIndex + 1, 0, DEFAULT_NAV_LINKS[blogsIndex]);
+                } else {
+                    baseNavItems.unshift(DEFAULT_NAV_LINKS[blogsIndex]);
+                }
+            }
+        }
+        setNavItems(baseNavItems);
         setSiteTitleForLogo(settings.siteTitle || GENERIC_APP_NAME_FALLBACK);
       } else {
         setLogoUrl(undefined);
