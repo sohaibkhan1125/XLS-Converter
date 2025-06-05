@@ -1,0 +1,89 @@
+
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import BlogPostForm from '@/components/admin/blog-manager/blog-post-form';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getBlogPostById } from '@/lib/firebase-blog-service';
+import type { BlogPost } from '@/types/blog';
+import LoadingSpinner from '@/components/core/loading-spinner';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react";
+
+export default function EditBlogPostPage() {
+  const params = useParams();
+  const postId = params.postId as string;
+  const [post, setPost] = useState<BlogPost | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (postId) {
+      const fetchPost = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const fetchedPost = await getBlogPostById(postId);
+          if (fetchedPost) {
+            setPost(fetchedPost);
+          } else {
+            setError("Blog post not found.");
+          }
+        } catch (err: any) {
+          console.error("Error fetching blog post for edit:", err);
+          setError(err.message || "Failed to load blog post details.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchPost();
+    } else {
+      setError("No post ID provided.");
+      setIsLoading(false);
+    }
+  }, [postId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <LoadingSpinner message="Loading blog post..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!post) {
+     return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Not Found</AlertTitle>
+        <AlertDescription>The blog post you are trying to edit could not be found.</AlertDescription>
+      </Alert>
+    );
+  }
+  
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Blog Post</CardTitle>
+          <CardDescription>Modify the details of your blog post below.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BlogPostForm existingPost={post} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
