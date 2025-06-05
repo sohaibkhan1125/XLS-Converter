@@ -71,6 +71,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Rules for Blog Posts
+    // Collection: blog_posts
+    match /blog_posts/{postId} {
+      // Allow public read for posts that are 'published'
+      // OR allow read if the user is an admin (to view drafts, etc.)
+      allow read: if resource.data.status == 'published' || (request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      
+      // Allow admins to create, update, and delete blog posts
+      allow create, update, delete: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // --- Obsolete Rules Section (Kept for reference or if feature is re-enabled) ---
     // The 'daily_conversion_metrics' feature was removed from the admin dashboard.
     /*
