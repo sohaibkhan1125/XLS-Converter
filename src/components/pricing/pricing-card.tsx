@@ -5,7 +5,7 @@ import type React from 'react';
 import { PayPalButtons, usePayPalScriptReducer, type PayPalButtonsComponentProps } from "@paypal/react-paypal-js";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { Button } from '@/components/ui/button'; // Import Button
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Plan, PlanFeature } from '@/config/pricing';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
@@ -15,16 +15,20 @@ interface PricingCardProps {
   plan: Plan;
   billingCycle: 'monthly' | 'annual';
   onSelectPlan: (planId: Plan['id'], cycle: 'monthly' | 'annual') => void;
-  isPaymentConfigured: boolean; // New prop
+  isPaymentConfigured: boolean;
 }
 
-export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymentConfigured }: PricingCardProps) {
+interface PayPalPaymentSectionProps {
+  plan: Plan;
+  billingCycle: 'monthly' | 'annual';
+  displayPrice: number;
+  onSuccessfulPayment: () => void;
+}
+
+// Internal component to handle PayPal logic, only rendered when isPaymentConfigured is true
+const PayPalPaymentSection: React.FC<PayPalPaymentSectionProps> = ({ plan, billingCycle, displayPrice, onSuccessfulPayment }) => {
   const [{ isPending, isRejected }] = usePayPalScriptReducer();
   const { toast } = useToast();
-
-  const displayPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
-  const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
-  const cycleAdverb = billingCycle === 'monthly' ? 'month' : 'year';
 
   const paypalButtonOptions: PayPalButtonsComponentProps = {
     style: { 
@@ -40,7 +44,7 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
             value: displayPrice.toFixed(2),
             currency_code: "USD"
           },
-          description: `${plan.name} Plan - ${billingCycle}ly` + (plan.trialDays ? ` (Includes ${plan.trialDays}-Day Trial)` : '')
+          description: `${plan.name} Plan - ${billingCycle === 'monthly' ? 'Monthly' : 'Annual'}` + (plan.trialDays ? ` (Includes ${plan.trialDays}-Day Trial)` : '')
         }]
       });
     },
@@ -58,7 +62,7 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
             description: `Order ID: ${data.orderID}. Thank you for your purchase.`,
           });
         }
-        onSelectPlan(plan.id, billingCycle); 
+        onSuccessfulPayment(); 
       } catch (error) {
         console.error("PayPal Capture Error:", error);
         toast({
@@ -82,6 +86,33 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
         description: "You have cancelled the payment process.",
       });
     }
+  };
+
+  if (isPending) {
+    return <LoadingSpinner message="Loading payment options..." />;
+  }
+  if (isRejected) {
+    return (
+      <p className="text-destructive text-center text-sm">
+        Could not load PayPal. Please refresh or check your connection.
+      </p>
+    );
+  }
+  return (
+    <div className="w-full">
+      <PayPalButtons {...paypalButtonOptions} />
+    </div>
+  );
+};
+
+
+export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymentConfigured }: PricingCardProps) {
+  const displayPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
+  const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
+  const cycleAdverb = billingCycle === 'monthly' ? 'month' : 'year';
+
+  const handleSuccessfulPayment = () => {
+    onSelectPlan(plan.id, billingCycle);
   };
 
   return (
@@ -133,17 +164,12 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
       </CardContent>
       <CardFooter className="p-6 mt-auto min-h-[80px] flex items-center justify-center">
         {isPaymentConfigured ? (
-          isPending ? (
-            <LoadingSpinner message="Loading payment options..." />
-          ) : isRejected ? (
-            <p className="text-destructive text-center text-sm">
-              Could not load PayPal. Please refresh or check your connection.
-            </p>
-          ) : (
-            <div className="w-full">
-              <PayPalButtons {...paypalButtonOptions} />
-            </div>
-          )
+          <PayPalPaymentSection 
+            plan={plan} 
+            billingCycle={billingCycle} 
+            displayPrice={displayPrice} 
+            onSuccessfulPayment={handleSuccessfulPayment}
+          />
         ) : (
           <Button 
             onClick={() => onSelectPlan(plan.id, billingCycle)} 
