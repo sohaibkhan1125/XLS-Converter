@@ -18,8 +18,6 @@ import LoadingSpinner from '@/components/core/loading-spinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from 'lucide-react';
 
-// Removed hardcoded PAYPAL_CLIENT_ID
-
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const { toast } = useToast();
@@ -52,6 +50,8 @@ export default function PricingPage() {
           document.head.appendChild(keywordsTag);
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+      } else if (settings?.siteTitle) {
+        document.title = `Pricing - ${settings.siteTitle}`;
       }
     });
     return () => unsubscribe();
@@ -71,7 +71,7 @@ export default function PricingPage() {
       conversions: cycle === 'monthly' ? selectedPlan.monthlyConversions : selectedPlan.annualConversions,
       cycle: cycle,
       price: cycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualPrice,
-      trialDays: selectedPlan.trialDays, 
+      trialDays: selectedPlan.trialDays,
     };
 
     const activatedPlan = activatePlan(currentUser ? currentUser.uid : null, planDetailsToActivate);
@@ -99,7 +99,9 @@ export default function PricingPage() {
     );
   }
 
-  const paypalSettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
+  const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
+  const isPaymentConfigured = !!paypalGatewaySettings;
+  const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -113,40 +115,63 @@ export default function PricingPage() {
         </p>
       </div>
 
-      {!paypalSettings && (
+      {!isPaymentConfigured && generalSettings && (
         <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Payment Gateway Not Configured</AlertTitle>
+          <AlertTitle>Online Payments Unavailable</AlertTitle>
           <AlertDescription>
-            Online payments are currently unavailable. Please contact support or an administrator needs to configure a payment gateway.
+            Online payments are currently not fully configured. You can still select a plan to activate its local limits.
+            An administrator needs to enable and configure a payment gateway in the admin panel.
           </AlertDescription>
         </Alert>
       )}
+      
+      {generalSettings === null && !isLoadingSettings && (
+          <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Configuration Error</AlertTitle>
+              <AlertDescription>
+                  Could not load site configuration for pricing. Please try again later or contact support.
+                  Pricing plans are shown below with local activation.
+              </AlertDescription>
+          </Alert>
+      )}
 
-      {paypalSettings && (
-        <>
-          <div className="flex justify-center mb-10">
-            <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
-              <TabsList className="grid w-full grid-cols-2 md:w-[200px]">
-                <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                <TabsTrigger value="annual">Annual (Save ~50%)</TabsTrigger>
-              </TabsList>
-            </Tabs>
+      <div className="flex justify-center mb-10">
+        <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
+          <TabsList className="grid w-full grid-cols-2 md:w-[200px]">
+            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+            <TabsTrigger value="annual">Annual (Save ~50%)</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      
+      {isPaymentConfigured && paypalClientId ? (
+        <PayPalScriptProvider options={{ clientId: paypalClientId, currency: "USD" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+            {PRICING_PLANS.map((plan) => (
+              <PricingCard
+                key={plan.id}
+                plan={plan}
+                billingCycle={billingCycle}
+                onSelectPlan={handleSelectPlan}
+                isPaymentConfigured={true}
+              />
+            ))}
           </div>
-          
-          <PayPalScriptProvider options={{ clientId: paypalSettings.credentials.clientId!, currency: "USD" }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-              {PRICING_PLANS.map((plan) => (
-                <PricingCard
-                  key={plan.id}
-                  plan={plan}
-                  billingCycle={billingCycle}
-                  onSelectPlan={handleSelectPlan}
-                />
-              ))}
-            </div>
-          </PayPalScriptProvider>
-        </>
+        </PayPalScriptProvider>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+          {PRICING_PLANS.map((plan) => (
+            <PricingCard
+              key={plan.id}
+              plan={plan}
+              billingCycle={billingCycle}
+              onSelectPlan={handleSelectPlan}
+              isPaymentConfigured={false}
+            />
+          ))}
+        </div>
       )}
 
       <div className="mt-16 text-center">
