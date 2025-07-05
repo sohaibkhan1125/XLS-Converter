@@ -49,7 +49,7 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are an expert financial data extraction assistant. Your task is to analyze the raw text from a bank statement and convert it into a structured JSON format. Pay close attention to the column mappings and data cleaning instructions.
+  prompt: `You are an expert financial data extraction assistant. Your task is to analyze the raw text from a bank statement and convert it into a structured JSON format. The text can be messy and columns may not align perfectly. Your primary goal is to identify each transaction row and correctly assign the date, description, debit, credit, and balance. Pay close attention to the column mappings and data cleaning instructions.
 
 **Key Information to Extract:**
 
