@@ -17,7 +17,7 @@ import { checkConversionLimit, recordConversion, formatTime, type LimitStatus } 
 import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
-import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
+import { structurePdfData as structurePdfDataAI, type TransactionListOutput } from '@/ai/flows/structure-pdf-data-flow';
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
@@ -128,13 +128,13 @@ export default function HomePage() {
         toast({ title: "OCR Successful", description: "Text extracted using OCR." });
       }
       
-      setLoadingStep("Structuring PDF data with AI...");
-      toast({ title: "Structuring Data", description: "AI is analyzing the document structure. This can take a few moments." });
-      const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
+      setLoadingStep("Structuring transaction data with AI...");
+      toast({ title: "Structuring Data", description: "AI is analyzing the document for transactions. This can take a few moments." });
+      const structuredDataResult: TransactionListOutput = await structurePdfDataAI({ rawText: rawTextOutput });
       
-      if (!structuredDataResult || !structuredDataResult.blocks || structuredDataResult.blocks.length === 0) {
-        console.warn("AI structuring returned no blocks or an unexpected result:", structuredDataResult);
-        toast({ variant: "destructive", title: "AI Structuring Issue", description: "AI could not effectively structure the document. The output might be basic." });
+      if (!structuredDataResult || !structuredDataResult.transactions || structuredDataResult.transactions.length === 0) {
+        console.warn("AI structuring returned no transactions or an unexpected result:", structuredDataResult);
+        toast({ variant: "destructive", title: "AI Structuring Issue", description: "AI could not find any transactions in the document." });
       }
 
       setLoadingStep("Formatting data for Excel...");

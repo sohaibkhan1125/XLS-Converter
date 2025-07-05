@@ -3,7 +3,7 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
-import type { StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
+import type { TransactionListOutput } from '@/ai/flows/structure-pdf-data-flow';
 
 // Dynamically import and set the workerSrc.
 // This is crucial for pdfjs-dist to work correctly in Next.js.
@@ -61,71 +61,23 @@ export async function convertPdfPageToImageUri(fileBuffer: ArrayBuffer, pageNumb
 }
 
 
-export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOutput | null): string[][] {
-  if (!structuredData || !structuredData.blocks || structuredData.blocks.length === 0) {
-    return [["No structured data found or AI processing failed."]];
+export function formatStructuredDataForExcel(structuredData: TransactionListOutput | null): string[][] {
+  if (!structuredData || !structuredData.transactions || structuredData.transactions.length === 0) {
+    return [["No transaction data found or AI processing failed."]];
   }
 
-  const excelRows: string[][] = [];
-  let firstBlock = true;
+  // Define the headers as requested
+  const headers = ['Date', 'Description', 'Amount'];
 
-  for (const block of structuredData.blocks) {
-    if (!firstBlock) {
-      // Add a spacer row between blocks, unless the block itself is a spacer
-      if (block.type !== "spacer") {
-        excelRows.push([]); // Empty row for spacing
-      }
-    }
-    firstBlock = false;
+  // Map the transaction data to rows
+  const dataRows = structuredData.transactions.map(transaction => [
+    transaction.date,
+    transaction.description,
+    transaction.amount.toString() // Convert number back to string for the Excel sheet
+  ]);
 
-    if (block.title) {
-      excelRows.push([block.title]);
-      // Potentially add an empty row after a title if it's not immediately followed by its content type
-      // This depends on how the AI structures titles vs content
-    }
-
-    switch (block.type) {
-      case "documentTitle":
-      case "header":
-      case "paragraph":
-        if (block.lines && block.lines.length > 0) {
-          block.lines.forEach(line => excelRows.push([line]));
-        }
-        break;
-      
-      case "keyValueList":
-        if (block.items && block.items.length > 0) {
-          block.items.forEach(item => excelRows.push([item.key, item.value]));
-        }
-        break;
-
-      case "table":
-        if (block.table) {
-          if (block.table.headers && block.table.headers.length > 0) {
-            excelRows.push(block.table.headers);
-          }
-          if (block.table.rows && block.table.rows.length > 0) {
-            block.table.rows.forEach(row => excelRows.push(row));
-          }
-        }
-        break;
-      
-      case "spacer":
-        excelRows.push([]); // Explicit spacer
-        break;
-        
-      default:
-        // Handle unknown block type if necessary, or ignore
-        console.warn("Unknown block type in structured data:", block.type);
-        break;
-    }
-  }
-  
-  if (excelRows.length === 0) {
-    return [["The PDF content was processed but resulted in no displayable data for Excel."]];
-  }
-
-  return excelRows;
+  // Return the headers plus the data rows, ready for Excel export
+  return [headers, ...dataRows];
 }
 
 /**
