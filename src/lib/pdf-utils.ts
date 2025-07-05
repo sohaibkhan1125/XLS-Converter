@@ -3,7 +3,7 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
-import type { TransactionListOutput } from '@/ai/flows/structure-pdf-data-flow';
+import type { StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
 
 // Dynamically import and set the workerSrc.
 // This is crucial for pdfjs-dist to work correctly in Next.js.
@@ -61,24 +61,53 @@ export async function convertPdfPageToImageUri(fileBuffer: ArrayBuffer, pageNumb
 }
 
 
-export function formatStructuredDataForExcel(structuredData: TransactionListOutput | null): string[][] {
-  if (!structuredData || !structuredData.transactions || structuredData.transactions.length === 0) {
-    return [["No transaction data found or AI processing failed."]];
+export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOutput | null): string[][] {
+  if (!structuredData) {
+    return [["AI processing failed to return data."]];
   }
 
-  // Define the headers as requested
-  const headers = ['Date', 'Description', 'Amount'];
+  const excelData: string[][] = [];
+  const { header, transactions } = structuredData;
 
-  // Map the transaction data to rows
-  const dataRows = structuredData.transactions.map(transaction => [
-    transaction.date,
-    transaction.description,
-    transaction.amount.toString() // Convert number back to string for the Excel sheet
-  ]);
+  // Add header information if it exists
+  if (header) {
+    if (header.bankName) excelData.push(['Bank Name', header.bankName]);
+    if (header.bankAddress) excelData.push(['Bank Address', header.bankAddress]);
+    if (header.accountHolder) excelData.push(['Account Holder', header.accountHolder]);
+    if (header.accountNumber) excelData.push(['Account Number', header.accountNumber]);
+    if (header.statementPeriod) excelData.push(['Statement Period', header.statementPeriod]);
+  }
 
-  // Return the headers plus the data rows, ready for Excel export
-  return [headers, ...dataRows];
+  // Add a spacer row if there's header data and transactions
+  if (excelData.length > 0 && transactions && transactions.length > 0) {
+    excelData.push([]); // Add a blank row
+  }
+
+  // Add transaction table if it exists
+  if (transactions && transactions.length > 0) {
+    // Define the transaction headers
+    const transactionHeaders = ['Date', 'Description / Particulars', 'Debit', 'Credit', 'Balance'];
+    excelData.push(transactionHeaders);
+
+    // Map the transaction data to rows
+    const dataRows = transactions.map(transaction => [
+      transaction.date || '',
+      transaction.description || '',
+      transaction.debit !== undefined ? transaction.debit.toString() : '',
+      transaction.credit !== undefined ? transaction.credit.toString() : '',
+      transaction.balance !== undefined ? transaction.balance.toString() : '',
+    ]);
+    
+    excelData.push(...dataRows);
+  }
+
+  if (excelData.length === 0) {
+     return [["No data could be extracted from the document."]];
+  }
+
+  return excelData;
 }
+
 
 /**
  * @deprecated This function is too simplistic for complex PDF layouts. 
