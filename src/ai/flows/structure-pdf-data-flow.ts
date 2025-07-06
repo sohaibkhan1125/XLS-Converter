@@ -49,89 +49,38 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are an expert financial data extraction assistant. Your task is to analyze the raw text from a bank statement and convert it into a structured JSON format. The text can be messy and columns may not align perfectly. Your primary goal is to identify each transaction row and correctly assign the date, description, debit, credit, and balance. Pay close attention to the column mappings and data cleaning instructions.
+  prompt: `You are an expert financial data extraction AI. Your task is to accurately extract and convert the important financial data from the provided bank statement text into a clean and well-structured JSON format, ready for Excel conversion. The text comes from a PDF and may have been processed with OCR, so it might contain minor layout inconsistencies.
 
-**Key Information to Extract:**
+**Extraction Rules:**
 
-1.  **Header Data**:
-    *   \`bankName\`: The name of the bank. (If not present, infer from context or leave blank).
-    *   \`bankAddress\`: The bank's address.
-    *   \`accountHolder\`: The name of the account holder.
-    *   \`accountNumber\`: The account number.
-    *   \`statementPeriod\`: The date range the statement covers.
+1.  **Focus only on essential information.** Ignore all decorative or unnecessary data like marketing messages, general advice, terms & conditions, page numbers, or any other text not relevant to the account details or transactions.
 
-2.  **Transaction Table**:
-    *   Process each line item in the main transaction table.
-    *   **Date**: The date of the transaction. Format as YYYY-MM-DD. Sometimes the date applies to the transaction on the same line or the line immediately below it.
-    *   **Description**: The full transaction description. If a description spans multiple lines, combine them into one string.
-    *   **Debit**: The withdrawal amount. This often comes from a "Money out" or "Debit" column. It MUST be a positive number.
-    *   **Credit**: The deposit amount. This often comes from a "Money in" or "Credit" column. It MUST be a positive number.
-    *   **Balance**: The running balance after the transaction.
+2.  **Extract Key Metadata:** Identify and extract the following details into the 'header' section of the JSON output:
+    *   Bank Name
+    *   Bank Branch Address
+    *   Account Holder's Name
+    *   Account Number
+    *   Statement Period (if available)
 
-**Crucial Data Cleaning Rules:**
-*   **IGNORE** summary lines like "Balance brought forward", "Total money in", "Total money out", and "Balance at...". These are not individual transactions.
-*   **IGNORE** page headers, footers, and any other text that is not part of the header details or the transaction list.
-*   If a row does not contain a debit or a credit, it is likely not a transaction and should be skipped.
+3.  **Extract Transaction Data:** Identify the main transaction table and extract each transaction into the 'transactions' array. Each transaction object must have the following fields:
+    *   \`date\`: The date of the transaction.
+    *   \`description\`: The full transaction description or narration.
+    *   \`debit\`: The withdrawal amount (money out). This must be a positive number.
+    *   \`credit\`: The deposit amount (money in). This must be a positive number.
+    *   \`balance\`: The running balance after the transaction.
 
-**Example Conversion:**
+**Formatting Requirements:**
 
-Given the following input text snippet:
-\`\`\`
-16 High Street. Anytown, Anyshire YZ99 1XY
- Mr John Smith 
-Account number: 99988877 
-Your current account statement: 
-1 February  to 1 March, 2019
-Date
- Description
- Balance brought forward 
-1 February 
-3 February 
-4 February 
-Card payment - High St Petrol Station
- Direct debit - Green Mobile Phone Bill
- Cash Withdrawal - YourBank, Anytown 
-High Street, timed 17:30 31 Jan
- YourJob BiWeekly Payment
-17 February Card payment - High St Petrol Station 
-Money Money Balance
- out
- 24.50
- 20.00
- 30.00
- 40.00
- In
- 2,575.00
-40,000.00
-39,975.50
-39,955.50
-39,925.50
-42,500.50
-42,710.50
-\`\`\`
+*   **Clean and Consistent Rows:** Each transaction must be a separate object in the JSON array. Do not merge multiple transactions.
+*   **Accurate Column Mapping:** Ensure data is accurately mapped. Do not mix multiple pieces of data (e.g., date and description) into one field.
+*   **Handle Missing Data:** If a specific field for a transaction is not present (e.g., balance is missing for one row), leave that field null or omit it, but keep the structure for other transactions intact.
+*   **Intelligent Section Skipping:** The AI should be intelligent enough to skip irrelevant sections (like summary boxes) and focus only on the detailed transaction list.
 
-The desired JSON output for this snippet would be:
-\`\`\`json
-{
-  "header": {
-    "bankAddress": "16 High Street. Anytown, Anyshire YZ99 1XY",
-    "accountHolder": "Mr John Smith",
-    "accountNumber": "99988877",
-    "statementPeriod": "1 February to 1 March, 2019"
-  },
-  "transactions": [
-    { "date": "2019-02-01", "description": "Card payment - High St Petrol Station", "debit": 24.50, "balance": 39975.50 },
-    { "date": "2019-02-03", "description": "Direct debit - Green Mobile Phone Bill", "debit": 20.00, "balance": 39955.50 },
-    { "date": "2019-02-04", "description": "Cash Withdrawal - YourBank, Anytown High Street, timed 17:30 31 Jan", "debit": 30.00, "balance": 39925.50 },
-    { "date": "2019-02-04", "description": "YourJob BiWeekly Payment", "credit": 2575.00, "balance": 42500.50 },
-    { "date": "2019-02-17", "description": "Card payment - High St Petrol Station", "debit": 40.00, "balance": 42710.50 }
-  ]
-}
-\`\`\`
+**Objective:** The final JSON output should be neat, usable, and structured logically, so it can be easily converted into an Excel file for financial review or import into accounting tools.
 
-Now, process the following full bank statement text.
+Now, process the following text from the bank statement.
 
-**Input Text from Bank Statement**:
+**Input Text:**
 {{{rawText}}}
 
 **Output JSON (strictly follow the 'StructuredPdfDataOutputSchema')**:
