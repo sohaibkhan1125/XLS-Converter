@@ -62,77 +62,31 @@ export async function convertPdfPageToImageUri(fileBuffer: ArrayBuffer, pageNumb
 
 
 export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOutput | null): string[][] {
-  if (!structuredData) {
-    return [["AI processing failed to return data."]];
+  if (!structuredData || !structuredData.transactions || structuredData.transactions.length === 0) {
+    return [["No financial transaction data could be extracted from the document."]];
   }
 
+  const { transactions } = structuredData;
   const excelData: (string | number | undefined)[][] = [];
-  const { header, transactions, summary } = structuredData;
 
-  // Add header information
-  if (header) {
-    if (header.bankName) excelData.push(['Bank Name', header.bankName]);
-    if (header.bankAddress) excelData.push(['Bank Address', header.bankAddress]);
-    if (header.accountHolder) excelData.push(['Account Holder', header.accountHolder]);
-    if (header.accountNumber) excelData.push(['Account Number', header.accountNumber]);
-    if (header.accountType) excelData.push(['Account Type', header.accountType]);
-    if (header.statementPeriod) excelData.push(['Statement Period', header.statementPeriod]);
-  }
+  // Add transaction table with the new, requested headers
+  const transactionHeaders = ['Date', 'Description / Particulars', 'Paid Out', 'Paid In', 'Balance'];
+  excelData.push(transactionHeaders);
 
-  // Add a spacer row
-  if (excelData.length > 0) {
-    excelData.push([]);
-  }
+  const dataRows = transactions.map(t => [
+    t.date || '',
+    t.description || '',
+    t.debit,    // This column is now "Paid Out"
+    t.credit,   // This column is now "Paid In"
+    t.balance,  // This column remains "Balance"
+  ]);
+  excelData.push(...dataRows);
 
-  // Add opening balance from summary
-  if (summary?.openingBalance !== undefined) {
-      excelData.push(['Opening Balance', '', '', '', summary.openingBalance]);
-      excelData.push([]); // Add another spacer
-  }
-
-  // Add transaction table if it exists
-  if (transactions && transactions.length > 0) {
-    const transactionHeaders = ['Date', 'Description / Particulars', 'Debit', 'Credit', 'Balance'];
-    excelData.push(transactionHeaders);
-
-    const dataRows = transactions.map(t => [
-      t.date || '',
-      t.description || '',
-      t.debit, // Keep as number for Excel
-      t.credit, // Keep as number for Excel
-      t.balance, // Keep as number for Excel
-    ]);
-    excelData.push(...dataRows);
-  }
-
-  // Add a spacer row before summary totals
-  if (summary && (summary.totalDebits !== undefined || summary.totalCredits !== undefined || summary.closingBalance !== undefined)) {
-      excelData.push([]);
-  }
-
-  // Add summary totals
-  if (summary) {
-      if(summary.totalDebits !== undefined || summary.totalCredits !== undefined) {
-          const totalsRow = [
-              'Totals', // Label in the first column
-              '',       // Empty description
-              summary.totalDebits,
-              summary.totalCredits,
-              '' // No balance for total line
-          ];
-          excelData.push(totalsRow);
-      }
-      if (summary.closingBalance !== undefined) {
-          excelData.push(['Closing Balance', '', '', '', summary.closingBalance]);
-      }
-  }
-
-
-  if (excelData.length === 0) {
-     return [["No financial data could be extracted from the document."]];
+  if (excelData.length === 1) { // Only headers are present
+     return [["No financial transaction data could be extracted from the document."]];
   }
   
-  // Convert all cells to string for the final output array type, handling undefined
+  // Convert all cells to string for the final output array type, handling undefined/null
   return excelData.map(row => row.map(cell => (cell === undefined || cell === null) ? '' : String(cell)));
 }
 
