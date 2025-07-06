@@ -17,7 +17,7 @@ const TransactionSchema = z.object({
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
-  balance: z.number().optional().describe("The running balance after the transaction."),
+  balance: z.number().optional().describe("The running balance after the transaction. This is a critical field and must be extracted if present."),
 }).describe("A single transaction line item.");
 
 
@@ -41,32 +41,30 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementTransactionsPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are an expert financial data extraction AI. Your ONLY task is to extract the transaction table from the provided bank statement text into a clean JSON format.
+  prompt: `You are a highly specialized AI for extracting transaction data from bank statements. Your single purpose is to parse the raw text of a bank statement and convert it into a structured JSON object.
 
-**Extraction Rules:**
+**Primary Directive:** Extract the list of transactions. For every single transaction row you find, you MUST extract the date, description, any money out (debit), any money in (credit), and **most importantly, the running balance after the transaction.**
 
-1.  **IGNORE ALL NON-TRANSACTION DATA:** You MUST ignore all decorative or unnecessary text. This includes bank names, addresses, logos, account holder names, account numbers, account types, statement periods, opening balances, closing balances, summary totals, marketing messages, page numbers, headers, and footers. Your sole focus is the list of transactions.
+**Strict Extraction Rules:**
+- **FOCUS ON THE TABLE:** Your entire focus is the transaction table.
+- **IGNORE EVERYTHING ELSE:** You must completely ignore all other text. This includes bank logos, addresses, account holder details, summaries, opening/closing balances, marketing text, page numbers, headers, and footers.
+- **MANDATORY FIELDS:** For each transaction, you must provide:
+  - \`date\`: The transaction date.
+  - \`description\`: The complete transaction description.
+  - \`debit\`: The withdrawal amount.
+  - \`credit\`: The deposit amount.
+  - \`balance\`: The running balance **after** the transaction. This is not optional. If a running balance is visible for a transaction line, you must extract it.
+- **CLEANLINESS:**
+  - Do not merge columns.
+  - If a debit or credit value is not present for a transaction, that specific field should be null, but the \`balance\` must still be extracted if available.
+  - Any row that does not represent a financial transaction (i.e., has no debit or credit) must be ignored.
 
-2.  **EXTRACT TRANSACTION TABLE ONLY:** Locate the main table of transactions. For each and every transaction row, you must extract the following data into the 'transactions' array.
-    *   **\`date\`**: The date of the transaction.
-    *   **\`description\`**: The full transaction description or narration.
-    *   **\`debit\`**: The withdrawal amount (money out). This must be a positive number.
-    *   **\`credit\`**: The deposit amount (money in). This must be a positive number.
-    *   **\`balance\`**: The running balance after the transaction. **It is critical to extract the running balance for each transaction if it is present in the text.**
+**Final Output:** The JSON output must strictly adhere to the 'StructuredPdfDataOutputSchema' and contain only the 'transactions' array.
 
-3.  **CLEAN DATA IS ESSENTIAL:**
-    *   Do not merge multiple pieces of data (e.g., date and description) into one field.
-    *   If a specific field for a transaction is not present (e.g., a line item has a debit but no credit), leave the missing field null.
-    *   Discard any line that does not contain a monetary value (a debit or a credit), as it is not a transaction.
-
-**Objective:** The final JSON output must contain ONLY a 'transactions' array, which can be easily converted into a clean Excel file with one transaction per row.
-
-Now, process the following text from the bank statement.
+Process the following text and provide the structured JSON.
 
 **Input Text:**
 {{{rawText}}}
-
-**Output JSON (strictly follow the 'StructuredPdfDataOutputSchema', containing only the 'transactions' array)**:
 `,
 });
 
