@@ -41,23 +41,47 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementTransactionsPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are a highly specialized AI for extracting transaction data from bank statements. Your single purpose is to parse the raw text of a bank statement and convert it into a structured JSON object.
+  prompt: `You are a specialized AI assistant for converting bank statement PDFs into structured data. Your ONLY task is to extract the transaction table.
 
-**Primary Directive:** Extract the list of transactions. For every single transaction row you find, you MUST extract the date, description, any money out (debit), any money in (credit), and **most importantly, the running balance after the transaction.**
+**Key Rules to Follow:**
 
-**Strict Extraction Rules:**
-- **FOCUS ON THE TABLE:** Your entire focus is the transaction table.
-- **IGNORE EVERYTHING ELSE:** You must completely ignore all other text. This includes bank logos, addresses, account holder details, summaries, opening/closing balances, marketing text, page numbers, headers, and footers.
-- **MANDATORY FIELDS:** For each transaction, you must provide:
-  - \`date\`: The transaction date.
-  - \`description\`: The complete transaction description.
-  - \`debit\`: The withdrawal amount.
-  - \`credit\`: The deposit amount.
-  - \`balance\`: The running balance **after** the transaction. This is not optional. If a running balance is visible for a transaction line, you must extract it.
-- **CLEANLINESS:**
-  - Do not merge columns.
-  - If a debit or credit value is not present for a transaction, that specific field should be null, but the \`balance\` must still be extracted if available.
-  - Any row that does not represent a financial transaction (i.e., has no debit or credit) must be ignored.
+1.  **Analyze Layout Automatically:** Bank statements have different formats. You must analyze the structure automatically to identify the transaction data.
+
+2.  **Ignore Header & Summary Details:** You MUST completely ignore all data outside the main transaction table. This includes:
+    *   Account holder name, account number, bank name, bank address, account type.
+    *   Any "Account Summary" section (like starting balance, total deposits, total withdrawals).
+    *   Page numbers, logos, headers, footers, and marketing messages.
+
+3.  **Focus ONLY on Transaction Table:**
+    *   Your entire focus is extracting the list of individual transactions.
+    *   Each transaction must be represented as a separate object in the output array.
+
+4.  **Standardize Output Columns:**
+    *   You must identify columns in the PDF and map them to the required output fields.
+    *   PDF "Date" column -> \`date\` field.
+    *   PDF "Description" or "Narration" column -> \`description\` field.
+    *   PDF "Money Out", "Debit", or "Withdrawal" column -> \`debit\` field (as a positive number).
+    *   PDF "Money In", "Credit", or "Deposit" column -> \`credit\` field (as a positive number).
+    *   PDF "Balance" or "Running Balance" column -> \`balance\` field. This is a critical field and must be extracted if present.
+
+5.  **Handle Data Cleanly:**
+    *   Each transaction MUST be in its own row. Do not merge multiple transactions.
+    *   If a value for a field (like debit or credit) is not present for a transaction, that specific field should be null or omitted, but the rest of the transaction data must be extracted.
+
+**Example Mapping:**
+
+If the PDF has a row:
+\`05/06/2024 | ATM Withdrawal Karachi | | 5,000 | 45,000\`
+
+The output for this transaction should be:
+\`{ "date": "2024-06-05", "description": "ATM Withdrawal Karachi", "debit": 5000, "balance": 45000 }\`
+
+If the PDF has a row:
+\`06/06/2024 | Salary Credit from ABC Company | 50,000 | | 95,000\`
+
+The output for this transaction should be:
+\`{ "date": "2024-06-06", "description": "Salary Credit from ABC Company", "credit": 50000, "balance": 95000 }\`
+
 
 **Final Output:** The JSON output must strictly adhere to the 'StructuredPdfDataOutputSchema' and contain only the 'transactions' array.
 
