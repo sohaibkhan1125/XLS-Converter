@@ -114,14 +114,6 @@ export default function PaymentGatewaysPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert variant="destructive" className="mb-6">
-            <LucideIcons.AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Security Warning!</AlertTitle>
-            <AlertDescription>
-              Storing sensitive API keys (like 'Client Secret' or 'Secret Key') directly in these settings is not recommended for production environments.
-              For production, these secrets should be managed securely on a backend server. This setup is for prototyping and ease of use. Proceed with caution.
-            </AlertDescription>
-          </Alert>
           <Accordion type="multiple" className="w-full space-y-4">
             {(settings.paymentGateways || []).map((gateway) => {
               const IconComponent = LucideIcons[gateway.iconName as keyof typeof LucideIcons] || LucideIcons.Landmark;

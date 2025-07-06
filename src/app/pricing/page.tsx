@@ -109,7 +109,7 @@ export default function PricingPage() {
     return !id.includes('@') && id.length > 10;
   };
 
-  const isPaymentConfigured = !!paypalGatewaySettings && isValidPayPalClientId(paypalClientId);
+  const isPaymentConfigured = isValidPayPalClientId(paypalClientId);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -123,17 +123,6 @@ export default function PricingPage() {
         </p>
       </div>
 
-      {!isPaymentConfigured && generalSettings && (
-        <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Online Payments Unavailable</AlertTitle>
-          <AlertDescription>
-            Online payments are currently not fully configured. You can still select a plan to activate its local limits.
-            An administrator needs to enable and configure a payment gateway in the admin panel.
-          </AlertDescription>
-        </Alert>
-      )}
-      
       {generalSettings === null && !isLoadingSettings && (
           <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
               <AlertTriangle className="h-4 w-4" />
@@ -212,7 +201,7 @@ export default function PricingPage() {
           </div>
           <div>
             <h4 className="font-medium text-foreground">What happens if I exceed my conversions?</h4>
-            <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait until your quota renews at the start of your next billing cycle.</p>
+            <p className="text-muted-foreground">If you exceed your plan's conversion limit, you'll be prompted to upgrade your plan or wait for your quota to renew at the start of your next billing cycle.</p>
           </div>
         </div>
       </div>
