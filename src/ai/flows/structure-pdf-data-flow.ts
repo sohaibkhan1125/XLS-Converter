@@ -49,41 +49,37 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are an expert financial data extraction AI. Your task is to accurately extract and convert the important financial data from the provided bank statement text into a clean and well-structured JSON format, ready for Excel conversion. The text comes from a PDF and may have been processed with OCR, so it might contain minor layout inconsistencies.
+  prompt: `You are an expert financial data extraction AI. Your task is to accurately extract and convert the important financial data from the provided bank statement text into a clean and well-structured JSON format. The text comes from a PDF and may have been processed with OCR, so it might contain minor layout inconsistencies.
 
 **Extraction Rules:**
 
-1.  **Focus only on essential information.** Ignore all decorative or unnecessary data like marketing messages, general advice, terms & conditions, page numbers, or any other text not relevant to the account details or transactions.
+1.  **Extract Key Metadata:** At the top of the document, find and extract the following details into the 'header' section of the JSON output:
+    *   Bank Name and Branch Address (\`bankName\`, \`bankAddress\`)
+    *   Account Holder's Name (\`accountHolder\`)
+    *   Account Number (\`accountNumber\`)
+    *   Statement Period (\`statementPeriod\`)
 
-2.  **Extract Key Metadata:** Identify and extract the following details into the 'header' section of the JSON output:
-    *   Bank Name
-    *   Bank Branch Address
-    *   Account Holder's Name
-    *   Account Number
-    *   Statement Period (if available)
+2.  **Extract Transaction Table:** Locate the main table of transactions. For each transaction row, you must extract the following data into the 'transactions' array. Each field must be populated if the data exists on the line.
+    *   **Column A: \`date\`**: The date of the transaction.
+    *   **Column B: \`description\`**: The full transaction description or narration.
+    *   **Column C: \`debit\`**: The withdrawal amount (money out). This must be a positive number.
+    *   **Column D: \`credit\`**: The deposit amount (money in). This must be a positive number.
+    *   **Column E: \`balance\`**: The running balance after the transaction. **It is critical to extract the running balance for each transaction if it is present in the text.** Do not skip this field.
 
-3.  **Extract Transaction Data:** Identify the main transaction table and extract each transaction into the 'transactions' array. Each transaction object must have the following fields:
-    *   \`date\`: The date of the transaction.
-    *   \`description\`: The full transaction description or narration.
-    *   \`debit\`: The withdrawal amount (money out). This must be a positive number.
-    *   \`credit\`: The deposit amount (money in). This must be a positive number.
-    *   \`balance\`: The running balance after the transaction.
+3.  **Focus on Clean Data:**
+    *   Ignore all decorative or unnecessary text like marketing messages, general advice, terms & conditions, page numbers, or any text not relevant to the account details or transactions.
+    *   Do not merge multiple pieces of data (e.g., date and description) into one field.
+    *   If a specific field for a transaction is not present (e.g., a line item has a debit but no credit), leave the missing field null, but keep the structure for other transactions intact.
+    *   The AI should be intelligent enough to skip irrelevant sections (like summary boxes) and focus only on the detailed transaction list.
 
-**Formatting Requirements:**
-
-*   **Clean and Consistent Rows:** Each transaction must be a separate object in the JSON array. Do not merge multiple transactions.
-*   **Accurate Column Mapping:** Ensure data is accurately mapped. Do not mix multiple pieces of data (e.g., date and description) into one field.
-*   **Handle Missing Data:** If a specific field for a transaction is not present (e.g., balance is missing for one row), leave that field null or omit it, but keep the structure for other transactions intact.
-*   **Intelligent Section Skipping:** The AI should be intelligent enough to skip irrelevant sections (like summary boxes) and focus only on the detailed transaction list.
-
-**Objective:** The final JSON output should be neat, usable, and structured logically, so it can be easily converted into an Excel file for financial review or import into accounting tools.
+**Objective:** The final JSON output must be neat, usable, and structured logically, so it can be easily converted into an Excel file.
 
 Now, process the following text from the bank statement.
 
 **Input Text:**
 {{{rawText}}}
 
-**Output JSON (strictly follow the 'StructuredPdfDataOutputSchema')**:
+**Output JSON (strictly follow the 'StructuredPdfDataOutputSchema', ensuring the 'balance' field is populated for every transaction where it exists on the statement)**:
 `,
 });
 
