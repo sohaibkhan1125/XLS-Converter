@@ -2,6 +2,8 @@
 "use client";
 
 import type React from 'react';
+import { useRouter } from 'next/navigation';
+import type { User } from 'firebase/auth';
 import { PayPalButtons, usePayPalScriptReducer, type PayPalButtonsComponentProps } from "@paypal/react-paypal-js";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
@@ -16,6 +18,7 @@ interface PricingCardProps {
   billingCycle: 'monthly' | 'annual';
   onSelectPlan: (planId: Plan['id'], cycle: 'monthly' | 'annual') => void;
   isPaymentConfigured: boolean;
+  currentUser: User | null;
 }
 
 interface PayPalPaymentSectionProps {
@@ -106,14 +109,27 @@ const PayPalPaymentSection: React.FC<PayPalPaymentSectionProps> = ({ plan, billi
 };
 
 
-export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymentConfigured }: PricingCardProps) {
+export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymentConfigured, currentUser }: PricingCardProps) {
+  const router = useRouter();
   const displayPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
   const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
   const cycleAdverb = billingCycle === 'monthly' ? 'month' : 'year';
 
-  const handleSuccessfulPayment = () => {
-    onSelectPlan(plan.id, billingCycle);
+  const handleActionClick = () => {
+    if (!currentUser) {
+      router.push('/login');
+    } else {
+      // For non-payment configured plans, we activate locally
+      if (!isPaymentConfigured) {
+        onSelectPlan(plan.id, billingCycle);
+      }
+      // For payment configured plans, this click is handled by PayPal, 
+      // but a generic button could also trigger a payment modal here.
+      // The current logic places this check on the button itself.
+    }
   };
+
+  const ctaButtonText = plan.trialDays ? `Start ${plan.trialDays}-Day Trial` : "Select Plan";
 
   return (
     <Card className={cn(
@@ -164,18 +180,27 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
       </CardContent>
       <CardFooter className="p-6 mt-auto min-h-[80px] flex items-center justify-center">
         {isPaymentConfigured ? (
-          <PayPalPaymentSection 
-            plan={plan} 
-            billingCycle={billingCycle} 
-            displayPrice={displayPrice} 
-            onSuccessfulPayment={handleSuccessfulPayment}
-          />
+          currentUser ? (
+            <PayPalPaymentSection 
+              plan={plan} 
+              billingCycle={billingCycle} 
+              displayPrice={displayPrice} 
+              onSuccessfulPayment={() => onSelectPlan(plan.id, billingCycle)}
+            />
+          ) : (
+             <Button 
+              onClick={handleActionClick} 
+              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              {ctaButtonText}
+            </Button>
+          )
         ) : (
           <Button 
-            onClick={() => onSelectPlan(plan.id, billingCycle)} 
+            onClick={handleActionClick} 
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
           >
-            {plan.trialDays ? `Start ${plan.trialDays}-Day Trial` : "Select Plan"}
+            {ctaButtonText}
           </Button>
         )}
       </CardFooter>

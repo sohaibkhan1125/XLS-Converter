@@ -65,6 +65,12 @@ export default function PricingPage() {
     const selectedPlan = PRICING_PLANS.find(p => p.id === planId);
     if (!selectedPlan) return;
 
+    // This function should only be called for logged-in users now
+    if (!currentUser) {
+        toast({ variant: 'destructive', title: "Not Logged In", description: "You must be logged in to select a plan."});
+        return;
+    }
+
     const planDetailsToActivate: PlanDetails = {
       id: selectedPlan.id,
       name: selectedPlan.name,
@@ -74,7 +80,7 @@ export default function PricingPage() {
       trialDays: selectedPlan.trialDays,
     };
 
-    const activatedPlan = activatePlan(currentUser ? currentUser.uid : null, planDetailsToActivate);
+    const activatedPlan = activatePlan(currentUser.uid, planDetailsToActivate);
 
     if (activatedPlan.isTrial && activatedPlan.trialEndsAt && activatedPlan.trialEndsAt > Date.now() && selectedPlan.trialDays) {
       toast({
@@ -102,10 +108,8 @@ export default function PricingPage() {
   const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
   const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
-  // Validate that the Client ID is not an email and looks like a real ID.
   const isValidPayPalClientId = (id: string | undefined): id is string => {
     if (!id) return false;
-    // A simple validation: It should not be an email and should be reasonably long.
     return !id.includes('@') && id.length > 10;
   };
 
@@ -122,17 +126,6 @@ export default function PricingPage() {
           All paid plans include an initial 7-day trial period.
         </p>
       </div>
-
-      {generalSettings === null && !isLoadingSettings && (
-          <Alert variant="destructive" className="mb-10 max-w-2xl mx-auto">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Configuration Error</AlertTitle>
-              <AlertDescription>
-                  Could not load site configuration for pricing. Please try again later or contact support.
-                  Pricing plans are shown below with local activation.
-              </AlertDescription>
-          </Alert>
-      )}
 
       <div className="flex justify-center mb-10">
         <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
@@ -153,6 +146,7 @@ export default function PricingPage() {
                 billingCycle={billingCycle}
                 onSelectPlan={handleSelectPlan}
                 isPaymentConfigured={true}
+                currentUser={currentUser}
               />
             ))}
           </div>
@@ -166,6 +160,7 @@ export default function PricingPage() {
               billingCycle={billingCycle}
               onSelectPlan={handleSelectPlan}
               isPaymentConfigured={false}
+              currentUser={currentUser}
             />
           ))}
         </div>
