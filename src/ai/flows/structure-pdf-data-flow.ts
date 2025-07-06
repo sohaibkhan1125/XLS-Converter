@@ -17,7 +17,7 @@ const TransactionSchema = z.object({
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
-  balance: z.number().optional().describe("The running balance after the transaction. This is a critical field and must be extracted if present."),
+  balance: z.number().optional().describe("CRITICAL: The running balance after the transaction. This field is mandatory and must not be skipped if a balance value exists on the line."),
 }).describe("A single transaction line item.");
 
 
@@ -62,11 +62,14 @@ const prompt = ai.definePrompt({
     *   PDF "Description" or "Narration" column -> \`description\` field.
     *   PDF "Money Out", "Debit", or "Withdrawal" column -> \`debit\` field (as a positive number).
     *   PDF "Money In", "Credit", or "Deposit" column -> \`credit\` field (as a positive number).
-    *   PDF "Balance" or "Running Balance" column -> \`balance\` field. This is a critical field and must be extracted if present.
+    *   PDF "Balance" or "Running Balance" column -> \`balance\` field.
 
 5.  **Handle Data Cleanly:**
     *   Each transaction MUST be in its own row. Do not merge multiple transactions.
     *   If a value for a field (like debit or credit) is not present for a transaction, that specific field should be null or omitted, but the rest of the transaction data must be extracted.
+
+6. **Prioritize the 'Balance' Column**: The \`balance\` field is the most important field after the date and description. You MUST extract the running balance for every single transaction row. If a row has monetary values, it will have a balance. Do not omit it.
+
 
 **Example Mapping:**
 
