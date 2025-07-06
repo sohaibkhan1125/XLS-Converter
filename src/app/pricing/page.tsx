@@ -100,8 +100,16 @@ export default function PricingPage() {
   }
 
   const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
-  const isPaymentConfigured = !!paypalGatewaySettings;
   const paypalClientId = paypalGatewaySettings?.credentials.clientId;
+
+  // Validate that the Client ID is not an email and looks like a real ID.
+  const isValidPayPalClientId = (id: string | undefined): id is string => {
+    if (!id) return false;
+    // A simple validation: It should not be an email and should be reasonably long.
+    return !id.includes('@') && id.length > 10;
+  };
+
+  const isPaymentConfigured = !!paypalGatewaySettings && isValidPayPalClientId(paypalClientId);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
