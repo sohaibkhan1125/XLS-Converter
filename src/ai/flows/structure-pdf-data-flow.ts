@@ -103,13 +103,25 @@ const structurePdfDataFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await prompt(input);
+
     if (!output) {
       throw new Error("AI failed to structure transaction data. Output was null.");
     }
-     if (!output.transactions || !Array.isArray(output.transactions)) {
-        console.warn("AI output was missing 'transactions' array. Initializing empty list.");
-        output.transactions = [];
+    
+    // Safety check and data cleansing
+    if (!output.transactions || !Array.isArray(output.transactions)) {
+        console.warn("AI output was missing 'transactions' array. Returning empty list.");
+        return { transactions: [] };
     }
-    return output;
+
+    // Filter out any invalid or incomplete transaction entries returned by the AI.
+    // A valid transaction must have a non-empty date and description.
+    const cleanedTransactions = output.transactions.filter(t => {
+        const hasDate = t.date && t.date.trim() !== '';
+        const hasDescription = t.description && t.description.trim() !== '';
+        return hasDate && hasDescription;
+    });
+
+    return { transactions: cleanedTransactions };
   }
 );
