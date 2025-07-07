@@ -7,6 +7,17 @@ export function exportToExcel(data: string[][], fileName: string = 'converted_da
   }
 
   const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+  // Set column widths to prevent data from being cut off.
+  // The widths are in number of characters.
+  const colWidths = [
+    { wch: 15 }, // Date
+    { wch: 15 }, // Paid Out
+    { wch: 15 }, // Paid In
+    { wch: 20 }, // Balance
+  ];
+  worksheet['!cols'] = colWidths;
+  
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
 

@@ -69,16 +69,15 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   const { transactions } = structuredData;
   const excelData: (string | number | undefined)[][] = [];
 
-  // Use the new, requested headers in the correct order
-  const transactionHeaders = ['Date', 'Description', 'Paid In', 'Paid Out', 'Balance'];
+  // Reorder columns as per the latest user request.
+  const transactionHeaders = ['Date', 'Paid Out', 'Paid In', 'Balance'];
   excelData.push(transactionHeaders);
 
   const dataRows = transactions.map(t => [
     t.date || '',
-    t.description || '',
-    t.credit,   // This column is now "Paid In"
-    t.debit,    // This column is now "Paid Out"
-    t.balance,  // This column remains "Balance"
+    t.debit,    // "Paid Out" column
+    t.credit,   // "Paid In" column
+    t.balance,  // "Balance" column
   ]);
   excelData.push(...dataRows);
 
@@ -87,7 +86,7 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   }
   
   // Convert all cells to string for the final output array type, handling undefined/null
-  // Use '--' for empty cells as requested in user prompt for missing data
+  // Use '--' for empty cells for missing data.
   return excelData.map(row => row.map(cell => {
     if (cell === undefined || cell === null || String(cell).trim() === '') {
       return '--';
