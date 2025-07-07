@@ -41,54 +41,49 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementTransactionsPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are a specialized AI assistant for converting bank statement PDFs into structured data. Your ONLY task is to extract the transaction table.
+  prompt: `You are an expert financial data extraction AI. Your task is to analyze raw text from a bank statement and convert ONLY the transaction table into a structured JSON format.
 
-**Key Rules to Follow:**
+**CRITICAL RULES:**
 
-1.  **Analyze Layout Automatically:** Bank statements have different formats. You must analyze the structure automatically to identify the transaction data.
+1.  **IGNORE ALL METADATA:** You MUST ignore everything outside the transaction table. This includes headers, footers, bank names, account holder details, addresses, and summary sections. Your output should ONLY contain the list of transactions.
 
-2.  **Ignore Header & Summary Details:** You MUST completely ignore all data outside the main transaction table. This includes:
-    *   Account holder name, account number, bank name, bank address, account type.
-    *   Any "Account Summary" section (like starting balance, total deposits, total withdrawals).
-    *   Page numbers, logos, headers, footers, and marketing messages.
+2.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
 
-3.  **Focus ONLY on Transaction Table:**
-    *   Your entire focus is extracting the list of individual transactions.
-    *   Each transaction must be represented as a separate object in the output array.
+3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the following three fields:
+    *   \`date\`: The transaction date.
+    *   \`description\`: The transaction description.
+    *   \`balance\`: The running balance **after** the transaction. This is a critical field. Do not skip it. If a row has a debit or credit, it WILL have a balance. Find it.
 
-4.  **Standardize Output Columns:**
-    *   You must identify columns in the PDF and map them to the required output fields.
-    *   PDF "Date" column -> \`date\` field.
-    *   PDF "Description" or "Narration" column -> \`description\` field.
-    *   PDF "Money Out", "Debit", or "Withdrawal" column -> \`debit\` field (as a positive number).
-    *   PDF "Money In", "Credit", or "Deposit" column -> \`credit\` field (as a positive number).
-    *   PDF "Balance" or "Running Balance" column -> \`balance\` field.
+4.  **MONETARY FIELDS:**
+    *   \`debit\`: The 'Money Out' or 'Paid Out' amount. If not present, omit this field.
+    *   \`credit\`: The 'Money In' or 'Paid In' amount. If not present, omit this field.
 
-5.  **Handle Data Cleanly:**
-    *   Each transaction MUST be in its own row. Do not merge multiple transactions.
-    *   If a value for a field (like debit or credit) is not present for a transaction, that specific field should be null or omitted, but the rest of the transaction data must be extracted.
+5.  **CLEAN DATA:**
+    *   Do not merge lines. Each transaction is a single, distinct row.
+    *   Do not include "Balance brought forward" or similar summary lines in the transaction list.
 
-6. **Prioritize the 'Balance' Column**: The \`balance\` field is the most important field after the date and description. You MUST extract the running balance for every single transaction row. If a row has monetary values, it will have a balance. Do not omit it.
+**EXAMPLE:**
 
+**Input Text Snippet:**
+\`\`\`
+Date Description Money Out Money In Balance
+1 Feb Balance brought forward 40,000.00
+3 Feb Card payment - High St Petrol 24.50 39,975.50
+4 Feb Direct debit - Green Mobile 20.00 39,955.50
+\`\`\`
 
-**Example Mapping:**
+**Correct JSON Output for this Snippet:**
+\`\`\`json
+{
+  "transactions": [
+    { "date": "YYYY-02-03", "description": "Card payment - High St Petrol", "debit": 24.50, "balance": 39975.50 },
+    { "date": "YYYY-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 }
+  ]
+}
+\`\`\`
+*(Notice "Balance brought forward" is completely ignored)*
 
-If the PDF has a row:
-\`05/06/2024 | ATM Withdrawal Karachi | | 5,000 | 45,000\`
-
-The output for this transaction should be:
-\`{ "date": "2024-06-05", "description": "ATM Withdrawal Karachi", "debit": 5000, "balance": 45000 }\`
-
-If the PDF has a row:
-\`06/06/2024 | Salary Credit from ABC Company | 50,000 | | 95,000\`
-
-The output for this transaction should be:
-\`{ "date": "2024-06-06", "description": "Salary Credit from ABC Company", "credit": 50000, "balance": 95000 }\`
-
-
-**Final Output:** The JSON output must strictly adhere to the 'StructuredPdfDataOutputSchema' and contain only the 'transactions' array.
-
-Process the following text and provide the structured JSON.
+Now, process the following full text and provide the structured JSON.
 
 **Input Text:**
 {{{rawText}}}

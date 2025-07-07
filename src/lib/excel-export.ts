@@ -1,3 +1,4 @@
+
 import * as XLSX from 'xlsx';
 
 export function exportToExcel(data: string[][], fileName: string = 'converted_data.xlsx'): void {
@@ -12,6 +13,7 @@ export function exportToExcel(data: string[][], fileName: string = 'converted_da
   // The widths are in number of characters.
   const colWidths = [
     { wch: 15 }, // Date
+    { wch: 40 }, // Description
     { wch: 15 }, // Paid Out
     { wch: 15 }, // Paid In
     { wch: 20 }, // Balance

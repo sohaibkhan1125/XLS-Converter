@@ -69,15 +69,16 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   const { transactions } = structuredData;
   const excelData: (string | number | undefined)[][] = [];
 
-  // Reorder columns as per the latest user request.
-  const transactionHeaders = ['Date', 'Paid Out', 'Paid In', 'Balance'];
+  // New column order including Description.
+  const transactionHeaders = ['Date', 'Description', 'Paid Out', 'Paid In', 'Balance'];
   excelData.push(transactionHeaders);
 
   const dataRows = transactions.map(t => [
     t.date || '',
-    t.debit,    // "Paid Out" column
-    t.credit,   // "Paid In" column
-    t.balance,  // "Balance" column
+    t.description || '',
+    t.debit,
+    t.credit,
+    t.balance,
   ]);
   excelData.push(...dataRows);
 
