@@ -17,7 +17,7 @@ const TransactionSchema = z.object({
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
-  balance: z.number().optional().describe("CRITICAL: The running balance after the transaction. This field is mandatory and must not be skipped if a balance value exists on the line."),
+  balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. This is a mandatory field. Do not skip it. If a balance value is not present for a transaction row, output null for this field."),
 }).describe("A single transaction line item.");
 
 
@@ -49,16 +49,18 @@ const prompt = ai.definePrompt({
 
 2.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
 
-3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the following three fields:
-    *   \`date\`: The transaction date.
-    *   \`description\`: The transaction description.
-    *   \`balance\`: The running balance **after** the transaction. This is a critical field. Do not skip it. If a row has a debit or credit, it WILL have a balance. Find it.
+3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the following fields:
+    *   `date`: The transaction date.
+    *   `description`: The transaction description.
+    *   `balance`: The running balance **after** the transaction. This is the most critical field.
 
-4.  **MONETARY FIELDS:**
-    *   \`debit\`: The 'Money Out' or 'Paid Out' amount. If not present, omit this field.
-    *   \`credit\`: The 'Money In' or 'Paid In' amount. If not present, omit this field.
+4.  **THE \`balance\` FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the \`balance\`. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output \`null\` for the \`balance\` field. Do not omit the \`balance\` key.
 
-5.  **CLEAN DATA:**
+5.  **MONETARY FIELDS:**
+    *   `debit`: The 'Money Out' or 'Paid Out' amount. If not present, omit this field.
+    *   `credit`: The 'Money In' or 'Paid In' amount. If not present, omit this field.
+
+6.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
     *   Do not include "Balance brought forward" or similar summary lines in the transaction list.
 
