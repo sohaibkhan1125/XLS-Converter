@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Analyzes raw PDF text from bank statements and extracts a structured list of transactions.
@@ -49,16 +48,11 @@ const prompt = ai.definePrompt({
 
 2.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
 
-3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the following fields:
-    *   `date`: The transaction date.
-    *   `description`: The transaction description.
-    *   `balance`: The running balance **after** the transaction. This is the most critical field.
+3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
 
-4.  **THE \`balance\` FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the \`balance\`. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output \`null\` for the \`balance\` field. Do not omit the \`balance\` key.
+4.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
 
-5.  **MONETARY FIELDS:**
-    *   `debit`: The 'Money Out' or 'Paid Out' amount. If not present, omit this field.
-    *   `credit`: The 'Money In' or 'Paid In' amount. If not present, omit this field.
+5.  **MONETARY FIELDS:** Extract 'debit' (Money Out or Paid Out) and 'credit' (Money In or Paid In) amounts. If one is not present for a transaction, omit that specific field.
 
 6.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
