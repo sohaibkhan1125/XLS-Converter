@@ -12,7 +12,7 @@ import {z} from 'genkit';
 
 
 const TransactionSchema = z.object({
-  date: z.string().describe("The date of the transaction in YYYY-MM-DD format. Infer the year from the statement context if it is not explicitly present on each transaction line."),
+  date: z.string().describe("The date of the transaction. IMPORTANT: You must format this as YYYY-MM-DD. You MUST infer the correct year from the statement context and use that specific year (e.g., 2023, 2024). Do not literally output 'YYYY'."),
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
@@ -27,7 +27,7 @@ export type StructuredPdfDataOutput = z.infer<typeof StructuredPdfDataOutputSche
 
 
 const StructurePdfDataInputSchema = z.object({
-  rawText: z.string().describe("The raw text extracted from the PDF document, potentially including OCR output."),
+  rawText: z.string().describe("The raw text extracted from the PDF document, potentially including an OCR output."),
 });
 export type StructurePdfDataInput = z.infer<typeof StructurePdfDataInputSchema>;
 
@@ -52,7 +52,7 @@ const prompt = ai.definePrompt({
 
 4.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
 
-5.  **DATE FORMATTING:** Format all dates as YYYY-MM-DD. You MUST infer the correct year from the statement's context (e.g., from the statement date range) and apply it to all transactions. Do not output "YYYY" as a literal.
+5.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
 6.  **MONETARY FIELDS:** Extract 'debit' (Money Out or Paid Out) and 'credit' (Money In or Paid In) amounts. If one is not present for a transaction, omit that specific field.
 
