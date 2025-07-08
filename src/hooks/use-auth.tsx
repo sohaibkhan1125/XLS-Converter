@@ -10,7 +10,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   getAdditionalUserInfo,
-  type UserCredential
+  type UserCredential,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -37,6 +38,7 @@ interface AuthContextType {
   signIn: (data: SignInData) => Promise<User | null>;
   signInWithGoogle: () => Promise<User | null>;
   signOut: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -197,6 +199,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendPasswordResetEmailFunc = async (email: string): Promise<void> => {
+    console.log("[AuthHook] Attempting to send password reset email to:", email);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log("[AuthHook] Password reset email sent successfully.");
+    } catch (error) {
+      console.error("[AuthHook] Password reset email error:", error);
+      throw error as AuthError;
+    }
+  };
+
   const value = {
     currentUser,
     loading,
@@ -204,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signInWithGoogle,
     signOut: signOutUser,
+    sendPasswordResetEmail: sendPasswordResetEmailFunc,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
