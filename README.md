@@ -1,4 +1,4 @@
-nit# Firebase Studio
+nitmi# Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
 
