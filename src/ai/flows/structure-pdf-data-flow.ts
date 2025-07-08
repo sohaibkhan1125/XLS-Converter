@@ -12,7 +12,7 @@ import {z} from 'genkit';
 
 
 const TransactionSchema = z.object({
-  date: z.string().describe("The date of the transaction in YYYY-MM-DD format."),
+  date: z.string().describe("The date of the transaction in YYYY-MM-DD format. Infer the year from the statement context if it is not explicitly present on each transaction line."),
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
@@ -52,9 +52,11 @@ const prompt = ai.definePrompt({
 
 4.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
 
-5.  **MONETARY FIELDS:** Extract 'debit' (Money Out or Paid Out) and 'credit' (Money In or Paid In) amounts. If one is not present for a transaction, omit that specific field.
+5.  **DATE FORMATTING:** Format all dates as YYYY-MM-DD. You MUST infer the correct year from the statement's context (e.g., from the statement date range) and apply it to all transactions. Do not output "YYYY" as a literal.
 
-6.  **CLEAN DATA:**
+6.  **MONETARY FIELDS:** Extract 'debit' (Money Out or Paid Out) and 'credit' (Money In or Paid In) amounts. If one is not present for a transaction, omit that specific field.
+
+7.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
     *   Do not include "Balance brought forward" or similar summary lines in the transaction list.
 
@@ -62,6 +64,8 @@ const prompt = ai.definePrompt({
 
 **Input Text Snippet:**
 \`\`\`
+Statement Period: Feb 1, 2024 - Feb 29, 2024
+...
 Date Description Money Out Money In Balance
 1 Feb Balance brought forward 40,000.00
 3 Feb Card payment - High St Petrol 24.50 39,975.50
@@ -73,9 +77,9 @@ Date Description Money Out Money In Balance
 \`\`\`json
 {
   "transactions": [
-    { "date": "YYYY-02-03", "description": "Card payment - High St Petrol", "debit": 24.50, "balance": 39975.50 },
-    { "date": "YYYY-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 },
-    { "date": "YYYY-02-05", "description": "Salary Deposit - Acme Corp", "credit": 5000.00, "balance": 44955.50 }
+    { "date": "2024-02-03", "description": "Card payment - High St Petrol", "debit": 24.50, "balance": 39975.50 },
+    { "date": "2024-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 },
+    { "date": "2024-02-05", "description": "Salary Deposit - Acme Corp", "credit": 5000.00, "balance": 44955.50 }
   ]
 }
 \`\`\`
