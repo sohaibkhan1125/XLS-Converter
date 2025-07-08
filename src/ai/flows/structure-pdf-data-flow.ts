@@ -66,6 +66,7 @@ Date Description Money Out Money In Balance
 1 Feb Balance brought forward 40,000.00
 3 Feb Card payment - High St Petrol 24.50 39,975.50
 4 Feb Direct debit - Green Mobile 20.00 39,955.50
+5 Feb Salary Deposit - Acme Corp 5,000.00 44,955.50
 \`\`\`
 
 **Correct JSON Output for this Snippet:**
@@ -73,11 +74,12 @@ Date Description Money Out Money In Balance
 {
   "transactions": [
     { "date": "YYYY-02-03", "description": "Card payment - High St Petrol", "debit": 24.50, "balance": 39975.50 },
-    { "date": "YYYY-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 }
+    { "date": "YYYY-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 },
+    { "date": "YYYY-02-05", "description": "Salary Deposit - Acme Corp", "credit": 5000.00, "balance": 44955.50 }
   ]
 }
 \`\`\`
-*(Notice "Balance brought forward" is completely ignored)*
+*(Notice "Balance brought forward" is completely ignored and a transaction with only a credit is included)*
 
 Now, process the following full text and provide the structured JSON.
 
