@@ -75,7 +75,7 @@ export default function RootLayout({
     : "flex-grow container mx-auto px-4 py-8 pt-24 pb-8";
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <head>
         <title>{DEFAULT_SITE_NAME_FALLBACK}</title>
         <meta name="description" content={DEFAULT_FALLBACK_DESCRIPTION} />
