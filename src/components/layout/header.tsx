@@ -16,6 +16,7 @@ import {
 import AppLogo from './app-logo';
 import { Languages, LogOut, Menu } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import type { NavItem } from '@/types/site-settings'; 
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
@@ -36,6 +37,7 @@ export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
   const { setLanguage, getTranslation } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
   
   const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
   const [siteTitleForLogo, setSiteTitleForLogo] = useState<string>(GENERIC_APP_NAME_FALLBACK);
@@ -61,6 +63,11 @@ export default function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
+  const isHomePage = pathname === '/';
+  const navLinksToShow = isHomePage
+    ? DEFAULT_NAV_LINKS.filter(link => link.id === 'home')
+    : DEFAULT_NAV_LINKS;
+
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -74,11 +81,11 @@ export default function AppHeader() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {isLoadingSettings ? (
-            Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
+            Array.from({ length: navLinksToShow.length }).map((_, index) => (
               <div key={index} className="h-4 w-20 animate-pulse rounded-md bg-muted"></div>
             ))
           ) : (
-            DEFAULT_NAV_LINKS.map((link) => (
+            navLinksToShow.map((link) => (
               <Link key={link.id} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
                 {getTranslation(link.labelKey)}
               </Link>
@@ -160,11 +167,11 @@ export default function AppHeader() {
                 </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
-                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
+                     Array.from({ length: navLinksToShow.length }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (
-                    DEFAULT_NAV_LINKS.map((link) => (
+                    navLinksToShow.map((link) => (
                       <Link 
                         key={link.id} 
                         href={link.href} 
