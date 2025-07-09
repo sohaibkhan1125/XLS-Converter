@@ -65,7 +65,7 @@ export default function AppHeader() {
 
   const isHomePage = pathname === '/';
   const navLinksToShow = isHomePage
-    ? DEFAULT_NAV_LINKS.filter(link => link.id === 'home')
+    ? []
     : DEFAULT_NAV_LINKS;
 
   return (
