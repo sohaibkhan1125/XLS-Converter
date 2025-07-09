@@ -6,30 +6,13 @@ import { ShieldCheck, Download, BrainCircuit, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { useLanguage } from '@/context/language-context';
 
 interface Feature {
   icon: React.ElementType;
   title: string;
   description: string;
 }
-
-const features: Feature[] = [
-  {
-    icon: ShieldCheck,
-    title: 'Secure Conversion',
-    description: 'Your documents are processed securely and are not stored after conversion.',
-  },
-  {
-    icon: Download,
-    title: 'Instant Download',
-    description: 'Quickly download your structured Excel file as soon as it’s ready.',
-  },
-  {
-    icon: BrainCircuit,
-    title: 'AI-Powered Structuring',
-    description: 'Advanced AI accurately interprets PDF layouts for a clean Excel output.',
-  },
-];
 
 const GENERIC_APP_NAME = "Our App";
 
@@ -39,6 +22,7 @@ interface FeatureSectionProps {
 
 export default function FeatureSection({ siteTitle: propSiteTitle }: FeatureSectionProps) {
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(propSiteTitle || GENERIC_APP_NAME);
+  const { getTranslation } = useLanguage();
 
   useEffect(() => {
     if (!propSiteTitle) { // Only subscribe if title is not passed as a prop
@@ -51,12 +35,30 @@ export default function FeatureSection({ siteTitle: propSiteTitle }: FeatureSect
     }
   }, [propSiteTitle]);
 
+  const features: Feature[] = [
+    {
+      icon: ShieldCheck,
+      title: getTranslation('featureSecure'),
+      description: getTranslation('featureSecureDesc'),
+    },
+    {
+      icon: Download,
+      title: getTranslation('featureInstant'),
+      description: getTranslation('featureInstantDesc'),
+    },
+    {
+      icon: BrainCircuit,
+      title: getTranslation('featureAI'),
+      description: getTranslation('featureAIDesc'),
+    },
+  ];
+
   return (
     <section className="py-12 lg:py-16">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center text-primary mb-2">Why Choose {displayedSiteTitle}?</h2>
+        <h2 className="text-3xl font-bold text-center text-primary mb-2">{getTranslation('featureSectionTitle', { siteTitle: displayedSiteTitle })}</h2>
         <p className="text-lg text-muted-foreground text-center mb-10">
-            Streamline your PDF to Excel workflow with powerful and intuitive features.
+            {getTranslation('featureSectionDescription')}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (

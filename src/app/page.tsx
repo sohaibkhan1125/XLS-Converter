@@ -21,6 +21,7 @@ import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } 
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
+import { useLanguage } from '@/context/language-context';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
@@ -45,6 +46,7 @@ export default function HomePage() {
   const { toast } = useToast();
   const pathname = usePathname();
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
+  const { getTranslation } = useLanguage();
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
@@ -197,10 +199,10 @@ export default function HomePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-center text-primary flex items-center justify-center">
-            <Zap className="mr-2 h-8 w-8 text-primary" /> {displayedSiteTitle}
+            <Zap className="mr-2 h-8 w-8 text-primary" /> {getTranslation('pageTitle')}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
-            Upload your PDF, preview the AI-structured data, and download it as an Excel file.
+            {getTranslation('pageDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -209,6 +211,9 @@ export default function HomePage() {
             selectedFile={selectedFile}
             clearSelection={handleClearSelection}
             disabled={isLoading}
+            dragText={getTranslation('fileUploaderDrag')}
+            orText={getTranslation('fileUploaderOr')}
+            clickText={getTranslation('fileUploaderClick')}
           />
 
           {isLoading && (

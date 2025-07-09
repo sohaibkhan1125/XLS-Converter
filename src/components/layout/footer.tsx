@@ -7,14 +7,15 @@ import { useState, useEffect } from 'react';
 import * as LucideIcons from 'lucide-react'; 
 import type { GeneralSiteSettings, NavItem, SocialLink } from '@/types/site-settings'; 
 import { subscribeToGeneralSettings, PREDEFINED_SOCIAL_MEDIA_PLATFORMS } from '@/lib/firebase-settings-service'; 
+import { useLanguage } from '@/context/language-context';
 
-const mainSiteLinks: NavItem[] = [ 
-  { id: 'home', href: '/', label: 'Home' },
-  { id: 'blogs', href: '/blogs', label: 'Blogs' }, // Added Blogs Link
-  { id: 'pricing', href: '/pricing', label: 'Pricing' },
-  { id: 'about', href: '/about', label: 'About' },
-  { id: 'contact', href: '/contact', label: 'Contact' },
-  { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
+const mainSiteLinks: {id: string; href: string; labelKey: string}[] = [ 
+  { id: 'home', href: '/', labelKey: 'navHome' },
+  { id: 'blogs', href: '/blogs', labelKey: 'navBlogs' },
+  { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+  { id: 'about', href: '/about', labelKey: 'navAbout' },
+  { id: 'contact', href: '/contact', labelKey: 'navContact' },
+  { id: 'privacy', href: '/privacy', labelKey: 'navPrivacy' },
 ];
 const GENERIC_APP_NAME_FALLBACK = "My Application"; // Generic fallback
 const DEFAULT_SOCIAL_LINKS: SocialLink[] = PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({
@@ -29,8 +30,7 @@ export default function AppFooter() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(DEFAULT_SOCIAL_LINKS);
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
-  const [currentNavItems, setCurrentNavItems] = useState<NavItem[]>(mainSiteLinks);
-
+  const { getTranslation } = useLanguage();
 
   useEffect(() => {
     setIsLoadingSettings(true);
@@ -44,28 +44,10 @@ export default function AppFooter() {
           return savedLink ? { ...p_defined, ...savedLink } : { ...p_defined, url: '', enabled: false };
         });
         setSocialLinks(mergedSocialLinks);
-
-        // Use admin-configured nav items if available, otherwise defaults
-        const baseNavItems = settings.navItems && settings.navItems.length > 0 ? settings.navItems : mainSiteLinks;
-        // Ensure "Blogs" is present if custom nav items are set
-        if (!baseNavItems.find(item => item.id === 'blogs')) {
-            const blogsIndex = mainSiteLinks.findIndex(item => item.id === 'blogs');
-            if (blogsIndex !== -1) {
-                 const homeIndex = baseNavItems.findIndex(item => item.id === 'home');
-                if (homeIndex !== -1) {
-                    baseNavItems.splice(homeIndex + 1, 0, mainSiteLinks[blogsIndex]);
-                } else {
-                    baseNavItems.unshift(mainSiteLinks[blogsIndex]);
-                }
-            }
-        }
-        setCurrentNavItems(baseNavItems);
-
       } else {
         setLogoUrl(undefined);
         setDisplayedSiteTitle(GENERIC_APP_NAME_FALLBACK);
         setSocialLinks(DEFAULT_SOCIAL_LINKS);
-        setCurrentNavItems(mainSiteLinks);
       }
       setIsLoadingSettings(false);
     });
@@ -90,11 +72,11 @@ export default function AppFooter() {
           
           <nav className="flex flex-wrap justify-center md:col-span-1 gap-x-6 gap-y-2 text-sm">
             {isLoadingSettings ? (
-              Array.from({length: currentNavItems.length}).map((_, i) => <div key={i} className="h-4 w-16 bg-muted rounded animate-pulse"></div>)
+              Array.from({length: mainSiteLinks.length}).map((_, i) => <div key={i} className="h-4 w-16 bg-muted rounded animate-pulse"></div>)
             ) : (
-              currentNavItems.map((link) => (
+              mainSiteLinks.map((link) => (
                 <Link key={link.href} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
-                  {link.label}
+                  {getTranslation(link.labelKey)}
                 </Link>
               ))
             )}

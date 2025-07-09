@@ -14,29 +14,30 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLogo from './app-logo';
-import { LogOut, Menu } from 'lucide-react'; 
+import { Languages, LogOut, Menu } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import type { NavItem } from '@/types/site-settings'; 
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { useLanguage } from '@/context/language-context';
+import { languages } from '@/config/translations';
 
-const DEFAULT_NAV_LINKS: NavItem[] = [
-  { id: 'home', href: '/', label: 'Home' },
-  { id: 'blogs', href: '/blogs', label: 'Blogs' }, // Added Blogs Link
-  { id: 'pricing', href: '/pricing', label: 'Pricing' },
-  { id: 'about', href: '/about', label: 'About' },
-  { id: 'contact', href: '/contact', label: 'Contact' },
-  { id: 'privacy', href: '/privacy', label: 'Privacy Policy' },
+const DEFAULT_NAV_LINKS: {id: string; href: string; labelKey: string}[] = [
+  { id: 'home', href: '/', labelKey: 'navHome' },
+  { id: 'blogs', href: '/blogs', labelKey: 'navBlogs' },
+  { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+  { id: 'about', href: '/about', labelKey: 'navAbout' },
+  { id: 'contact', href: '/contact', labelKey: 'navContact' },
 ];
 const GENERIC_APP_NAME_FALLBACK = "My App"; // More generic fallback
 
 export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
+  const { setLanguage, getTranslation } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
-  const [navItems, setNavItems] = useState<NavItem[]>(DEFAULT_NAV_LINKS);
   const [siteTitleForLogo, setSiteTitleForLogo] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
@@ -45,25 +46,9 @@ export default function AppHeader() {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       if (settings) {
         setLogoUrl(settings.logoUrl);
-        // Ensure "Blogs" is present if custom nav items are set, otherwise use defaults which include "Blogs"
-        const baseNavItems = settings.navItems && settings.navItems.length > 0 ? settings.navItems : DEFAULT_NAV_LINKS;
-        if (!baseNavItems.find(item => item.id === 'blogs')) {
-            const blogsIndex = DEFAULT_NAV_LINKS.findIndex(item => item.id === 'blogs');
-            if (blogsIndex !== -1) {
-                 // Insert "Blogs" into a sensible position if missing, e.g., after "Home" or at the start
-                const homeIndex = baseNavItems.findIndex(item => item.id === 'home');
-                if (homeIndex !== -1) {
-                    baseNavItems.splice(homeIndex + 1, 0, DEFAULT_NAV_LINKS[blogsIndex]);
-                } else {
-                    baseNavItems.unshift(DEFAULT_NAV_LINKS[blogsIndex]);
-                }
-            }
-        }
-        setNavItems(baseNavItems);
         setSiteTitleForLogo(settings.siteTitle || GENERIC_APP_NAME_FALLBACK);
       } else {
         setLogoUrl(undefined);
-        setNavItems(DEFAULT_NAV_LINKS);
         setSiteTitleForLogo(GENERIC_APP_NAME_FALLBACK);
       }
       setIsLoadingSettings(false);
@@ -89,20 +74,38 @@ export default function AppHeader() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {isLoadingSettings ? (
-            Array.from({ length: navItems.length }).map((_, index) => ( // Use current navItems length for skeleton
+            Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
               <div key={index} className="h-4 w-20 animate-pulse rounded-md bg-muted"></div>
             ))
           ) : (
-            navItems.map((link) => (
+            DEFAULT_NAV_LINKS.map((link) => (
               <Link key={link.id} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
-                {link.label}
+                {getTranslation(link.labelKey)}
               </Link>
             ))
           )}
         </nav>
 
         <div className="flex items-center gap-2">
-          {authLoading || isLoadingSettings ? ( // Consider isLoadingSettings for placeholder
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Languages className="h-5 w-5" />
+                <span className="sr-only">Change language</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Select Language</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {languages.map(lang => (
+                <DropdownMenuItem key={lang.code} onSelect={() => setLanguage(lang.code)}>
+                  {lang.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {authLoading || isLoadingSettings ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted sm:h-8 sm:w-20 sm:rounded-md"></div>
           ) : currentUser ? (
             <DropdownMenu>
@@ -135,10 +138,10 @@ export default function AppHeader() {
           ) : (
             <>
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <Link href="/login">Log In</Link>
+                <Link href="/login">{getTranslation('login')}</Link>
               </Button>
               <Button variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href="/signup">Sign Up</Link>
+                <Link href="/signup">{getTranslation('signup')}</Link>
               </Button>
             </>
           )}
@@ -157,18 +160,18 @@ export default function AppHeader() {
                 </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
-                     Array.from({ length: navItems.length }).map((_, index) => (
+                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (
-                    navItems.map((link) => (
+                    DEFAULT_NAV_LINKS.map((link) => (
                       <Link 
                         key={link.id} 
                         href={link.href} 
                         className="text-lg font-medium text-foreground hover:text-primary transition-colors"
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        {link.label}
+                        {getTranslation(link.labelKey)}
                       </Link>
                     ))
                   )}
@@ -179,7 +182,7 @@ export default function AppHeader() {
                       className="text-lg font-medium text-foreground hover:text-primary transition-colors"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Log In
+                      {getTranslation('login')}
                     </Link>
                   )}
                 </nav>

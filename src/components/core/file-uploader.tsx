@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useCallback } from 'react';
@@ -11,9 +12,20 @@ interface FileUploaderProps {
   selectedFile: File | null;
   clearSelection: () => void;
   disabled?: boolean;
+  dragText?: string;
+  orText?: string;
+  clickText?: string;
 }
 
-export default function FileUploader({ onFileSelect, selectedFile, clearSelection, disabled = false }: FileUploaderProps) {
+export default function FileUploader({ 
+  onFileSelect, 
+  selectedFile, 
+  clearSelection, 
+  disabled = false,
+  dragText = "Drag & drop a PDF file here",
+  orText = "or",
+  clickText = "Click to select file"
+}: FileUploaderProps) {
   const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
       onFileSelect(acceptedFiles[0]);
@@ -54,13 +66,13 @@ export default function FileUploader({ onFileSelect, selectedFile, clearSelectio
         <input {...getInputProps()} />
         <UploadCloud className={`h-12 w-12 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
         {isDragActive ? (
-          <p className="text-lg font-semibold text-primary">Drop the PDF file here ...</p>
+          <p className="text-lg font-semibold text-primary">{dragText.replace('&', 'and')} ...</p>
         ) : (
           <>
-            <p className="text-lg font-semibold text-foreground">Drag & drop a PDF file here</p>
-            <p className="text-muted-foreground mb-4">or</p>
+            <p className="text-lg font-semibold text-foreground">{dragText}</p>
+            <p className="text-muted-foreground mb-4">{orText}</p>
             <Button type="button" onClick={open} variant="outline" disabled={disabled}>
-              Click to select file
+              {clickText}
             </Button>
             <p className="text-xs text-muted-foreground mt-4">Max file size: 10MB. PDF only.</p>
           </>

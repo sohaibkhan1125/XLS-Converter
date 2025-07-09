@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { PREDEFINED_THEMES, DEFAULT_LIGHT_THEME_ID, type Theme, type ThemeColors } from '@/config/themes';
+import { LanguageProvider } from '@/context/language-context';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -83,16 +84,18 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
         <AuthProvider>
-          <MaintenanceModeOverlay /> 
-          <PopupInjector /> {/* Add PopupInjector here */}
-          {!isAdminRoute && <AppHeader />}
-          <AdScriptInjector /> 
-          <CustomScriptInjector />
-          <main className={mainClassName}>
-            {children}
-          </main>
-          {!isAdminRoute && <AppFooter />}
-          <Toaster />
+          <LanguageProvider>
+            <MaintenanceModeOverlay /> 
+            <PopupInjector /> {/* Add PopupInjector here */}
+            {!isAdminRoute && <AppHeader />}
+            <AdScriptInjector /> 
+            <CustomScriptInjector />
+            <main className={mainClassName}>
+              {children}
+            </main>
+            {!isAdminRoute && <AppFooter />}
+            <Toaster />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
