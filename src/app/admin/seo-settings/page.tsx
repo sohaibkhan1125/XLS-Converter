@@ -22,6 +22,7 @@ interface KnownPage {
 
 const KNOWN_APP_PAGES: KnownPage[] = [
   { path: '/', name: 'Home Page', defaultTitle: 'XLSConvert - PDF to Excel Converter', defaultDescription: 'Easily convert your PDF files to structured Excel spreadsheets with AI.' },
+  { path: '/documents', name: 'Documents Page', defaultTitle: 'Documentation - XLSConvert', defaultDescription: 'Learn how to use the PDF to Excel converter, its features, and security practices.' },
   { path: '/about', name: 'About Page', defaultTitle: 'About XLSConvert', defaultDescription: 'Learn more about XLSConvert and our mission to simplify data extraction.' },
   { path: '/contact', name: 'Contact Page', defaultTitle: 'Contact XLSConvert', defaultDescription: 'Get in touch with the XLSConvert team for support or inquiries.' },
   { path: '/privacy', name: 'Privacy Policy Page', defaultTitle: 'Privacy Policy - XLSConvert', defaultDescription: 'Read the privacy policy for XLSConvert.' },

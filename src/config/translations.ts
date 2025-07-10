@@ -17,6 +17,7 @@ export const translations: Record<string, Record<Language, string>> = {
   navAbout: { en: 'About', es: 'Sobre', zh: '关于', hi: 'हमारे बारे में', ar: 'عنا' },
   navContact: { en: 'Contact', es: 'Contacto', zh: '联系', hi: 'संपर्क', ar: 'اتصل' },
   navPrivacy: { en: 'Privacy Policy', es: 'Política de Privacidad', zh: '隐私政策', hi: 'गोपनीयता नीति', ar: 'سياسة الخصوصية' },
+  navDocuments: { en: 'Documents', es: 'Documentos', zh: '文件', hi: 'दस्तावेज़', ar: 'مستندات' },
   login: { en: 'Log In', es: 'Iniciar Sesión', zh: '登录', hi: 'लॉग इन करें', ar: 'تسجيل الدخول' },
   signup: { en: 'Sign Up', es: 'Regístrate', zh: '报名', hi: 'साइन अप करें', ar: 'اشتراك' },
 

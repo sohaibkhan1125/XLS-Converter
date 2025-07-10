@@ -11,6 +11,7 @@ import { useLanguage } from '@/context/language-context';
 
 const mainSiteLinks: {id: string; href: string; labelKey: string}[] = [ 
   { id: 'home', href: '/', labelKey: 'navHome' },
+  { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
   { id: 'blogs', href: '/blogs', labelKey: 'navBlogs' },
   { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
   { id: 'about', href: '/about', labelKey: 'navAbout' },

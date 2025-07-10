@@ -26,6 +26,7 @@ import { languages } from '@/config/translations';
 
 const DEFAULT_NAV_LINKS: {id: string; href: string; labelKey: string}[] = [
   { id: 'home', href: '/', labelKey: 'navHome' },
+  { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
   { id: 'blogs', href: '/blogs', labelKey: 'navBlogs' },
   { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
   { id: 'about', href: '/about', labelKey: 'navAbout' },
@@ -66,7 +67,7 @@ export default function AppHeader() {
   const isHomePage = pathname === '/';
   const navLinksToShow = isHomePage
     ? []
-    : DEFAULT_NAV_LINKS;
+    : DEFAULT_NAV_LINKS.filter(link => link.id !== 'home');
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
@@ -167,11 +168,11 @@ export default function AppHeader() {
                 </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
                   {isLoadingSettings ? (
-                     Array.from({ length: navLinksToShow.length }).map((_, index) => (
+                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (
-                    navLinksToShow.map((link) => (
+                    DEFAULT_NAV_LINKS.map((link) => (
                       <Link 
                         key={link.id} 
                         href={link.href} 
