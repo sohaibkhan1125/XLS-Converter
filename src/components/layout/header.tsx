@@ -4,7 +4,15 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import AppLogo from './app-logo';
+import { Languages, Menu } from 'lucide-react'; 
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { useLanguage } from '@/context/language-context';
+import { languages } from '@/config/translations';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,26 +21,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import AppLogo from './app-logo';
-import { Languages, LogOut, Menu } from 'lucide-react'; 
-import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import type { NavItem } from '@/types/site-settings'; 
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service'; 
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
-import { useLanguage } from '@/context/language-context';
-import { languages } from '@/config/translations';
 
-const DEFAULT_NAV_LINKS: {id: string; href: string; labelKey: string}[] = [
-  { id: 'home', href: '/', labelKey: 'navHome' },
-  { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
-  { id: 'blogs', href: '/blogs', labelKey: 'navBlogs' },
-  { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
-  { id: 'about', href: '/about', labelKey: 'navAbout' },
-  { id: 'contact', href: '/contact', labelKey: 'navContact' },
-];
-const GENERIC_APP_NAME_FALLBACK = "My App"; // More generic fallback
+const GENERIC_APP_NAME_FALLBACK = "My App";
 
 export default function AppHeader() {
   const { currentUser, signOut, loading: authLoading } = useAuth();
@@ -59,34 +49,58 @@ export default function AppHeader() {
     return () => unsubscribe();
   }, []);
 
-  const getInitials = (email?: string | null) => {
-    if (!email) return 'U';
-    return email.substring(0, 2).toUpperCase();
-  };
-
   const isHomePage = pathname === '/';
-  const navLinksToShow = isHomePage
-    ? []
-    : DEFAULT_NAV_LINKS.filter(link => link.id !== 'home');
+  
+  const loggedOutLinks = [
+    ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
+    { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+    { id: 'login', href: '/login', labelKey: 'login' },
+    { id: 'register', href: '/signup', labelKey: 'register' },
+  ];
+
+  const loggedInLinks = [
+    ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
+    { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
+    { id: 'signout', action: signOut, labelKey: 'signout' },
+  ];
+  
+  const mobileLinks = currentUser ? loggedInLinks : loggedOutLinks;
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {isLoadingSettings ? 
+        {/* Left Side: Logo */}
+        <div className="flex-1 flex justify-start">
+         {isLoadingSettings ? 
             <div className="flex items-center gap-2 text-primary">
                 <div className="h-7 w-7 bg-muted rounded-full animate-pulse"></div>
                 <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
             </div>
             : <AppLogo logoUrl={logoUrl} siteTitle={siteTitleForLogo} />
         }
+        </div>
 
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-          {isLoadingSettings ? (
-            Array.from({ length: navLinksToShow.length }).map((_, index) => (
-              <div key={index} className="h-4 w-20 animate-pulse rounded-md bg-muted"></div>
+        {/* Center: Desktop Navigation */}
+        <nav className="hidden md:flex flex-1 justify-center items-center gap-6 text-sm font-medium">
+          {authLoading || isLoadingSettings ? (
+            <div className="h-4 w-4/5 animate-pulse rounded-md bg-muted"></div>
+          ) : currentUser ? (
+            // Logged-in Links
+            loggedInLinks.map((link) => (
+              link.action ? (
+                <button key={link.id} onClick={link.action} className="text-muted-foreground hover:text-primary transition-colors">
+                  {getTranslation(link.labelKey)}
+                </button>
+              ) : (
+                <Link key={link.id} href={link.href!} className="text-muted-foreground hover:text-primary transition-colors">
+                  {getTranslation(link.labelKey)}
+                </Link>
+              )
             ))
           ) : (
-            navLinksToShow.map((link) => (
+            // Logged-out Links
+            loggedOutLinks.map((link) => (
               <Link key={link.id} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
                 {getTranslation(link.labelKey)}
               </Link>
@@ -94,7 +108,8 @@ export default function AppHeader() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
+        {/* Right Side: Language & Mobile Menu */}
+        <div className="flex flex-1 justify-end items-center gap-2">
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -113,47 +128,6 @@ export default function AppHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {authLoading || isLoadingSettings ? (
-            <div className="h-10 w-10 animate-pulse rounded-full bg-muted sm:h-8 sm:w-20 sm:rounded-md"></div>
-          ) : currentUser ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || currentUser.email || 'User'} />
-                    <AvatarFallback>{getInitials(currentUser.email)}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {currentUser.displayName || currentUser.email}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {currentUser.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <>
-              <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <Link href="/login">{getTranslation('login')}</Link>
-              </Button>
-              <Button variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href="/signup">{getTranslation('signup')}</Link>
-              </Button>
-            </>
-          )}
-          
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -167,31 +141,31 @@ export default function AppHeader() {
                   <SheetTitle>Mobile Navigation Menu</SheetTitle>
                 </VisuallyHidden>
                 <nav className="flex flex-col gap-4">
-                  {isLoadingSettings ? (
-                     Array.from({ length: DEFAULT_NAV_LINKS.length }).map((_, index) => (
+                   {authLoading || isLoadingSettings ? (
+                     Array.from({ length: 4 }).map((_, index) => (
                       <div key={index} className="h-6 w-3/4 animate-pulse rounded-md bg-muted mb-2"></div>
                     ))
                   ) : (
-                    DEFAULT_NAV_LINKS.map((link) => (
-                      <Link 
-                        key={link.id} 
-                        href={link.href} 
-                        className="text-lg font-medium text-foreground hover:text-primary transition-colors"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {getTranslation(link.labelKey)}
-                      </Link>
+                    mobileLinks.map((link) => (
+                      link.action ? (
+                        <button
+                          key={link.id}
+                          onClick={() => { link.action(); setMobileMenuOpen(false); }}
+                          className="text-lg font-medium text-foreground hover:text-primary transition-colors text-left"
+                        >
+                          {getTranslation(link.labelKey)}
+                        </button>
+                      ) : (
+                        <Link 
+                          key={link.id} 
+                          href={link.href!} 
+                          className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          {getTranslation(link.labelKey)}
+                        </Link>
+                      )
                     ))
-                  )}
-                  <hr className="my-4"/>
-                  {!currentUser && !authLoading && (
-                     <Link 
-                      href="/login" 
-                      className="text-lg font-medium text-foreground hover:text-primary transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {getTranslation('login')}
-                    </Link>
                   )}
                 </nav>
               </SheetContent>
