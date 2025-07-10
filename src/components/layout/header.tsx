@@ -53,6 +53,7 @@ export default function AppHeader() {
   
   const loggedOutLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
+    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
     { id: 'login', href: '/login', labelKey: 'login' },
     { id: 'register', href: '/signup', labelKey: 'register' },
@@ -71,7 +72,7 @@ export default function AppHeader() {
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Left Side: Logo */}
-        <div className="flex-1 flex justify-start">
+        <div className="flex flex-1 justify-start">
          {isLoadingSettings ? 
             <div className="flex items-center gap-2 text-primary">
                 <div className="h-7 w-7 bg-muted rounded-full animate-pulse"></div>
@@ -101,7 +102,7 @@ export default function AppHeader() {
           ) : (
             // Logged-out Links
             loggedOutLinks.map((link) => (
-              <Link key={link.id} href={link.href} className="text-muted-foreground hover:text-primary transition-colors">
+              <Link key={link.id} href={link.href!} className="text-muted-foreground hover:text-primary transition-colors">
                 {getTranslation(link.labelKey)}
               </Link>
             ))

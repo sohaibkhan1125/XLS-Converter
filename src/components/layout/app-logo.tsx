@@ -14,7 +14,7 @@ export default function AppLogo({ logoUrl, siteTitle }: AppLogoProps) {
   const displayTitle = siteTitle || DEFAULT_TITLE;
 
   return (
-    <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
+    <Link href="/" className="flex flex-shrink-0 items-center gap-2 text-primary hover:opacity-80 transition-opacity">
       {logoUrl ? (
         <Image 
           src={logoUrl} 
