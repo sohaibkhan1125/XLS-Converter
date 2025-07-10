@@ -82,7 +82,7 @@ export default function RootLayout({
         <meta name="description" content={DEFAULT_FALLBACK_DESCRIPTION} />
         {/* The CSS variables will be set via JS, no <style> tag needed here for theme colors */}
       </head>
-      <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`}>
+      <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`} suppressHydrationWarning={true}>
         <AuthProvider>
           <LanguageProvider>
             <MaintenanceModeOverlay /> 
