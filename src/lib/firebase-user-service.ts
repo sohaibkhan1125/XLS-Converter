@@ -1,10 +1,10 @@
 
-import { doc, setDoc, serverTimestamp, type FieldValue } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, type FieldValue, type Timestamp } from 'firebase/firestore';
 import { firestore } from './firebase';
 
 const USERS_COLLECTION = 'users';
 
-export interface UserProfileData {
+export interface UserProfile {
   firstName: string;
   lastName: string;
   email: string;
@@ -26,28 +26,39 @@ export async function createUserProfileInFirestore(
   email: string
 ): Promise<void> {
   if (!uid) {
-    console.error("UID is required to create a user profile in Firestore.");
     throw new Error("User UID not provided for profile creation.");
-  }
-  if (!firstName || !lastName) {
-    console.warn("First name or last name is missing for profile creation. UID:", uid);
-    // Decide if this should be an error or just a warning. For now, proceed.
   }
   try {
     const userDocRef = doc(firestore, USERS_COLLECTION, uid);
-    const profileData: UserProfileData = {
+    const profileData: UserProfile = {
       firstName,
       lastName,
       email,
       createdAt: serverTimestamp(),
     };
     await setDoc(userDocRef, profileData);
-    console.log(`User profile created in Firestore for UID: ${uid}`);
   } catch (error) {
     console.error("Error creating user profile in Firestore for UID:", uid, error);
-    // If profile creation fails, the auth user might still exist.
-    // Consider error handling strategies like trying to delete the auth user,
-    // or logging for manual reconciliation.
-    throw error; // Re-throw the error to be handled by the calling function.
+    throw error;
+  }
+}
+
+/**
+ * Fetches a user profile from Firestore.
+ * @param uid The user's unique ID.
+ * @returns The user profile data or null if not found.
+ */
+export async function getUserProfileFromFirestore(uid: string): Promise<UserProfile | null> {
+  if (!uid) return null;
+  try {
+    const userDocRef = doc(firestore, USERS_COLLECTION, uid);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as UserProfile;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile from Firestore:", error);
+    return null;
   }
 }
