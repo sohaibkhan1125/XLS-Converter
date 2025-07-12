@@ -271,4 +271,3 @@ export async function deleteSharedSiteLogo(logoUrl: string): Promise<void> {
     }
   }
 }
-

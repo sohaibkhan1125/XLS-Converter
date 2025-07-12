@@ -27,7 +27,7 @@ export default function AppLogo({ logoUrl, siteTitle }: AppLogoProps) {
       ) : (
         <FileSpreadsheet className="h-7 w-7" />
       )}
-      <span className="text-2xl font-semibold">{displayTitle}</span>
+      <span className="text-2xl font-semibold whitespace-nowrap">{displayTitle}</span>
     </Link>
   );
 }

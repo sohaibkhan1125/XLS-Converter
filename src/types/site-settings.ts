@@ -45,7 +45,7 @@ export interface PaymentGatewaySetting {
 
 export interface GeneralSiteSettings {
   siteTitle?: string;
-  logoUrl?: string;
+  logoUrl?: string | null;
   navItems?: NavItem[];
   adLoaderScript?: string; // For primary ad network script
   socialLinks?: SocialLink[];

@@ -30,7 +30,6 @@ export default function AppHeader() {
   const { setLanguage, getTranslation } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  
   const [logoUrl, setLogoUrl] = useState<string | undefined | null>(undefined);
   const [siteTitleForLogo, setSiteTitleForLogo] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
