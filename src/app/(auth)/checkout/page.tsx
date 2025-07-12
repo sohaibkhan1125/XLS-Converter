@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
@@ -72,10 +73,10 @@ function CheckoutFlow() {
     const initialOptions = {
         "client-id": paypalClientId,
         "enable-funding": "paylater,venmo,card",
-        "disable-funding": "ideal",
+        "disable-funding": "",
         "currency": "USD",
         "data-page-type": "product-details",
-        "components": "buttons",
+        components: "buttons,card-fields",
         "data-sdk-integration-source": "developer-studio",
     };
 
@@ -151,6 +152,7 @@ function CheckoutFlow() {
                                 console.error(error);
                                 setMessage(`Could not initiate PayPal Checkout...${error}`);
                                 toast({ variant: 'destructive', title: 'Checkout Error', description: `Could not initiate PayPal Checkout.` });
+                                throw error; // Re-throw to be caught by PayPal SDK
                             }
                         }}
                         onApprove={async (data, actions) => {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -12,12 +13,10 @@ import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 interface PricingCardProps {
   plan: Plan;
   billingCycle: 'monthly' | 'annual';
-  onSelectPlan: (planId: Plan['id'], cycle: 'monthly' | 'annual') => void; // This will now be used for redirection
-  isPaymentConfigured: boolean; // This is now just for show/hide, not functionality
   currentUser: User | null;
 }
 
-export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymentConfigured, currentUser }: PricingCardProps) {
+export default function PricingCard({ plan, billingCycle, currentUser }: PricingCardProps) {
   const router = useRouter();
   const displayPrice = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
   const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
@@ -25,14 +24,14 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
 
   const handleSelect = () => {
     if (!currentUser) {
-      router.push('/login');
+      router.push('/login?redirect=/pricing'); // Redirect to login, then back to pricing
     } else {
       // Redirect to the new checkout page with plan details in query params
       router.push(`/checkout?planId=${plan.id}&cycle=${billingCycle}`);
     }
   };
 
-  const ctaButtonText = plan.trialDays ? `Start ${plan.trialDays}-Day Trial` : "Select Plan";
+  const ctaButtonText = currentUser ? (plan.trialDays ? `Start ${plan.trialDays}-Day Trial` : "Get Started") : "Sign In to Purchase";
 
   return (
     <Card className={cn(

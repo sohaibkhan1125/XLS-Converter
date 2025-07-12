@@ -1,3 +1,4 @@
+
 // IMPORTANT: This file contains server-side logic that uses secrets.
 // Ensure you have set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in your environment variables.
 

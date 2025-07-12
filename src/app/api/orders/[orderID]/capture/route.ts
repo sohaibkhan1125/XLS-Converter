@@ -1,3 +1,4 @@
+
 // IMPORTANT: This file contains server-side logic that uses secrets.
 // Ensure you have set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in your environment variables.
 
@@ -18,7 +19,7 @@ const captureOrder = async (orderID: string) => {
     const ordersController = new OrdersController(client);
     const collect = {
         id: orderID,
-        prefer: 'return=minimal',
+        prefer: 'return=representation', // Use representation to get the full object back
     };
 
     try {

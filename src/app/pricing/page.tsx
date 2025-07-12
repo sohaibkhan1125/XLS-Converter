@@ -2,34 +2,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PricingCard from '@/components/pricing/pricing-card';
 import { PRICING_PLANS, type Plan as PlanType } from '@/config/pricing';
-import { useToast } from '@/hooks/use-toast';
-import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { GeneralSiteSettings, PaymentGatewaySetting } from '@/types/site-settings';
+import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from 'lucide-react';
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const { toast } = useToast();
-  const { currentUser } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
   const pathname = usePathname();
-  const [generalSettings, setGeneralSettings] = useState<GeneralSiteSettings | null>(null);
+  const [siteTitle, setSiteTitle] = useState<string>("Our Service");
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   const fetchSettings = useCallback(() => {
     setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
-      setGeneralSettings(settings);
+      setSiteTitle(settings?.siteTitle || "Our Service");
       setIsLoadingSettings(false);
       if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
@@ -61,59 +55,13 @@ export default function PricingPage() {
     fetchSettings();
   }, [fetchSettings]);
 
-  const handleSelectPlan = (planId: PlanType['id'], cycle: 'monthly' | 'annual') => {
-    const selectedPlan = PRICING_PLANS.find(p => p.id === planId);
-    if (!selectedPlan) return;
-
-    // This function should only be called for logged-in users now
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: "Not Logged In", description: "You must be logged in to select a plan."});
-        return;
-    }
-
-    const planDetailsToActivate: PlanDetails = {
-      id: selectedPlan.id,
-      name: selectedPlan.name,
-      conversions: cycle === 'monthly' ? selectedPlan.monthlyConversions : selectedPlan.annualConversions,
-      cycle: cycle,
-      price: cycle === 'monthly' ? selectedPlan.monthlyPrice : selectedPlan.annualPrice,
-      trialDays: selectedPlan.trialDays,
-    };
-
-    const activatedPlan = activatePlan(currentUser.uid, planDetailsToActivate);
-
-    if (activatedPlan.isTrial && activatedPlan.trialEndsAt && activatedPlan.trialEndsAt > Date.now() && selectedPlan.trialDays) {
-      toast({
-        title: `${activatedPlan.name} Plan Activated!`,
-        description: `Your purchase includes an initial ${selectedPlan.trialDays}-day trial period. You have ${activatedPlan.totalConversions} conversions available.`,
-        duration: 7000,
-      });
-    } else {
-      toast({
-        title: `${activatedPlan.name} Plan Activated!`,
-        description: `You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}. Your conversions will be available immediately.`,
-        duration: 7000,
-      });
-    }
-  };
-
-  if (isLoadingSettings) {
+  if (isLoadingSettings || authLoading) {
     return (
       <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
         <LoadingSpinner message="Loading pricing information..." />
       </div>
     );
   }
-
-  const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
-  const paypalClientId = paypalGatewaySettings?.credentials.clientId;
-
-  const isValidPayPalClientId = (id: string | undefined): id is string => {
-    if (!id) return false;
-    return !id.includes('@') && id.length > 10;
-  };
-
-  const isPaymentConfigured = isValidPayPalClientId(paypalClientId);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -129,42 +77,23 @@ export default function PricingPage() {
 
       <div className="flex justify-center mb-10">
         <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as 'monthly' | 'annual')} className="w-auto">
-          <TabsList className="grid w-full grid-cols-2 md:w-[200px]">
+          <TabsList className="grid w-full grid-cols-2 md:w-auto">
             <TabsTrigger value="monthly">Monthly</TabsTrigger>
             <TabsTrigger value="annual">Annual (Save ~50%)</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       
-      {isPaymentConfigured && paypalClientId ? (
-        <PayPalScriptProvider options={{ clientId: paypalClientId, currency: "USD" }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-            {PRICING_PLANS.map((plan) => (
-              <PricingCard
-                key={plan.id}
-                plan={plan}
-                billingCycle={billingCycle}
-                onSelectPlan={handleSelectPlan}
-                isPaymentConfigured={true}
-                currentUser={currentUser}
-              />
-            ))}
-          </div>
-        </PayPalScriptProvider>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-          {PRICING_PLANS.map((plan) => (
-            <PricingCard
-              key={plan.id}
-              plan={plan}
-              billingCycle={billingCycle}
-              onSelectPlan={handleSelectPlan}
-              isPaymentConfigured={false}
-              currentUser={currentUser}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch justify-center">
+        {PRICING_PLANS.map((plan) => (
+          <PricingCard
+            key={plan.id}
+            plan={plan}
+            billingCycle={billingCycle}
+            currentUser={currentUser}
+          />
+        ))}
+      </div>
 
       <div className="mt-16 text-center">
         <h3 className="text-2xl font-semibold text-foreground">Not sure which plan is right for you?</h3>
