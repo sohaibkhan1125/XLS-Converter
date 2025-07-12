@@ -86,6 +86,23 @@ export default function PaymentGatewaysPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!settings || !settings.paymentGateways) return;
+    
+    // --- VALIDATION START ---
+    const paypalGateway = settings.paymentGateways.find(gw => gw.id === 'paypal');
+    if (paypalGateway && paypalGateway.enabled) {
+        const paypalClientId = paypalGateway.credentials.clientId || '';
+        if (paypalClientId.includes('@')) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid PayPal Client ID',
+                description: 'The PayPal Client ID should not be an email address. Please provide the correct API Client ID from your PayPal Developer dashboard.',
+                duration: 9000
+            });
+            return; // Stop submission
+        }
+    }
+    // --- VALIDATION END ---
+
     setIsSaving(true);
     try {
       await updateGeneralSettings({ paymentGateways: settings.paymentGateways });
