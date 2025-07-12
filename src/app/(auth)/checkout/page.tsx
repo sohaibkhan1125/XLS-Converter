@@ -61,11 +61,12 @@ function CheckoutFlow() {
     const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
     const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
-    if (!paypalClientId) {
+    // --- VALIDATION: Ensure the Client ID is not an email address ---
+    if (!paypalClientId || paypalClientId.includes('@')) {
         return (
             <div className="text-center text-destructive">
                 <p>Payment processing is not configured correctly.</p>
-                <p>Please contact support or an administrator.</p>
+                <p>The PayPal Client ID is invalid. Please contact support.</p>
             </div>
         );
     }
