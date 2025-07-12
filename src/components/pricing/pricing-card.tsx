@@ -115,18 +115,8 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
   const displayConversions = billingCycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
   const cycleAdverb = billingCycle === 'monthly' ? 'month' : 'year';
 
-  const handleActionClick = () => {
-    if (!currentUser) {
-      router.push('/login');
-    } else {
-      // For non-payment configured plans, we activate locally
-      if (!isPaymentConfigured) {
-        onSelectPlan(plan.id, billingCycle);
-      }
-      // For payment configured plans, this click is handled by PayPal, 
-      // but a generic button could also trigger a payment modal here.
-      // The current logic places this check on the button itself.
-    }
+  const handleLoggedOutClick = () => {
+    router.push('/login');
   };
 
   const ctaButtonText = plan.trialDays ? `Start ${plan.trialDays}-Day Trial` : "Select Plan";
@@ -179,31 +169,23 @@ export default function PricingCard({ plan, billingCycle, onSelectPlan, isPaymen
         </ul>
       </CardContent>
       <CardFooter className="p-6 mt-auto min-h-[80px] flex items-center justify-center">
-        {isPaymentConfigured ? (
-          currentUser ? (
+        {currentUser && isPaymentConfigured ? (
             <PayPalPaymentSection 
               plan={plan} 
               billingCycle={billingCycle} 
               displayPrice={displayPrice} 
               onSuccessfulPayment={() => onSelectPlan(plan.id, billingCycle)}
             />
-          ) : (
-             <Button 
-              onClick={handleActionClick} 
+        ) : (
+           <Button 
+              onClick={handleLoggedOutClick} 
               className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {ctaButtonText}
             </Button>
-          )
-        ) : (
-          <Button 
-            onClick={handleActionClick} 
-            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-          >
-            {ctaButtonText}
-          </Button>
         )}
       </CardFooter>
     </Card>
   );
 }
+
