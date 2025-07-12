@@ -101,7 +101,7 @@ export default function HomePage() {
       });
       setShowLimitDialog(true);
       setSelectedFile(null); // Clear selection as we can't proceed
-      return;
+      return; // CRITICAL: Stop the function here
     }
 
     setIsLoading(true);
