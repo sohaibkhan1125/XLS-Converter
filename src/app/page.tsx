@@ -100,7 +100,7 @@ export default function HomePage() {
         isPlanExhausted: limitStatus.isPlanExhausted,
       });
       setShowLimitDialog(true);
-      setSelectedFile(null);
+      setSelectedFile(null); // Clear selection as we can't proceed
       return;
     }
 
