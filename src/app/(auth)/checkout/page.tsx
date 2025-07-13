@@ -55,7 +55,8 @@ function CheckoutFlow() {
     const price = cycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
     const paypalPlanId = cycle === 'monthly' ? plan.monthlyPlanId : plan.annualPlanId;
     
-    const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
+    // Updated logic: Find PayPal settings regardless of the 'enabled' flag to ensure checkout works if configured.
+    const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.credentials.clientId);
     const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
     if (!paypalClientId || paypalClientId.includes('@') || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
