@@ -20,6 +20,9 @@ export interface Plan {
   ctaText?: string;
   highlight?: boolean;
   trialDays?: number;
+  // PayPal Plan IDs
+  monthlyPlanId?: string; // e.g., P-XXXXX
+  annualPlanId?: string;  // e.g., P-YYYYY
 }
 
 export const PRICING_PLANS: Plan[] = [
@@ -32,6 +35,8 @@ export const PRICING_PLANS: Plan[] = [
     monthlyConversions: 400,
     annualConversions: 4800,
     trialDays: 7,
+    monthlyPlanId: 'P-3UN42152FX9222143NBZ4XIA', // The ID you provided
+    annualPlanId: 'REPLACE_WITH_ANNUAL_STARTER_PLAN_ID',
     features: [
       { text: 'Basic PDF layout analysis', icon: CheckCircle2, available: true },
       { text: 'Standard processing speed', icon: CheckCircle2, available: true },
@@ -50,6 +55,8 @@ export const PRICING_PLANS: Plan[] = [
     monthlyConversions: 1000,
     annualConversions: 12000,
     trialDays: 7,
+    monthlyPlanId: 'REPLACE_WITH_MONTHLY_PRO_PLAN_ID',
+    annualPlanId: 'REPLACE_WITH_ANNUAL_PRO_PLAN_ID',
     features: [
       { text: 'Advanced AI structuring', icon: CheckCircle2, available: true },
       { text: 'Enhanced processing speed', icon: CheckCircle2, available: true },
@@ -69,6 +76,8 @@ export const PRICING_PLANS: Plan[] = [
     monthlyConversions: 4000,
     annualConversions: 48000,
     trialDays: 7,
+    monthlyPlanId: 'REPLACE_WITH_MONTHLY_BUSINESS_PLAN_ID',
+    annualPlanId: 'REPLACE_WITH_ANNUAL_BUSINESS_PLAN_ID',
     features: [
       { text: 'Advanced AI structuring', icon: CheckCircle2, available: true },
       { text: 'Highest processing speed', icon: CheckCircle2, available: true },

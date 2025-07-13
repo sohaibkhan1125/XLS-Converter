@@ -12,12 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import LoadingSpinner from '@/components/core/loading-spinner';
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
-
-// Renders errors or successfull transactions on the screen.
-function Message({ content }: { content: string }) {
-    if (!content) return null;
-    return <p className="mt-4 text-center text-muted-foreground">{content}</p>;
-}
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react";
 
 function CheckoutFlow() {
     const router = useRouter();
@@ -57,31 +53,33 @@ function CheckoutFlow() {
     }
 
     const price = cycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
+    const paypalPlanId = cycle === 'monthly' ? plan.monthlyPlanId : plan.annualPlanId;
     
     const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.enabled && pg.credentials.clientId);
     const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
-    // --- VALIDATION: Ensure the Client ID is not an email address ---
-    if (!paypalClientId || paypalClientId.includes('@')) {
+    if (!paypalClientId || paypalClientId.includes('@') || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
         return (
-            <div className="text-center text-destructive">
-                <p>Payment processing is not configured correctly.</p>
-                <p>The PayPal Client ID is invalid. Please contact support.</p>
-            </div>
+             <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>Configuration Error</AlertTitle>
+                <AlertDescription>
+                    Payment processing is not configured correctly for this plan.
+                    This could be due to an invalid PayPal Client ID or a missing PayPal Plan ID for the selected billing cycle.
+                    Please contact support.
+                </AlertDescription>
+            </Alert>
         );
     }
     
     const initialOptions = {
         "client-id": paypalClientId,
-        "enable-funding": "paylater,venmo,card",
-        "disable-funding": "",
+        "vault": "true",
+        "intent": "subscription",
         "currency": "USD",
-        "data-page-type": "product-details",
-        components: "buttons,card-fields",
-        "data-sdk-integration-source": "developer-studio",
     };
 
-    const handleSuccessfulPayment = () => {
+    const handleSuccessfulSubscription = (subscriptionID: string) => {
          const planDetailsToActivate: PlanDetails = {
             id: plan.id,
             name: plan.name,
@@ -95,26 +93,25 @@ function CheckoutFlow() {
 
         toast({
             title: `${activatedPlan.name} Plan Activated!`,
-            description: `You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}.`,
-            duration: 7000,
+            description: `Subscription successful with ID: ${subscriptionID}. You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}.`,
+            duration: 9000,
         });
         
-        // Redirect to a confirmation or home page after successful payment and activation
         router.push('/'); 
     };
 
     return (
         <Card className="w-full max-w-md shadow-xl">
              <CardHeader>
-                <CardTitle className="text-2xl text-center">Checkout</CardTitle>
+                <CardTitle className="text-2xl text-center">Checkout Subscription</CardTitle>
                 <CardDescription className="text-center">
-                    You are purchasing the <span className="font-semibold text-primary">{plan.name}</span> plan ({cycle}).
+                    You are subscribing to the <span className="font-semibold text-primary">{plan.name}</span> plan ({cycle}).
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="text-center mb-6">
                     <p className="text-lg text-muted-foreground">Total:</p>
-                    <p className="text-4xl font-bold text-foreground">${price.toFixed(2)}</p>
+                    <p className="text-4xl font-bold text-foreground">${price.toFixed(2)} / {cycle === 'monthly' ? 'month' : 'year'}</p>
                 </div>
                 <PayPalScriptProvider options={initialOptions}>
                     <PayPalButtons
@@ -122,76 +119,26 @@ function CheckoutFlow() {
                             shape: "rect",
                             layout: "vertical",
                             color: "gold",
-                            label: "paypal",
+                            label: "subscribe",
                         }}
-                        createOrder={async () => {
-                            try {
-                                const response = await fetch("/api/orders", {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        planId: plan.id,
-                                        billingCycle: cycle
-                                    }),
-                                });
-
-                                const orderData = await response.json();
-
-                                if (orderData.id) {
-                                    return orderData.id;
-                                } else {
-                                    const errorDetail = orderData?.details?.[0];
-                                    const errorMessage = errorDetail
-                                        ? `${errorDetail.issue} ${errorDetail.description} (${orderData.debug_id})`
-                                        : JSON.stringify(orderData);
-
-                                    throw new Error(errorMessage);
-                                }
-                            } catch (error) {
-                                console.error(error);
-                                setMessage(`Could not initiate PayPal Checkout...${error}`);
-                                toast({ variant: 'destructive', title: 'Checkout Error', description: `Could not initiate PayPal Checkout.` });
-                                throw error; // Re-throw to be caught by PayPal SDK
-                            }
+                        createSubscription={(data, actions) => {
+                            return actions.subscription.create({
+                                plan_id: paypalPlanId,
+                            });
                         }}
-                        onApprove={async (data, actions) => {
-                            try {
-                                const response = await fetch(
-                                    `/api/orders/${data.orderID}/capture`,
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                        },
-                                    }
-                                );
-
-                                const orderData = await response.json();
-                                const errorDetail = orderData?.details?.[0];
-
-                                if (errorDetail?.issue === "INSTRUMENT_DECLINED") {
-                                    return actions.restart();
-                                } else if (errorDetail) {
-                                    throw new Error(
-                                        `${errorDetail.description} (${orderData.debug_id})`
-                                    );
-                                } else {
-                                    const transaction = orderData.purchase_units[0].payments.captures[0];
-                                    setMessage(`Transaction ${transaction.status}: ${transaction.id}.`);
-                                    console.log("Capture result", orderData, JSON.stringify(orderData, null, 2));
-                                    handleSuccessfulPayment(); // Activate plan on success
-                                }
-                            } catch (error) {
-                                console.error(error);
-                                setMessage(`Sorry, your transaction could not be processed...${error}`);
-                                toast({ variant: 'destructive', title: 'Payment Error', description: `Your transaction could not be processed.` });
-                            }
+                        onApprove={(data, actions) => {
+                            console.log("Subscription approved:", data);
+                            toast({ title: 'Processing Subscription...', description: 'Please wait while we finalize your plan.' });
+                            handleSuccessfulSubscription(data.subscriptionID);
+                            return Promise.resolve();
+                        }}
+                        onError={(err) => {
+                            console.error("PayPal Subscription Error:", err);
+                            toast({ variant: 'destructive', title: 'Payment Error', description: 'An error occurred with the PayPal subscription. Please try again.' });
                         }}
                     />
                 </PayPalScriptProvider>
-                <Message content={message} />
+                {message && <p className="mt-4 text-center text-muted-foreground">{message}</p>}
             </CardContent>
         </Card>
     );
