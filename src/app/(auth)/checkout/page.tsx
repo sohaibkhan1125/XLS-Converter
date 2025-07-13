@@ -11,7 +11,7 @@ import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { getGeneralSettings } from '@/lib/firebase-settings-service';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 
@@ -30,12 +30,19 @@ function CheckoutFlow() {
     const plan = PRICING_PLANS.find(p => p.id === planId);
     
     useEffect(() => {
-        const unsubscribe = subscribeToGeneralSettings((settings) => {
-            setGeneralSettings(settings);
-            setIsLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
+        const fetchSettings = async () => {
+             try {
+                const settings = await getGeneralSettings();
+                setGeneralSettings(settings);
+            } catch (error) {
+                console.error("Failed to fetch general settings:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load site configuration.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchSettings();
+    }, [toast]);
 
     useEffect(() => {
         if (!isLoading && (!plan || !cycle)) {
@@ -55,8 +62,7 @@ function CheckoutFlow() {
     const price = cycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
     const paypalPlanId = cycle === 'monthly' ? plan.monthlyPlanId : plan.annualPlanId;
     
-    // Updated logic: Find PayPal settings regardless of the 'enabled' flag to ensure checkout works if configured.
-    const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal' && pg.credentials.clientId);
+    const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal');
     const paypalClientId = paypalGatewaySettings?.credentials.clientId;
 
     if (!paypalClientId || paypalClientId.includes('@') || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
