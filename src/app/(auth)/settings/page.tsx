@@ -16,6 +16,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import emailjs from '@emailjs/browser';
+import { endAllTrials } from '@/lib/local-storage-limits';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const PAYPAL_SUBSCRIPTION_MANAGEMENT_URL = "https://www.paypal.com/myaccount/autopay/";
 
@@ -27,6 +38,7 @@ export default function SettingsPage() {
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -41,7 +53,12 @@ export default function SettingsPage() {
   }, [currentUser, authLoading, router]);
   
   const handleSendInvite = async () => {
-    if (!process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || !process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || !process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY) {
+    // Read directly from process.env for server components or client components in Next.js
+    const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+    const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+    const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+    if (!serviceId || !templateId || !publicKey) {
         toast({
             variant: "destructive",
             title: "Email Service Not Configured",
@@ -74,10 +91,10 @@ export default function SettingsPage() {
 
     try {
         await emailjs.send(
-            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
-            process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+            serviceId,
+            templateId,
             templateParams,
-            process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+            publicKey
         );
         toast({
             title: "Invitation Sent",
@@ -94,6 +111,15 @@ export default function SettingsPage() {
     } finally {
         setIsSendingInvite(false);
     }
+  };
+  
+  const handleResetTrials = () => {
+    const clearedCount = endAllTrials();
+    toast({
+        title: "All Trials Reset",
+        description: `${clearedCount} incorrectly activated trial(s) have been cleared for all users.`
+    });
+    setIsResetConfirmOpen(false);
   };
 
   if (authLoading || isLoadingPlan || !currentUser) {
@@ -215,7 +241,30 @@ export default function SettingsPage() {
                 </div>
             )}
         </CardContent>
+         <CardFooter className="border-t pt-6">
+            <Button onClick={() => setIsResetConfirmOpen(true)} variant="destructive" size="sm">
+                <AlertTriangle className="mr-2 h-4 w-4" /> Reset Accidental Trials
+            </Button>
+        </CardFooter>
       </Card>
+
+      {/* Alert Dialog for Reset Confirmation */}
+       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will scan all local storage data and end any active trials that were started accidentally before payment. This is a one-time cleanup action.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResetTrials} className="bg-destructive hover:bg-destructive/90">
+                Yes, reset all trials
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
