@@ -250,6 +250,36 @@ export function recordConversion(userId: string | null): void {
 }
 
 /**
+ * NEW FUNCTION: Ends all active trials by removing plan data from local storage.
+ * To be called from an admin dashboard button for cleanup.
+ */
+export function endAllTrials(): number {
+  if (typeof window === 'undefined') {
+    console.warn("endAllTrials can only be run in the browser.");
+    return 0;
+  }
+  
+  let clearedCount = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(PLAN_KEY_PREFIX)) {
+      try {
+        const planData = JSON.parse(localStorage.getItem(key) || '{}') as ActivePlan;
+        if (planData.isTrial) {
+          localStorage.removeItem(key);
+          clearedCount++;
+          console.log(`Cleared accidental trial for key: ${key}`);
+        }
+      } catch (e) {
+        console.error(`Error processing potential trial key ${key}:`, e);
+      }
+    }
+  }
+  return clearedCount;
+}
+
+
+/**
  * Formats milliseconds into a human-readable string (e.g., "1 hour, 30 minutes").
  */
 export function formatTime(milliseconds: number): string {

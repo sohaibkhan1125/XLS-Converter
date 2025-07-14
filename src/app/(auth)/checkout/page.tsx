@@ -161,6 +161,7 @@ function CheckoutFlow() {
                                 onApprove={(data, actions) => {
                                     console.log("Subscription approved:", data);
                                     toast({ title: 'Processing Subscription...', description: 'Please wait while we finalize your plan.' });
+                                    // CRITICAL: Activate plan ONLY after successful approval
                                     handleSuccessfulSubscription(data.subscriptionID);
                                     return Promise.resolve(); // Return a promise that resolves
                                 }}
