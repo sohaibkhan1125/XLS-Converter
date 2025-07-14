@@ -17,8 +17,11 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   const getTranslation = useCallback((key: string, substitutions: Record<string, string> = {}): string => {
     let text = translations[key]?.[language] || key;
+    // Use a loop with a regex to replace all occurrences, preventing infinite loops.
     for (const subKey in substitutions) {
-        text = text.replace(`{${subKey}}`, substitutions[subKey]);
+        // Create a global regex to replace all instances of `{subKey}`
+        const regex = new RegExp(`\\{${subKey}\\}`, 'g');
+        text = text.replace(regex, substitutions[subKey]);
     }
     return text;
   }, [language]);
