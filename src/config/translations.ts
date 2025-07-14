@@ -22,6 +22,7 @@ export const translations: Record<string, Record<Language, string>> = {
   signup: { en: 'Sign Up', es: 'Regístrate', zh: '报名', hi: 'साइन अप करें', ar: 'اشتراك' },
   register: { en: 'Register', es: 'Registrarse', zh: '注册', hi: 'रजिस्टर करें', ar: 'تسجيل' },
   signout: { en: 'Sign Out', es: 'Cerrar Sesión', zh: '登出', hi: 'साइन आउट', ar: 'تسجيل الخروج' },
+  navSettings: { en: 'Settings', es: 'Ajustes', zh: '设置', hi: 'सेटिंग्स', ar: 'الإعدادات' },
 
   // Homepage
   pageTitle: {

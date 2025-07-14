@@ -34,7 +34,6 @@ export default function AppHeader() {
   const [siteTitleForLogo, setSiteTitleForLogo] = useState<string>(GENERIC_APP_NAME_FALLBACK);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
-  // Moved this declaration to the top to fix the ReferenceError
   const isHomePage = pathname === '/';
 
   useEffect(() => {
@@ -73,16 +72,11 @@ export default function AppHeader() {
   const loggedInLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
-    { id: 'settings', href: '/settings', labelKey: 'Settings' }, // Added Settings link
+    { id: 'settings', href: '/settings', labelKey: 'navSettings' },
     { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
   ];
 
   const mobileLinks = currentUser ? loggedInLinks : loggedOutLinks;
-
-  // Add Settings to translations if it doesn't exist
-  if (!translations['Settings']) {
-    translations['Settings'] = { en: 'Settings', es: 'Ajustes', zh: '设置', hi: 'सेटिंग्स', ar: 'الإعدادات' };
-  }
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
@@ -106,7 +100,7 @@ export default function AppHeader() {
             // Logged-in Links
             loggedInLinks.map((link) => (
                 <Link key={link.id} href={link.href!} className="text-muted-foreground hover:text-primary transition-colors">
-                  {getTranslation(link.labelKey as string)}
+                  {getTranslation(link.labelKey)}
                 </Link>
             ))
           ) : (
@@ -228,4 +222,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
