@@ -36,7 +36,7 @@ export const PRICING_PLANS: Plan[] = [
     annualConversions: 4800,
     trialDays: 7,
     monthlyPlanId: 'P-3UN42152FX9222143NBZ4XIA', 
-    annualPlanId: 'REPLACE_WITH_ANNUAL_STARTER_PLAN_ID',
+    annualPlanId: 'P-3UN42152FX9222143NBZ4XIA', // Using same ID for demo
     features: [
       { text: 'Basic PDF layout analysis', icon: CheckCircle2, available: true },
       { text: 'Standard processing speed', icon: CheckCircle2, available: true },
@@ -56,7 +56,7 @@ export const PRICING_PLANS: Plan[] = [
     annualConversions: 12000,
     trialDays: 7,
     monthlyPlanId: 'P-3UN42152FX9222143NBZ4XIA', // Using same ID for demo
-    annualPlanId: 'REPLACE_WITH_ANNUAL_PRO_PLAN_ID',
+    annualPlanId: 'P-3UN42152FX9222143NBZ4XIA', // Using same ID for demo
     features: [
       { text: 'Advanced AI structuring', icon: CheckCircle2, available: true },
       { text: 'Enhanced processing speed', icon: CheckCircle2, available: true },
@@ -77,7 +77,7 @@ export const PRICING_PLANS: Plan[] = [
     annualConversions: 48000,
     trialDays: 7,
     monthlyPlanId: 'P-3UN42152FX9222143NBZ4XIA', // Using same ID for demo
-    annualPlanId: 'REPLACE_WITH_ANNUAL_BUSINESS_PLAN_ID',
+    annualPlanId: 'P-3UN42152FX9222143NBZ4XIA', // Using same ID for demo
     features: [
       { text: 'Advanced AI structuring', icon: CheckCircle2, available: true },
       { text: 'Highest processing speed', icon: CheckCircle2, available: true },
