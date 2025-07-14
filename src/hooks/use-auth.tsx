@@ -12,6 +12,7 @@ import {
   getAdditionalUserInfo,
   type UserCredential,
   sendPasswordResetEmail,
+  updateProfile,
 } from 'firebase/auth';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -47,7 +48,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const parseDisplayName = (displayName: string | null): { firstName: string; lastName: string } => {
   if (!displayName) return { firstName: 'User', lastName: '' };
   const nameParts = displayName.split(' ');
-  const firstName = nameParts[0];
+  const firstName = nameParts[0] || 'User';
   const lastName = nameParts.slice(1).join(' ');
   return { firstName, lastName };
 };
@@ -101,6 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       if (userCredential.user) {
+        // Also update the user's displayName in Firebase Auth
+        await updateProfile(userCredential.user, {
+            displayName: `${data.firstName} ${data.lastName}`
+        });
+
+        // Create the profile in Firestore
         await createUserProfileInFirestore(
           userCredential.user.uid,
           data.firstName,

@@ -53,7 +53,6 @@ export default function SettingsPage() {
   }, [currentUser, authLoading, router]);
   
   const handleSendInvite = async () => {
-    // Read directly from process.env for server components or client components in Next.js
     const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
     const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
@@ -75,7 +74,7 @@ export default function SettingsPage() {
         });
         return;
     }
-    if (!currentUser || !userProfile) {
+    if (!currentUser) {
        toast({ variant: "destructive", title: "Not Authenticated", description: "You must be logged in to send invites."});
        return;
     }
@@ -84,7 +83,7 @@ export default function SettingsPage() {
     
     const templateParams = {
         to_email: inviteEmail,
-        from_name: `${userProfile.firstName} ${userProfile.lastName}`,
+        from_name: currentUser.displayName || 'A colleague',
         invite_link: `${window.location.origin}/signup?invitedBy=${currentUser.uid}`,
         to_name: inviteEmail.split('@')[0], // Simple name extraction
     };
