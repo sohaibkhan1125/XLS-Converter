@@ -10,10 +10,12 @@ import { PRICING_PLANS, type Plan as PlanType } from '@/config/pricing';
 import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { getGeneralSettings } from '@/lib/firebase-settings-service';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
+
+// Hardcoded PayPal Client ID to bypass Firebase settings issues.
+const PAYPAL_CLIENT_ID = "AZTt9MVK63m_kcmv3r43nZKDotUbgcrz8y4g3dnAJn5FhPsQ9bV5sbYcUfWaELDF1Ij7jYjPaZLhpO-o";
+
 
 function CheckoutFlow() {
     const router = useRouter();
@@ -21,8 +23,6 @@ function CheckoutFlow() {
     const { toast } = useToast();
     const { currentUser } = useAuth();
     
-    const [message, setMessage] = useState("");
-    const [generalSettings, setGeneralSettings] = useState<GeneralSiteSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const planId = searchParams.get('planId') as PlanType['id'];
@@ -30,30 +30,17 @@ function CheckoutFlow() {
     const plan = PRICING_PLANS.find(p => p.id === planId);
     
     useEffect(() => {
-        const fetchSettings = async () => {
-             try {
-                const settings = await getGeneralSettings();
-                setGeneralSettings(settings);
-            } catch (error) {
-                console.error("Failed to fetch general settings:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load site configuration.' });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchSettings();
-    }, [toast]);
-
-    useEffect(() => {
-        if (!isLoading && (!plan || !cycle)) {
+        // Basic loading effect and validation
+        setIsLoading(false); 
+        if (!plan || !cycle) {
             toast({ variant: 'destructive', title: 'Invalid Plan', description: 'No plan selected. Redirecting to pricing.' });
             router.push('/pricing');
         }
-        if (!isLoading && !currentUser) {
+        if (!currentUser) {
             toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to check out.' });
             router.push('/login');
         }
-    }, [plan, cycle, isLoading, router, toast, currentUser]);
+    }, [plan, cycle, router, toast, currentUser]);
 
     if (isLoading || !plan || !cycle || !currentUser) {
         return <div className="flex h-64 items-center justify-center"><LoadingSpinner message="Loading checkout..." /></div>;
@@ -62,17 +49,14 @@ function CheckoutFlow() {
     const price = cycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
     const paypalPlanId = cycle === 'monthly' ? plan.monthlyPlanId : plan.annualPlanId;
     
-    const paypalGatewaySettings = generalSettings?.paymentGateways?.find(pg => pg.id === 'paypal');
-    const paypalClientId = paypalGatewaySettings?.credentials.clientId;
-
-    if (!paypalClientId || paypalClientId.includes('@') || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
+    if (!PAYPAL_CLIENT_ID || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
         return (
              <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>Configuration Error</AlertTitle>
                 <AlertDescription>
                     Payment processing is not configured correctly for this plan.
-                    This could be due to an invalid PayPal Client ID or a missing PayPal Plan ID for the selected billing cycle.
+                    This could be due to a missing PayPal Plan ID for the selected billing cycle.
                     Please contact support.
                 </AlertDescription>
             </Alert>
@@ -80,7 +64,7 @@ function CheckoutFlow() {
     }
     
     const initialOptions = {
-        "client-id": paypalClientId,
+        "client-id": PAYPAL_CLIENT_ID,
         "vault": "true",
         "intent": "subscription",
         "currency": "USD",
@@ -145,7 +129,6 @@ function CheckoutFlow() {
                         }}
                     />
                 </PayPalScriptProvider>
-                {message && <p className="mt-4 text-center text-muted-foreground">{message}</p>}
             </CardContent>
         </Card>
     );
