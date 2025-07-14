@@ -85,11 +85,20 @@ function CheckoutFlow() {
 
         toast({
             title: `${activatedPlan.name} Plan Activated!`,
-            description: `Subscription successful with ID: ${subscriptionID}. You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}.`,
+            description: `Subscription successful! You now have ${activatedPlan.totalConversions} conversions. This plan is billed ${activatedPlan.billingCycle}.`,
             duration: 9000,
         });
         
-        router.push('/'); 
+        // Redirect to the new invoice page
+        const queryParams = new URLSearchParams({
+            planName: plan.name,
+            cycle: cycle,
+            price: price.toString(),
+            subscriptionId: subscriptionID,
+            date: new Date().toISOString(),
+        }).toString();
+
+        router.push(`/invoice?${queryParams}`);
     };
 
     return (
@@ -159,11 +168,10 @@ function CheckoutFlow() {
                                     });
                                 }}
                                 onApprove={(data, actions) => {
-                                    console.log("Subscription approved:", data);
                                     toast({ title: 'Processing Subscription...', description: 'Please wait while we finalize your plan.' });
-                                    // CRITICAL: Activate plan ONLY after successful approval
                                     handleSuccessfulSubscription(data.subscriptionID);
-                                    return Promise.resolve(); // Return a promise that resolves
+                                    // Let the success handler manage the redirect.
+                                    return Promise.resolve();
                                 }}
                                 onError={(err) => {
                                     console.error("PayPal Subscription Error:", err);
