@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,16 +14,18 @@ import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { sendInvitationEmail } from "@/app/actions/send-invitation";
 
 const PAYPAL_SUBSCRIPTION_MANAGEMENT_URL = "https://www.paypal.com/myaccount/autopay/";
 
 export default function SettingsPage() {
-  const { currentUser, loading: authLoading } = useAuth();
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -38,8 +39,7 @@ export default function SettingsPage() {
     }
   }, [currentUser, authLoading, router]);
   
-  const handleSendInvite = () => {
-    // Placeholder for future functionality
+  const handleSendInvite = async () => {
     if (!inviteEmail) {
         toast({
             variant: "destructive",
@@ -48,10 +48,37 @@ export default function SettingsPage() {
         });
         return;
     }
-    toast({
-      title: "Feature Coming Soon!",
-      description: `In the future, an invitation would be sent to ${inviteEmail}.`,
-    });
+    if (!currentUser) {
+       toast({ variant: "destructive", title: "Not Authenticated", description: "You must be logged in to send invites."});
+       return;
+    }
+
+    setIsSendingInvite(true);
+    try {
+        const result = await sendInvitationEmail(inviteEmail, currentUser, userProfile);
+        if (result.success) {
+            toast({
+                title: "Invitation Sent",
+                description: result.message,
+            });
+            setInviteEmail(""); // Clear input on success
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Failed to Send Invite",
+                description: result.message,
+            });
+        }
+    } catch (error) {
+        console.error("Error sending invitation from settings page:", error);
+        toast({
+            variant: "destructive",
+            title: "Client Error",
+            description: "An unexpected error occurred on the client.",
+        });
+    } finally {
+        setIsSendingInvite(false);
+    }
   };
 
   if (authLoading || isLoadingPlan || !currentUser) {
@@ -146,9 +173,16 @@ export default function SettingsPage() {
                             placeholder="teammate@example.com"
                             value={inviteEmail}
                             onChange={(e) => setInviteEmail(e.target.value)}
+                            disabled={isSendingInvite}
                         />
-                        <Button onClick={handleSendInvite}>
-                            <LinkIcon className="mr-2 h-4 w-4" /> Send Invitation
+                        <Button onClick={handleSendInvite} disabled={isSendingInvite}>
+                            {isSendingInvite ? (
+                                <LoadingSpinner message="Sending..." />
+                            ) : (
+                                <>
+                                    <LinkIcon className="mr-2 h-4 w-4" /> Send Invitation
+                                </>
+                            )}
                         </Button>
                     </div>
                      <p className="text-xs text-muted-foreground">
