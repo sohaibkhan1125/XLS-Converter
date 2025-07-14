@@ -11,7 +11,8 @@ import { activatePlan, type PlanDetails } from '@/lib/local-storage-limits';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from "lucide-react";
+import { CheckCircle, Package, Terminal } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 // Hardcoded PayPal Client ID to bypass Firebase settings issues.
 const PAYPAL_CLIENT_ID = "AZTt9MVK63m_kcmv3r43nZKDotUbgcrz8y4g3dnAJn5FhPsQ9bV5sbYcUfWaELDF1Ij7jYjPaZLhpO-o";
@@ -30,7 +31,6 @@ function CheckoutFlow() {
     const plan = PRICING_PLANS.find(p => p.id === planId);
     
     useEffect(() => {
-        // Basic loading effect and validation
         setIsLoading(false); 
         if (!plan || !cycle) {
             toast({ variant: 'destructive', title: 'Invalid Plan', description: 'No plan selected. Redirecting to pricing.' });
@@ -48,6 +48,7 @@ function CheckoutFlow() {
 
     const price = cycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
     const paypalPlanId = cycle === 'monthly' ? plan.monthlyPlanId : plan.annualPlanId;
+    const conversions = cycle === 'monthly' ? plan.monthlyConversions : plan.annualConversions;
     
     if (!PAYPAL_CLIENT_ID || !paypalPlanId || paypalPlanId.startsWith('REPLACE_')) {
         return (
@@ -92,53 +93,98 @@ function CheckoutFlow() {
     };
 
     return (
-        <Card className="w-full max-w-md shadow-xl">
-             <CardHeader>
-                <CardTitle className="text-2xl text-center">Checkout Subscription</CardTitle>
-                <CardDescription className="text-center">
-                    You are subscribing to the <span className="font-semibold text-primary">{plan.name}</span> plan ({cycle}).
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="text-center mb-6">
-                    <p className="text-lg text-muted-foreground">Total:</p>
-                    <p className="text-4xl font-bold text-foreground">${price.toFixed(2)} / {cycle === 'monthly' ? 'month' : 'year'}</p>
-                </div>
-                <PayPalScriptProvider options={initialOptions}>
-                    <PayPalButtons
-                        style={{
-                            shape: "rect",
-                            layout: "vertical",
-                            color: "gold",
-                            label: "subscribe",
-                        }}
-                        createSubscription={(data, actions) => {
-                            return actions.subscription.create({
-                                plan_id: paypalPlanId,
-                            });
-                        }}
-                        onApprove={(data, actions) => {
-                            console.log("Subscription approved:", data);
-                            toast({ title: 'Processing Subscription...', description: 'Please wait while we finalize your plan.' });
-                            handleSuccessfulSubscription(data.subscriptionID);
-                            return Promise.resolve();
-                        }}
-                        onError={(err) => {
-                            console.error("PayPal Subscription Error:", err);
-                            toast({ variant: 'destructive', title: 'Payment Error', description: 'An error occurred with the PayPal subscription. Please try again.' });
-                        }}
-                    />
-                </PayPalScriptProvider>
-            </CardContent>
-        </Card>
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl mx-auto">
+            {/* Left Side: Order Summary */}
+            <div className="space-y-6">
+                <h1 className="text-3xl font-bold text-primary">Your Order Summary</h1>
+                <Card className="shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-3">
+                            <Package className="h-8 w-8 text-accent"/>
+                            <div className="flex flex-col">
+                                <span className="text-2xl">{plan.name} Plan</span>
+                                <span className="text-sm font-normal text-muted-foreground capitalize">{cycle} Subscription</span>
+                            </div>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Separator />
+                        <ul className="space-y-3 text-muted-foreground">
+                            <li className="flex items-center gap-2">
+                                <CheckCircle className="h-5 w-5 text-green-500"/>
+                                <span>{conversions.toLocaleString()} conversions / {cycle === 'monthly' ? 'month' : 'year'}</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <CheckCircle className="h-5 w-5 text-green-500"/>
+                                <span>Advanced AI Structuring</span>
+                            </li>
+                             {plan.trialDays ? (
+                                <li className="flex items-center gap-2">
+                                    <CheckCircle className="h-5 w-5 text-green-500"/>
+                                    <span>{plan.trialDays}-Day Free Trial Included</span>
+                                </li>
+                             ) : null}
+                        </ul>
+                         <Separator />
+                         <div className="flex justify-between items-center text-lg">
+                            <span className="font-medium text-muted-foreground">Total Due Today</span>
+                            <span className="font-bold text-foreground">${price.toFixed(2)}</span>
+                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Right Side: Payment */}
+            <div className="space-y-6">
+                 <h2 className="text-3xl font-bold text-primary">Complete Payment</h2>
+                 <Card className="shadow-md">
+                     <CardHeader>
+                        <CardTitle>Choose Payment Method</CardTitle>
+                        <CardDescription>
+                            Securely complete your subscription with PayPal.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <PayPalScriptProvider options={initialOptions}>
+                            <PayPalButtons
+                                style={{
+                                    shape: "rect",
+                                    layout: "vertical",
+                                    color: "gold",
+                                    label: "subscribe",
+                                }}
+                                createSubscription={(data, actions) => {
+                                    return actions.subscription.create({
+                                        plan_id: paypalPlanId,
+                                    });
+                                }}
+                                onApprove={(data, actions) => {
+                                    console.log("Subscription approved:", data);
+                                    toast({ title: 'Processing Subscription...', description: 'Please wait while we finalize your plan.' });
+                                    handleSuccessfulSubscription(data.subscriptionID);
+                                    return Promise.resolve(); // Return a promise that resolves
+                                }}
+                                onError={(err) => {
+                                    console.error("PayPal Subscription Error:", err);
+                                    toast({ variant: 'destructive', title: 'Payment Error', description: 'An error occurred with the PayPal subscription. Please try again.' });
+                                }}
+                            />
+                        </PayPalScriptProvider>
+                        <p className="text-xs text-muted-foreground mt-4 text-center">
+                            You will be redirected to PayPal to complete your purchase securely.
+                        </p>
+                    </CardContent>
+                 </Card>
+            </div>
+        </div>
     );
 }
 
 // Parent component to provide Suspense boundary for useSearchParams
 export default function CheckoutPage() {
     return (
-        <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-             <Suspense fallback={<LoadingSpinner message="Loading..." />}>
+        <div className="min-h-[calc(100vh-10rem)] py-8 px-4">
+             <Suspense fallback={<div className="flex h-64 items-center justify-center"><LoadingSpinner message="Loading checkout..." /></div>}>
                 <CheckoutFlow />
             </Suspense>
         </div>
