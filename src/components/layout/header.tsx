@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import AppLogo from './app-logo';
-import { Languages, Menu, User as UserIcon, LogOut, CreditCard } from 'lucide-react'; 
+import { Languages, Menu, User as UserIcon, LogOut, CreditCard, Settings } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -73,10 +73,16 @@ export default function AppHeader() {
   const loggedInLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+    { id: 'settings', href: '/settings', labelKey: 'Settings' }, // Added Settings link
     { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
   ];
 
   const mobileLinks = currentUser ? loggedInLinks : loggedOutLinks;
+
+  // Add Settings to translations if it doesn't exist
+  if (!translations['Settings']) {
+    translations['Settings'] = { en: 'Settings', es: 'Ajustes', zh: '设置', hi: 'सेटिंग्स', ar: 'الإعدادات' };
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
@@ -160,6 +166,9 @@ export default function AppHeader() {
                 <DropdownMenuItem asChild>
                   <Link href="/profile"><UserIcon className="mr-2 h-4 w-4" />Profile</Link>
                 </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                  <Link href="/settings"><Settings className="mr-2 h-4 w-4" />Settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/billing"><CreditCard className="mr-2 h-4 w-4" />Billing</Link>
                 </DropdownMenuItem>
@@ -205,6 +214,7 @@ export default function AppHeader() {
                     <>
                       <div className="border-t pt-4 mt-2"></div>
                       <Link href="/profile" className="text-lg font-medium text-foreground hover:text-primary transition-colors" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+                       <Link href="/settings" className="text-lg font-medium text-foreground hover:text-primary transition-colors" onClick={() => setMobileMenuOpen(false)}>Settings</Link>
                       <Link href="/billing" className="text-lg font-medium text-foreground hover:text-primary transition-colors" onClick={() => setMobileMenuOpen(false)}>Billing</Link>
                       <button onClick={() => { signOut(); setMobileMenuOpen(false); }} className="text-lg font-medium text-destructive hover:text-primary transition-colors text-left">Sign Out</button>
                     </>
@@ -218,3 +228,4 @@ export default function AppHeader() {
     </header>
   );
 }
+

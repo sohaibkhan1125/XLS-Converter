@@ -107,8 +107,8 @@ export function activatePlan(userId: string | null, planDetails: PlanDetails): A
   return newPlan;
 }
 
-function getActivePlan(userId: string | null): ActivePlan | null {
-  if (typeof window === 'undefined') return null;
+export function getActivePlan(userId: string | null): ActivePlan | null {
+  if (typeof window === 'undefined' || !userId) return null;
   const planKey = getPlanKey(userId);
   try {
     const item = localStorage.getItem(planKey);
