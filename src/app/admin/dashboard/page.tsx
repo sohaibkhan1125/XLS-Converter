@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAdminUsersList, type AdminUserData } from '@/lib/firebase-admin-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import { Users, Users2, Eye, BarChart3, LineChart, PieChartIcon, TrendingUp, Percent, AlertTriangle } from 'lucide-react'; 
+import { Users, Users2, Eye, BarChart3, LineChart, PieChartIcon, TrendingUp, Percent } from 'lucide-react'; 
 import {
   ChartContainer,
   ChartTooltip,
@@ -45,17 +45,6 @@ import {
   type VisitorTypeDataPoint
 } from '@/lib/google-analytics-service';
 import { cn } from "@/lib/utils"; // Added import for cn
-import { endAllTrials } from '@/lib/local-storage-limits';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 const initialAnalyticsData: WebsiteAnalyticsData = {
   liveUsers: null,
@@ -98,8 +87,6 @@ export default function AdminDashboardPage() {
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [activeTrendView, setActiveTrendView] = useState<'7d' | '30d'>('7d');
   
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-
   const fetchAdminUsers = useCallback(async () => {
     if (!adminUser) return;
     setIsLoadingUsers(true);
@@ -146,16 +133,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleResetTrials = () => {
-    const clearedCount = endAllTrials();
-    toast({
-        title: "All Trials Reset",
-        description: `${clearedCount} incorrectly activated trial(s) have been cleared for all users.`
-    });
-    setIsResetConfirmOpen(false);
-  };
-
-
   if (authLoading) {
     return <div className="flex h-full items-center justify-center"><LoadingSpinner message="Loading Dashboard..." /></div>;
   }
@@ -179,29 +156,8 @@ export default function AdminDashboardPage() {
            <Button onClick={handleSignOut} variant="outline">
               Sign Out Admin
             </Button>
-            <Button onClick={() => setIsResetConfirmOpen(true)} variant="destructive">
-                <AlertTriangle className="mr-2 h-4 w-4" /> Reset Accidental Trials
-            </Button>
         </CardContent>
       </Card>
-      
-      {/* Alert Dialog for Reset Confirmation */}
-       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will scan all local storage data and end any active trials that were started accidentally before payment. This is a one-time cleanup action.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleResetTrials} className="bg-destructive hover:bg-destructive/90">
-                Yes, reset all trials
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
       {/* Website Analytics Section */}
       <Card className="shadow-md">
