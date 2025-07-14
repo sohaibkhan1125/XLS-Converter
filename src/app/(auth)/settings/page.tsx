@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,7 +15,7 @@ import { format } from 'date-fns';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { sendInvitationEmail } from "@/app/actions/send-invitation";
+import emailjs from '@emailjs/browser';
 
 const PAYPAL_SUBSCRIPTION_MANAGEMENT_URL = "https://www.paypal.com/myaccount/autopay/";
 
@@ -40,6 +41,15 @@ export default function SettingsPage() {
   }, [currentUser, authLoading, router]);
   
   const handleSendInvite = async () => {
+    if (!process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || !process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || !process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY) {
+        toast({
+            variant: "destructive",
+            title: "Email Service Not Configured",
+            description: "The EmailJS service is not set up correctly. Please check environment variables.",
+        });
+        return;
+    }
+
     if (!inviteEmail) {
         toast({
             variant: "destructive",
@@ -48,33 +58,38 @@ export default function SettingsPage() {
         });
         return;
     }
-    if (!currentUser) {
+    if (!currentUser || !userProfile) {
        toast({ variant: "destructive", title: "Not Authenticated", description: "You must be logged in to send invites."});
        return;
     }
 
     setIsSendingInvite(true);
+    
+    const templateParams = {
+        to_email: inviteEmail,
+        from_name: `${userProfile.firstName} ${userProfile.lastName}`,
+        invite_link: `${window.location.origin}/signup?invitedBy=${currentUser.uid}`,
+        to_name: inviteEmail.split('@')[0], // Simple name extraction
+    };
+
     try {
-        const result = await sendInvitationEmail(inviteEmail, currentUser, userProfile);
-        if (result.success) {
-            toast({
-                title: "Invitation Sent",
-                description: result.message,
-            });
-            setInviteEmail(""); // Clear input on success
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Failed to Send Invite",
-                description: result.message,
-            });
-        }
+        await emailjs.send(
+            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+            process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+            templateParams,
+            process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+        );
+        toast({
+            title: "Invitation Sent",
+            description: `An invitation email has been successfully sent to ${inviteEmail}.`,
+        });
+        setInviteEmail(""); // Clear input on success
     } catch (error) {
-        console.error("Error sending invitation from settings page:", error);
+        console.error("Failed to send email with EmailJS:", error);
         toast({
             variant: "destructive",
-            title: "Client Error",
-            description: "An unexpected error occurred on the client.",
+            title: "Failed to Send Invite",
+            description: "An error occurred while sending the email. Please try again.",
         });
     } finally {
         setIsSendingInvite(false);
