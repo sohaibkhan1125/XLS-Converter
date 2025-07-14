@@ -21,89 +21,73 @@ export default function CustomScriptInjector() {
   }, []);
 
   useEffect(() => {
-    // Do not inject on admin or auth pages
-    if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/signup') {
-      // Clean up any scripts if navigating to admin/auth pages
-      injectedScriptIds.current.forEach(scriptId => {
-        const existingScriptTag = document.getElementById(scriptId);
-        if (existingScriptTag) {
-          existingScriptTag.remove();
+    // Function to remove all scripts managed by this component
+    const cleanupScripts = () => {
+      injectedScriptIds.current.forEach(id => {
+        const scriptElement = document.getElementById(id);
+        if (scriptElement) {
+          scriptElement.remove();
         }
       });
       injectedScriptIds.current.clear();
+    };
+
+    // Do not inject on admin or auth pages, and clean up any existing scripts
+    if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/signup') {
+      cleanupScripts();
       return;
     }
 
     const scriptsToInject = generalSettings?.customScripts || [];
-    const currentScriptIdsInDOM = new Set<string>();
+    
+    // Cleanup existing scripts before re-injecting to handle updates and removals correctly
+    cleanupScripts();
 
-    // Inject or update scripts
-    scriptsToInject.forEach(scriptConfig => {
-      const scriptTagId = `${SCRIPT_TAG_PREFIX}${scriptConfig.id}`;
-      currentScriptIdsInDOM.add(scriptTagId);
-      let existingScriptTag = document.getElementById(scriptTagId) as HTMLScriptElement | null;
+    scriptsToInject.forEach((scriptConfig, index) => {
+      if (!scriptConfig.enabled || !scriptConfig.scriptContent || scriptConfig.scriptContent.trim() === "") {
+        return; // Skip disabled or empty scripts
+      }
 
-      if (scriptConfig.enabled && scriptConfig.scriptContent && scriptConfig.scriptContent.trim() !== "") {
-        if (existingScriptTag) {
-          // If script content changed, remove and re-add.
-          // Simple innerHTML update might not re-execute script tags.
-          if (existingScriptTag.innerHTML !== scriptConfig.scriptContent) {
-            existingScriptTag.remove();
-            existingScriptTag = null; // Force re-creation
-          }
-        }
+      // Create a temporary container to parse the script content string
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = scriptConfig.scriptContent;
 
-        if (!existingScriptTag) {
+      const scriptNodes = tempDiv.querySelectorAll('script');
+
+      if (scriptNodes.length > 0) {
+        scriptNodes.forEach((node, nodeIndex) => {
           const newScript = document.createElement('script');
-          newScript.id = scriptTagId;
-          // It's generally safer to set textContent for inline scripts
-          // If scriptContent includes <script> tags, this needs careful handling.
-          // For now, assuming scriptContent is the JS code itself OR a full <script> tag string.
-          // If it's a full tag, we parse it. Otherwise, we set textContent.
-          if (scriptConfig.scriptContent.trim().toLowerCase().startsWith('<script')) {
-            // This is a bit rudimentary. For production, a more robust parser might be needed
-            // or clear instructions to users on script format.
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = scriptConfig.scriptContent; // Let browser parse the script tag
-            const parsedScript = tempDiv.firstChild as HTMLScriptElement | null;
-            if (parsedScript && parsedScript.tagName === 'SCRIPT') {
-              newScript.type = parsedScript.type || 'text/javascript';
-              if(parsedScript.src) newScript.src = parsedScript.src;
-              if(parsedScript.async) newScript.async = parsedScript.async;
-              if(parsedScript.defer) newScript.defer = parsedScript.defer;
-              newScript.innerHTML = parsedScript.innerHTML; // Content between <script></script>
-            } else {
-               // Fallback if parsing fails or it's not a script tag, treat as inline JS
-               newScript.innerHTML = scriptConfig.scriptContent;
-            }
-          } else {
-             newScript.innerHTML = scriptConfig.scriptContent; // Assumed to be JS code
+          const scriptId = `${SCRIPT_TAG_PREFIX}${scriptConfig.id}-${nodeIndex}`;
+          newScript.id = scriptId;
+
+          // Copy attributes (src, async, defer, etc.)
+          for (const attr of node.attributes) {
+            newScript.setAttribute(attr.name, attr.value);
+          }
+
+          // Copy inline content
+          if (node.innerHTML) {
+            newScript.innerHTML = node.innerHTML;
           }
           
           document.head.appendChild(newScript);
-          injectedScriptIds.current.add(scriptTagId);
-        }
+          injectedScriptIds.current.add(scriptId);
+        });
+      } else if (!scriptConfig.scriptContent.trim().toLowerCase().startsWith('<')) {
+        // Fallback for plain JS code without <script> tags
+        const newScript = document.createElement('script');
+        const scriptId = `${SCRIPT_TAG_PREFIX}${scriptConfig.id}-0`;
+        newScript.id = scriptId;
+        newScript.innerHTML = scriptConfig.scriptContent;
+        document.head.appendChild(newScript);
+        injectedScriptIds.current.add(scriptId);
       } else {
-        // Script is disabled or empty, remove if it exists
-        if (existingScriptTag) {
-          existingScriptTag.remove();
-          injectedScriptIds.current.delete(scriptTagId);
-        }
+        console.warn(`Custom script named "${scriptConfig.name}" did not contain a valid <script> tag.`);
       }
     });
 
-    // Clean up scripts that are no longer in settings or were removed
-    injectedScriptIds.current.forEach(injectedId => {
-      if (!currentScriptIdsInDOM.has(injectedId)) {
-        const scriptToRemove = document.getElementById(injectedId);
-        if (scriptToRemove) {
-          scriptToRemove.remove();
-        }
-        injectedScriptIds.current.delete(injectedId);
-      }
-    });
-
+    return cleanupScripts; // Ensure cleanup on component unmount
   }, [generalSettings, pathname]);
 
-  return null; 
+  return null;
 }
