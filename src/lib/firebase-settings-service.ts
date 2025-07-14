@@ -45,13 +45,32 @@ const DEFAULT_SITEMAP_XML_CONTENT = `<?xml version="1.0" encoding="UTF-8"?>
 </urlset>
 `;
 
+const GOOGLE_ANALYTICS_SCRIPT_CONTENT = `
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-13ZT6MJBS2"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-13ZT6MJBS2');
+</script>
+`;
+
 const DEFAULT_GENERAL_SETTINGS: GeneralSiteSettings = {
   siteTitle: 'XLSConvert',
   logoUrl: null, // Changed from undefined to null
   navItems: [],
   adLoaderScript: '',
   socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(p => ({ ...p, url: '', enabled: false })),
-  customScripts: [],
+  customScripts: [
+    {
+        id: 'default-ga-script',
+        name: 'Google Analytics',
+        scriptContent: GOOGLE_ANALYTICS_SCRIPT_CONTENT,
+        enabled: true,
+    }
+  ],
   activeThemeId: DEFAULT_LIGHT_THEME_ID,
   seoSettings: {},
   robotsTxtContent: DEFAULT_ROBOTS_TXT_CONTENT,
@@ -79,14 +98,31 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSiteSettings = {
 // Helper function to merge settings safely
 function mergeSettings(savedData?: Partial<GeneralSiteSettings>): GeneralSiteSettings {
     const data = savedData || {};
+
+    // Merge custom scripts: Start with defaults, then add any *new* saved scripts.
+    const defaultScriptIds = new Set(DEFAULT_GENERAL_SETTINGS.customScripts.map(s => s.id));
+    const savedScripts = data.customScripts || [];
+    const uniqueSavedScripts = savedScripts.filter(s => !defaultScriptIds.has(s.id));
+    
+    const combinedScripts = [...DEFAULT_GENERAL_SETTINGS.customScripts];
+    // For scripts with same ID, saved one overrides default one
+    savedScripts.forEach(savedScript => {
+        const index = combinedScripts.findIndex(ds => ds.id === savedScript.id);
+        if (index > -1) {
+            combinedScripts[index] = savedScript; // Update default with saved
+        } else {
+            combinedScripts.push(savedScript); // Add new saved script
+        }
+    });
+
     return {
         ...DEFAULT_GENERAL_SETTINGS, // Start with all defaults
         ...data, // Overlay with saved data
+        customScripts: combinedScripts,
         socialLinks: PREDEFINED_SOCIAL_MEDIA_PLATFORMS.map(defaultPlatform => {
             const savedLink = data.socialLinks?.find(sl => sl.id === defaultPlatform.id);
             return savedLink ? { ...defaultPlatform, ...savedLink } : { ...defaultPlatform, url: '', enabled: false };
         }),
-        customScripts: data.customScripts || DEFAULT_GENERAL_SETTINGS.customScripts,
         paymentGateways: PREDEFINED_PAYMENT_GATEWAYS_CONFIG.map(defaultGatewayConfig => {
             const defaultFullGateway = DEFAULT_GENERAL_SETTINGS.paymentGateways!.find(dfg => dfg.id === defaultGatewayConfig.id)!;
             const savedGateway = data.paymentGateways?.find(sg => sg.id === defaultGatewayConfig.id);
