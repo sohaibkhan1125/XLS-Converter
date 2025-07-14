@@ -10,16 +10,21 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { ExternalLink, Settings as SettingsIcon } from 'lucide-react';
+import { ExternalLink, Settings as SettingsIcon, Users, Link as LinkIcon, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 const PAYPAL_SUBSCRIPTION_MANAGEMENT_URL = "https://www.paypal.com/myaccount/autopay/";
 
 export default function SettingsPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -32,6 +37,22 @@ export default function SettingsPage() {
       setIsLoadingPlan(false);
     }
   }, [currentUser, authLoading, router]);
+  
+  const handleSendInvite = () => {
+    // Placeholder for future functionality
+    if (!inviteEmail) {
+        toast({
+            variant: "destructive",
+            title: "Email Required",
+            description: "Please enter an email address to send an invitation.",
+        });
+        return;
+    }
+    toast({
+      title: "Feature Coming Soon!",
+      description: `In the future, an invitation would be sent to ${inviteEmail}.`,
+    });
+  };
 
   if (authLoading || isLoadingPlan || !currentUser) {
     return (
@@ -46,8 +67,8 @@ export default function SettingsPage() {
   const progressPercentage = totalConversions > 0 ? (conversionsUsed / totalConversions) * 100 : 0;
 
   return (
-    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-      <Card className="w-full max-w-2xl shadow-xl">
+    <div className="space-y-8 max-w-4xl mx-auto">
+      <Card className="w-full shadow-xl">
         <CardHeader>
           <div className="flex items-center gap-3">
             <SettingsIcon className="h-8 w-8 text-primary" />
@@ -85,7 +106,7 @@ export default function SettingsPage() {
           ) : (
             <div className="text-center py-8">
               <p className="text-lg text-muted-foreground">You are currently on the Free tier.</p>
-              <p className="text-sm text-muted-foreground">Upgrade to unlock more conversions and features.</p>
+              <p className="text-sm text-muted-foreground">Upgrade to unlock more conversions and advanced features.</p>
             </div>
           )}
         </CardContent>
@@ -101,6 +122,50 @@ export default function SettingsPage() {
             </a>
           </Button>
         </CardFooter>
+      </Card>
+      
+      {/* Invite Team Members Card */}
+      <Card className="w-full shadow-xl">
+        <CardHeader>
+           <div className="flex items-center gap-3">
+            <Users className="h-8 w-8 text-primary" />
+            <div className="flex flex-col">
+              <CardTitle className="text-2xl font-bold">Invite Team Members</CardTitle>
+              <CardDescription>Share your plan's conversions with your team members.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+            {activePlan ? (
+                <div className="space-y-4">
+                    <Label htmlFor="invite-email">User Email</Label>
+                    <div className="flex gap-2">
+                        <Input 
+                            type="email" 
+                            id="invite-email" 
+                            placeholder="teammate@example.com"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                        />
+                        <Button onClick={handleSendInvite}>
+                            <LinkIcon className="mr-2 h-4 w-4" /> Send Invitation
+                        </Button>
+                    </div>
+                     <p className="text-xs text-muted-foreground">
+                        The invited user will receive an email to join your team. They will share your plan's conversion limit.
+                    </p>
+                </div>
+            ) : (
+                <div className="text-center py-6 bg-muted/50 rounded-lg">
+                    <p className="text-lg text-muted-foreground mb-4">
+                        This is a premium feature. Please upgrade to a paid plan to invite team members.
+                    </p>
+                    <Button asChild>
+                        <a href="/pricing">View Pricing Plans</a>
+                    </Button>
+                </div>
+            )}
+        </CardContent>
       </Card>
     </div>
   );
