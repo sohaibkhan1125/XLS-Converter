@@ -2,11 +2,19 @@
 "use client"; 
 
 import { useEffect, useState } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import emailjs from '@emailjs/browser';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useToast } from '@/hooks/use-toast';
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import LoadingSpinner from '@/components/core/loading-spinner';
 import { Mail, Phone, MapPin } from "lucide-react";
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
@@ -14,12 +22,30 @@ import { usePathname } from 'next/navigation';
 
 const GENERIC_APP_NAME = "Our Company";
 const GENERIC_EMAIL_DOMAIN_PART = "example.com";
+const ADMIN_EMAIL_RECIPIENT = "sohaibfaisalkhan@gmail.com";
+
+const contactFormSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  subject: z.string().min(5, { message: "Subject must be at least 5 characters." }),
+  message: z.string().min(10, { message: "Message must be at least 10 characters." }),
+});
+
+type ContactFormValues = z.infer<typeof contactFormSchema>;
+
 
 export default function ContactPage() {
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const [contactEmail, setContactEmail] = useState<string>(`info@${GENERIC_EMAIL_DOMAIN_PART}`);
   const [supportEmail, setSupportEmail] = useState<string>(`support@${GENERIC_EMAIL_DOMAIN_PART}`);
   const pathname = usePathname();
+  const { toast } = useToast();
+  const [isSending, setIsSending] = useState(false);
+
+  const form = useForm<ContactFormValues>({
+    resolver: zodResolver(contactFormSchema),
+    defaultValues: { name: "", email: "", subject: "", message: "" },
+  });
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
@@ -67,6 +93,50 @@ export default function ContactPage() {
   }, [pathname]);
 
 
+  const onSubmit: SubmitHandler<ContactFormValues> = async (data) => {
+    const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+    const templateId = process.env.NEXT_PUBLIC_EMAILJS_CONTACT_TEMPLATE_ID;
+    const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+    if (!serviceId || !templateId || !publicKey) {
+        toast({
+            variant: "destructive",
+            title: "Service Not Configured",
+            description: "The contact form is not set up correctly. Please contact support.",
+        });
+        return;
+    }
+
+    setIsSending(true);
+
+    const templateParams = {
+        to_email: ADMIN_EMAIL_RECIPIENT,
+        from_name: data.name,
+        from_email: data.email,
+        subject: data.subject,
+        message: data.message,
+    };
+
+    try {
+        await emailjs.send(serviceId, templateId, templateParams, publicKey);
+        toast({
+            title: "Message Sent!",
+            description: "Thank you for contacting us. We will get back to you shortly.",
+        });
+        form.reset();
+    } catch (error) {
+        console.error("Failed to send email via EmailJS:", error);
+        toast({
+            variant: "destructive",
+            title: "Failed to Send",
+            description: "An error occurred while sending your message. Please try again.",
+        });
+    } finally {
+        setIsSending(false);
+    }
+  };
+
+
   return (
     <div className="space-y-12">
       <section className="text-center py-10 bg-card shadow-lg rounded-lg">
@@ -83,27 +153,65 @@ export default function ContactPage() {
             <CardDescription>Send us a message directly.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="John Doe" />
-              </div>
-              <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" placeholder="you@example.com" />
-              </div>
-              <div>
-                <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" placeholder="Regarding your service..." />
-              </div>
-              <div>
-                <Label htmlFor="message">Message</Label>
-                <Textarea id="message" placeholder="Your message here..." rows={5} />
-              </div>
-              <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                Send Message
-              </Button>
-            </form>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="name">Full Name</Label>
+                      <FormControl>
+                        <Input id="name" placeholder="John Doe" {...field} disabled={isSending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="email">Email Address</Label>
+                      <FormControl>
+                         <Input id="email" type="email" placeholder="you@example.com" {...field} disabled={isSending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="subject"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="subject">Subject</Label>
+                      <FormControl>
+                        <Input id="subject" placeholder="Regarding your service..." {...field} disabled={isSending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="message"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label htmlFor="message">Message</Label>
+                      <FormControl>
+                        <Textarea id="message" placeholder="Your message here..." rows={5} {...field} disabled={isSending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSending}>
+                  {isSending ? <LoadingSpinner message="Sending..." /> : "Send Message"}
+                </Button>
+              </form>
+            </Form>
           </CardContent>
         </Card>
 
