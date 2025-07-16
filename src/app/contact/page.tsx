@@ -95,7 +95,8 @@ export default function ContactPage() {
 
   const onSubmit: SubmitHandler<ContactFormValues> = async (data) => {
     const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-    const templateId = process.env.NEXT_PUBLIC_EMAILJS_CONTACT_TEMPLATE_ID;
+    // Using the existing template ID for invitations, assuming it can handle contact form fields.
+    const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
     if (!serviceId || !templateId || !publicKey) {
@@ -109,12 +110,18 @@ export default function ContactPage() {
 
     setIsSending(true);
 
+    // Ensure your EmailJS template (the one used for invitations) can accept these parameters.
+    // You might need to adjust your template on the EmailJS website.
     const templateParams = {
-        to_email: ADMIN_EMAIL_RECIPIENT,
+        to_email: ADMIN_EMAIL_RECIPIENT, // The admin email you provided
         from_name: data.name,
         from_email: data.email,
         subject: data.subject,
         message: data.message,
+        // The invitation template might expect 'invite_link' and 'to_name'. 
+        // We provide them as empty or default values to prevent template errors.
+        invite_link: 'N/A - Contact Form Submission', 
+        to_name: 'Admin',
     };
 
     try {
