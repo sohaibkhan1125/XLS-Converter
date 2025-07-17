@@ -21,8 +21,7 @@ import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
 
 const GENERIC_APP_NAME = "Our Company";
-const GENERIC_EMAIL_DOMAIN_PART = "example.com";
-const ADMIN_EMAIL_RECIPIENT = "sohaibfaisalkhan@gmail.com";
+const ADMIN_EMAIL_RECIPIENT = "info@bankstatementconverted.com"; // Updated recipient email
 
 const contactFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -36,8 +35,8 @@ type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 export default function ContactPage() {
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
-  const [contactEmail, setContactEmail] = useState<string>(`info@${GENERIC_EMAIL_DOMAIN_PART}`);
-  const [supportEmail, setSupportEmail] = useState<string>(`support@${GENERIC_EMAIL_DOMAIN_PART}`);
+  const [contactEmail, setContactEmail] = useState<string>(ADMIN_EMAIL_RECIPIENT); // Set initial state to the correct email
+  const [supportEmail, setSupportEmail] = useState<string>(ADMIN_EMAIL_RECIPIENT); // Set initial state to the correct email
   const pathname = usePathname();
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
@@ -50,11 +49,11 @@ export default function ContactPage() {
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
       const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
-      const emailDomainPart = currentSiteTitle.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9-]/g, '') || GENERIC_EMAIL_DOMAIN_PART.split('.')[0];
-      
       setDisplayedSiteTitle(currentSiteTitle);
-      setContactEmail(`info@${emailDomainPart}.com`);
-      setSupportEmail(`support@${emailDomainPart}.com`);
+      
+      // We will now consistently use the hardcoded email address
+      setContactEmail(ADMIN_EMAIL_RECIPIENT);
+      setSupportEmail(ADMIN_EMAIL_RECIPIENT);
 
        if (settings?.seoSettings && settings.seoSettings[pathname]) {
         const seoData = settings.seoSettings[pathname];
