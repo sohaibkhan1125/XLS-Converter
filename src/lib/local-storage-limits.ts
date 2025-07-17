@@ -161,26 +161,29 @@ function getFreeTierLimit(userId: string | null): number {
 /**
  * Checks if a conversion is allowed for the user.
  * It first checks for a paid plan, then falls back to the free tier.
+ * @param userId - The user's ID or null for a guest.
+ * @param conversionsRequested - The number of conversions being attempted (for batch processing).
  */
-export function checkConversionLimit(userId: string | null): LimitStatus {
+export function checkConversionLimit(userId: string | null, conversionsRequested: number = 1): LimitStatus {
   const activePlan = getActivePlan(userId);
 
   // 1. Check for active paid plan
   if (activePlan) {
     const isCurrentlyInTrial = activePlan.isTrial && activePlan.trialEndsAt && Date.now() < activePlan.trialEndsAt;
-    if (activePlan.usedConversions < activePlan.totalConversions) {
+    const remainingPlanConversions = activePlan.totalConversions - activePlan.usedConversions;
+    if (remainingPlanConversions >= conversionsRequested) {
       return {
         allowed: true,
-        remaining: activePlan.totalConversions - activePlan.usedConversions,
+        remaining: remainingPlanConversions,
         onPlan: true,
         planName: activePlan.name,
         isTrial: isCurrentlyInTrial,
         trialEndsAt: activePlan.trialEndsAt,
       };
     } else {
-      return { // Plan quota is exhausted
+      return { // Plan quota is exhausted or not enough for batch
         allowed: false,
-        remaining: 0,
+        remaining: remainingPlanConversions,
         onPlan: true,
         planName: activePlan.name,
         isPlanExhausted: true,
@@ -206,7 +209,7 @@ export function checkConversionLimit(userId: string | null): LimitStatus {
 
   const remainingConversions = freeTierLimit - validTimestamps.length;
 
-  if (remainingConversions > 0) {
+  if (remainingConversions >= conversionsRequested) {
     return { allowed: true, remaining: remainingConversions, onPlan: false, isTrial: false };
   } else {
     // If limit is reached, calculate time until the oldest conversion expires.
@@ -299,3 +302,5 @@ export function formatTime(milliseconds: number): string {
   
   return parts.join(', ');
 }
+
+    

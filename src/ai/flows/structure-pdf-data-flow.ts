@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Analyzes raw PDF text from bank statements and extracts a structured list of transactions.
@@ -18,6 +19,7 @@ const TransactionSchema = z.object({
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
   balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. This is a mandatory field. Do not skip it. If a balance value is not present for a transaction row, output null for this field."),
 }).describe("A single transaction line item.");
+export type Transaction = z.infer<typeof TransactionSchema>;
 
 
 const StructuredPdfDataOutputSchema = z.object({
@@ -122,3 +124,5 @@ const structurePdfDataFlow = ai.defineFlow(
     return { transactions: cleanedTransactions };
   }
 );
+
+    

@@ -13,11 +13,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Download, Trash2, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { checkConversionLimit, recordConversion, formatTime, type LimitStatus } from '@/lib/local-storage-limits';
+import { checkConversionLimit, recordConversion, formatTime, type LimitStatus, getActivePlan, type ActivePlan } from '@/lib/local-storage-limits';
 import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
-import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
+import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
@@ -27,7 +27,7 @@ const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
 
 export default function HomePage() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
@@ -46,7 +46,17 @@ export default function HomePage() {
   const { toast } = useToast();
   const pathname = usePathname();
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
+  const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
   const { getTranslation } = useLanguage();
+
+  useEffect(() => {
+    if (currentUser) {
+      setActivePlan(getActivePlan(currentUser.uid));
+    } else {
+      setActivePlan(null);
+    }
+  }, [currentUser]);
+
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
@@ -84,13 +94,17 @@ export default function HomePage() {
   }, [pathname]);
 
 
-  const handleFileSelect = async (file: File) => {
-    setSelectedFile(file);
+  const handleFilesSelect = async (files: File[]) => {
+    setSelectedFiles(files);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
 
-    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
+    if (files.length === 0) return;
+
+    const numFiles = files.length;
+    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null, numFiles);
+    
     if (!limitStatus.allowed) {
       setLimitDialogContent({
         userType: currentUser ? 'loggedIn' : 'guest',
@@ -100,61 +114,86 @@ export default function HomePage() {
         isPlanExhausted: limitStatus.isPlanExhausted,
       });
       setShowLimitDialog(true);
-      setSelectedFile(null); // Clear selection as we can't proceed
+      setSelectedFiles([]); // Clear selection as we can't proceed
       return; // CRITICAL: Stop the function here
     }
 
     setIsLoading(true);
+    let allTransactions: Transaction[] = [];
+
     try {
-      const fileBuffer = await file.arrayBuffer();
-      let rawTextOutput: string;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const progressPrefix = files.length > 1 ? `(File ${i + 1}/${files.length})` : '';
 
-      setLoadingStep("Extracting text from PDF...");
-      const directText = await extractTextFromPdf(fileBuffer);
+        const fileBuffer = await file.arrayBuffer();
+        let rawTextOutput: string;
 
-      if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
-        rawTextOutput = directText;
-        toast({ title: "Text Extracted", description: "Successfully extracted text directly from PDF." });
-      } else {
-        toast({ title: "Image PDF Detected", description: "Attempting OCR for text extraction. This may take a moment." });
-        setLoadingStep("Performing OCR on PDF image...");
-        const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1); 
-        if (!imageDataUri) {
-            throw new Error("Failed to convert PDF page to image data URI.");
+        setLoadingStep(`${progressPrefix} Extracting text from PDF...`);
+        const directText = await extractTextFromPdf(fileBuffer);
+
+        if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
+          rawTextOutput = directText;
+          toast({ title: "Text Extracted", description: `Successfully extracted text from ${file.name}.` });
+        } else {
+          toast({ title: "Image PDF Detected", description: `Attempting OCR for ${file.name}. This may take a moment.` });
+          setLoadingStep(`${progressPrefix} Performing OCR on PDF image...`);
+          const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1);
+          if (!imageDataUri) {
+            throw new Error(`Failed to convert PDF page to image data URI for ${file.name}.`);
+          }
+          const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
+          if (!aiOcrResult || !aiOcrResult.extractedText) {
+            throw new Error(`OCR process failed to extract text from ${file.name}.`);
+          }
+          rawTextOutput = aiOcrResult.extractedText;
+          toast({ title: "OCR Successful", description: `Text extracted from ${file.name} using OCR.` });
         }
-        const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
-        if (!aiOcrResult || !aiOcrResult.extractedText) {
-          throw new Error("OCR process failed to extract text from image-based PDF.");
+        
+        setLoadingStep(`${progressPrefix} Structuring transaction data with AI...`);
+        toast({ title: "Structuring Data", description: `AI is analyzing ${file.name} for transactions.` });
+        const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
+        
+        if (structuredDataResult && structuredDataResult.transactions) {
+          allTransactions.push(...structuredDataResult.transactions);
+        } else {
+           console.warn(`AI structuring returned no transactions for ${file.name}:`, structuredDataResult);
+           toast({ variant: "destructive", title: "AI Structuring Issue", description: `AI could not find transactions in ${file.name}.` });
         }
-        rawTextOutput = aiOcrResult.extractedText;
-        toast({ title: "OCR Successful", description: "Text extracted using OCR." });
-      }
-      
-      setLoadingStep("Structuring transaction data with AI...");
-      toast({ title: "Structuring Data", description: "AI is analyzing the document for transactions. This can take a few moments." });
-      const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
-      
-      if (!structuredDataResult || (!structuredDataResult.transactions && !structuredDataResult.header)) {
-        console.warn("AI structuring returned no transactions or an unexpected result:", structuredDataResult);
-        toast({ variant: "destructive", title: "AI Structuring Issue", description: "AI could not find any transactions in the document." });
+
+        // Record a conversion for each successfully processed file.
+        recordConversion(currentUser ? currentUser.uid : null);
       }
 
-      setLoadingStep("Formatting data for Excel...");
-      const excelData = formatStructuredDataForExcel(structuredDataResult);
+      if (allTransactions.length === 0) {
+        throw new Error("No transactions could be extracted from any of the provided files.");
+      }
+
+      setLoadingStep("Aggregating and formatting data for Excel...");
+      // Sort all transactions by date ascending. Handle potential invalid date strings.
+      allTransactions.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (isNaN(dateA)) return 1; // Put invalid dates at the end
+          if (isNaN(dateB)) return -1;
+          return dateA - dateB;
+      });
+      
+      const combinedOutput: StructuredPdfDataOutput = { transactions: allTransactions };
+      const excelData = formatStructuredDataForExcel(combinedOutput);
       setExcelReadyData(excelData);
-      
-      recordConversion(currentUser ? currentUser.uid : null);
+
       const newLimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
-      let conversionToastDescription = "PDF data processed and structured. Ready for preview/download.";
+      let conversionToastDescription = "All PDF data processed and structured. Ready for preview/download.";
       if (newLimitStatus.onPlan && newLimitStatus.planName) {
         conversionToastDescription += ` ${newLimitStatus.remaining} ${newLimitStatus.planName} conversions remaining.`;
       } else {
         conversionToastDescription += ` ${newLimitStatus.remaining} free conversions remaining.`;
       }
-      toast({ title: "Conversion Successful", description: conversionToastDescription });
+      toast({ title: "Batch Conversion Successful", description: conversionToastDescription, duration: 9000 });
 
     } catch (err: any) {
-      console.error("Detailed error in handleFileSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      console.error("Detailed error in handleFilesSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let displayMessage = "Processing failed. ";
       if (err.message) {
         displayMessage += err.message;
@@ -171,7 +210,7 @@ export default function HomePage() {
       }
       
       setError(displayMessage);
-      toast({ variant: "destructive", title: "Processing Error", description: displayMessage });
+      toast({ variant: "destructive", title: "Processing Error", description: displayMessage, duration: 9000 });
       setExcelReadyData(null);
     } finally {
       setIsLoading(false);
@@ -180,15 +219,15 @@ export default function HomePage() {
   };
 
   const handleClearSelection = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
   };
 
   const handleDownload = () => {
-    if (excelReadyData && selectedFile) {
-      const fileName = selectedFile.name.replace(/\.pdf$/i, '.xlsx');
+    if (excelReadyData) {
+      const fileName = activePlan ? `${activePlan.name}_consolidated_statements.xlsx` : 'converted_data.xlsx';
       exportToExcel(excelReadyData, fileName);
       toast({ title: "Download Started", description: `${fileName} is being downloaded.` });
     }
@@ -207,10 +246,11 @@ export default function HomePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <FileUploader 
-            onFileSelect={handleFileSelect} 
-            selectedFile={selectedFile}
+            onFilesSelect={handleFilesSelect} 
+            selectedFiles={selectedFiles}
             clearSelection={handleClearSelection}
             disabled={isLoading}
+            isSubscribed={!!activePlan}
             dragText={getTranslation('fileUploaderDrag')}
             orText={getTranslation('fileUploaderOr')}
             clickText={getTranslation('fileUploaderClick')}
@@ -226,14 +266,14 @@ export default function HomePage() {
           {error && !isLoading && (
             <Alert variant="destructive">
               <Terminal className="h-4 w-4" />
-              <AlertTitle>Error Processing PDF</AlertTitle>
+              <AlertTitle>Error Processing PDF(s)</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {excelReadyData && !isLoading && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-foreground">Data Preview (Excel Layout)</h2>
+              <h2 className="text-2xl font-semibold text-foreground">Data Preview (Consolidated)</h2>
               <DataPreview data={excelReadyData} />
               <div className="flex justify-end space-x-3 pt-4">
                 <Button variant="outline" onClick={handleClearSelection} disabled={isLoading}>
@@ -262,3 +302,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

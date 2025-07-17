@@ -3,50 +3,69 @@
 
 import React, { useCallback } from 'react';
 import { useDropzone, type FileWithPath } from 'react-dropzone';
-import { UploadCloud, FileText, XCircle } from 'lucide-react';
+import { UploadCloud, FileText, XCircle, Files } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface FileUploaderProps {
-  onFileSelect: (file: File) => void;
-  selectedFile: File | null;
+  onFilesSelect: (files: File[]) => void;
+  selectedFiles: File[];
   clearSelection: () => void;
   disabled?: boolean;
+  isSubscribed?: boolean;
   dragText?: string;
   orText?: string;
   clickText?: string;
 }
 
+const MAX_FILES = 12;
+
 export default function FileUploader({ 
-  onFileSelect, 
-  selectedFile, 
+  onFilesSelect, 
+  selectedFiles, 
   clearSelection, 
   disabled = false,
+  isSubscribed = false,
   dragText = "Drag & drop a PDF file here",
   orText = "or",
   clickText = "Click to select file"
 }: FileUploaderProps) {
+  
   const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
-      onFileSelect(acceptedFiles[0]);
+      onFilesSelect(acceptedFiles);
     }
-  }, [onFileSelect]);
+  }, [onFilesSelect]);
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1,
-    multiple: false,
+    maxFiles: isSubscribed ? MAX_FILES : 1,
+    multiple: isSubscribed,
     disabled,
   });
 
-  if (selectedFile) {
+  const uploaderText = isSubscribed 
+    ? dragText.replace('a PDF file', `up to ${MAX_FILES} PDF files`)
+    : dragText;
+  
+  const selectedFileCount = selectedFiles.length;
+
+  if (selectedFileCount > 0) {
     return (
       <Card className="border-dashed border-2 border-primary/50 bg-primary/5">
         <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-          <FileText className="h-12 w-12 text-primary mb-4" />
-          <p className="text-lg font-medium text-foreground mb-1">{selectedFile.name}</p>
-          <p className="text-sm text-muted-foreground mb-4">({(selectedFile.size / 1024).toFixed(2)} KB)</p>
+          {selectedFileCount === 1 ? (
+             <FileText className="h-12 w-12 text-primary mb-4" />
+          ) : (
+             <Files className="h-12 w-12 text-primary mb-4" />
+          )}
+          <p className="text-lg font-medium text-foreground mb-1">
+            {selectedFileCount === 1 ? selectedFiles[0].name : `${selectedFileCount} files selected`}
+          </p>
+          {selectedFileCount === 1 && (
+             <p className="text-sm text-muted-foreground mb-4">({(selectedFiles[0].size / 1024).toFixed(2)} KB)</p>
+          )}
           <Button onClick={clearSelection} variant="destructive" size="sm" disabled={disabled}>
             <XCircle className="mr-2 h-4 w-4" /> Clear Selection
           </Button>
@@ -66,18 +85,22 @@ export default function FileUploader({
         <input {...getInputProps()} />
         <UploadCloud className={`h-12 w-12 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
         {isDragActive ? (
-          <p className="text-lg font-semibold text-primary">{dragText.replace('&', 'and')} ...</p>
+          <p className="text-lg font-semibold text-primary">{uploaderText.replace('&', 'and')} ...</p>
         ) : (
           <>
-            <p className="text-lg font-semibold text-foreground">{dragText}</p>
+            <p className="text-lg font-semibold text-foreground">{uploaderText}</p>
             <p className="text-muted-foreground mb-4">{orText}</p>
             <Button type="button" onClick={open} variant="outline" disabled={disabled}>
               {clickText}
             </Button>
-            <p className="text-xs text-muted-foreground mt-4">Max file size: 10MB. PDF only.</p>
+            <p className="text-xs text-muted-foreground mt-4">
+              Max file size: 10MB each. PDF only. {isSubscribed && `Max ${MAX_FILES} files.`}
+            </p>
           </>
         )}
       </CardContent>
     </Card>
   );
 }
+
+    
