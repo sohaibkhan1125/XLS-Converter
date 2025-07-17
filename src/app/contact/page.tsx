@@ -95,7 +95,6 @@ export default function ContactPage() {
 
   const onSubmit: SubmitHandler<ContactFormValues> = async (data) => {
     const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-    // Using the existing template ID for invitations, assuming it can handle contact form fields.
     const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
@@ -110,16 +109,12 @@ export default function ContactPage() {
 
     setIsSending(true);
 
-    // Ensure your EmailJS template (the one used for invitations) can accept these parameters.
-    // You might need to adjust your template on the EmailJS website.
     const templateParams = {
-        to_email: ADMIN_EMAIL_RECIPIENT, // The admin email you provided
+        to_email: ADMIN_EMAIL_RECIPIENT,
         from_name: data.name,
         from_email: data.email,
         subject: data.subject,
         message: data.message,
-        // The invitation template might expect 'invite_link' and 'to_name'. 
-        // We provide them as empty or default values to prevent template errors.
         invite_link: 'N/A - Contact Form Submission', 
         to_name: 'Admin',
     };
@@ -234,23 +229,6 @@ export default function ContactPage() {
                 <h3 className="font-semibold text-foreground">Email Us</h3>
                 <p>For general inquiries: <a href={`mailto:${contactEmail}`} className="text-primary hover:underline">{contactEmail}</a></p>
                 <p>For support: <a href={`mailto:${supportEmail}`} className="text-primary hover:underline">{supportEmail}</a></p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <Phone className="h-6 w-6 text-accent mt-1 shrink-0" />
-              <div>
-                <h3 className="font-semibold text-foreground">Call Us</h3>
-                <p>Mon - Fri, 9am - 5pm (EST)</p>
-                <p>+1 (555) 123-4567</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <MapPin className="h-6 w-6 text-accent mt-1 shrink-0" />
-              <div>
-                <h3 className="font-semibold text-foreground">Our Office</h3>
-                <p>{displayedSiteTitle}</p>
-                <p>123 Innovation Drive</p>
-                <p>Tech City, TX 75001, USA</p>
               </div>
             </div>
           </CardContent>
