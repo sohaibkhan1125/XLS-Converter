@@ -17,7 +17,7 @@ const TransactionSchema = z.object({
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
-  balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. This is a mandatory field. Do not skip it. If a balance value is not present for a transaction row, output null for this field."),
+  balance: z.number().optional().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you may output null for this field, but the key must be present."),
 }).describe("A single transaction line item.");
 export type Transaction = z.infer<typeof TransactionSchema>;
 
@@ -60,7 +60,7 @@ const prompt = ai.definePrompt({
 
 6.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
-7.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have `credit` and `balance`, but no `debit` key.
+7.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have \`credit\` and \`balance\`, but no \`debit\` key.
 
 8.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
@@ -128,5 +128,3 @@ const structurePdfDataFlow = ai.defineFlow(
     return { transactions: cleanedTransactions };
   }
 );
-
-    
