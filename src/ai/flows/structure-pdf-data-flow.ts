@@ -50,15 +50,19 @@ const prompt = ai.definePrompt({
 
 2.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
 
-3.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
+3.  **COLUMN ALIASES (VERY IMPORTANT):** Bank statements use different names for columns. You must recognize these variations:
+    *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", or similar terms.
+    *   For **'credit'** (money in), look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. ALWAYS check for this column.
 
-4.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
+4.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
 
-5.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
+5.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
 
-6.  **MONETARY FIELDS:** Extract 'debit' (Money Out or Paid Out) and 'credit' (Money In or Paid In) amounts. If one is not present for a transaction, omit that specific field.
+6.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
-7.  **CLEAN DATA:**
+7.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have `credit` and `balance`, but no `debit` key.
+
+8.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
     *   Do not include "Balance brought forward" or similar summary lines in the transaction list.
 
@@ -68,11 +72,11 @@ const prompt = ai.definePrompt({
 \`\`\`
 Statement Period: Feb 1, 2024 - Feb 29, 2024
 ...
-Date Description Money Out Money In Balance
+Date Narration Withdrawals Deposits Balance
 1 Feb Balance brought forward 40,000.00
 3 Feb Card payment - High St Petrol 24.50 39,975.50
 4 Feb Direct debit - Green Mobile 20.00 39,955.50
-5 Feb Salary Deposit - Acme Corp 5,000.00 44,955.50
+5 Feb Salary - Acme Corp 5,000.00 44,955.50
 \`\`\`
 
 **Correct JSON Output for this Snippet:**
@@ -81,11 +85,11 @@ Date Description Money Out Money In Balance
   "transactions": [
     { "date": "2024-02-03", "description": "Card payment - High St Petrol", "debit": 24.50, "balance": 39975.50 },
     { "date": "2024-02-04", "description": "Direct debit - Green Mobile", "debit": 20.00, "balance": 39955.50 },
-    { "date": "2024-02-05", "description": "Salary Deposit - Acme Corp", "credit": 5000.00, "balance": 44955.50 }
+    { "date": "2024-02-05", "description": "Salary - Acme Corp", "credit": 5000.00, "balance": 44955.50 }
   ]
 }
 \`\`\`
-*(Notice "Balance brought forward" is completely ignored and a transaction with only a credit is included)*
+*(Notice the "description" was correctly mapped from "Narration" and "credit" was mapped from "Deposits". "Balance brought forward" is completely ignored.)*
 
 Now, process the following full text and provide the structured JSON.
 
