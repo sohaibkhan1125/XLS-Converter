@@ -16,7 +16,7 @@ const TransactionSchema = z.object({
   date: z.string().describe("The date of the transaction. IMPORTANT: You must format this as YYYY-MM-DD. You MUST infer the correct year from the statement context and use that specific year (e.g., 2023, 2024). Do not literally output 'YYYY'."),
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
-  credit: z.number().optional().describe("The deposit amount (money in), as a positive number."),
+  credit: z.number().optional().describe("The deposit amount (money in), as a positive number. This is a critical field to find."),
   balance: z.number().optional().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you may output null for this field, but the key must be present."),
 }).describe("A single transaction line item.");
 export type Transaction = z.infer<typeof TransactionSchema>;
@@ -52,7 +52,7 @@ const prompt = ai.definePrompt({
 
 3.  **COLUMN ALIASES (VERY IMPORTANT):** Bank statements use different names for columns. You must recognize these variations:
     *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", or similar terms.
-    *   For **'credit'** (money in), look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. ALWAYS check for this column.
+    *   For **'credit'** (money in), it is CRITICAL that you look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. ALWAYS check for this column.
 
 4.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
 
