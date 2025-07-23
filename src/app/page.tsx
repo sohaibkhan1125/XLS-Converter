@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { checkConversionLimit, recordConversion, formatTime, type LimitStatus, getActivePlan, type ActivePlan } from '@/lib/local-storage-limits';
 import { exportToExcel } from '@/lib/excel-export';
-import { extractTextFromPdf, convertPdfPageToImageUri, formatStructuredDataForExcel } from '@/lib/pdf-utils';
+import { extractTextFromPdf, convertAllPdfPagesToImageUris, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
@@ -136,18 +136,24 @@ export default function HomePage() {
           rawTextOutput = directText;
           toast({ title: "Text Extracted", description: `Successfully extracted text from ${file.name}.` });
         } else {
-          toast({ title: "Image PDF Detected", description: `Attempting OCR for ${file.name}. This may take a moment.` });
-          setLoadingStep(`${progressPrefix} Performing OCR on PDF image...`);
-          const imageDataUri = await convertPdfPageToImageUri(fileBuffer, 1);
-          if (!imageDataUri) {
-            throw new Error(`Failed to convert PDF page to image data URI for ${file.name}.`);
+          toast({ title: "Image PDF Detected", description: `Scanning all pages of ${file.name} with OCR. This may take a moment.` });
+          setLoadingStep(`${progressPrefix} Performing OCR on all PDF pages...`);
+          const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
+
+          let ocrTextFromAllPages = '';
+          for (let pageIndex = 0; pageIndex < imageDataUris.length; pageIndex++) {
+              setLoadingStep(`${progressPrefix} OCR on page ${pageIndex + 1}/${imageDataUris.length}...`);
+              const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[pageIndex] });
+              if (aiOcrResult && aiOcrResult.extractedText) {
+                  ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
+              }
           }
-          const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUri });
-          if (!aiOcrResult || !aiOcrResult.extractedText) {
-            throw new Error(`OCR process failed to extract text from ${file.name}.`);
+
+          if (!ocrTextFromAllPages) {
+            throw new Error(`OCR process failed to extract any text from ${file.name}.`);
           }
-          rawTextOutput = aiOcrResult.extractedText;
-          toast({ title: "OCR Successful", description: `Text extracted from ${file.name} using OCR.` });
+          rawTextOutput = ocrTextFromAllPages;
+          toast({ title: "OCR Successful", description: `Text extracted from all pages of ${file.name} using OCR.` });
         }
         
         setLoadingStep(`${progressPrefix} Structuring transaction data with AI...`);
@@ -302,5 +308,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    

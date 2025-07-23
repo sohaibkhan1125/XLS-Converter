@@ -23,7 +23,7 @@ export async function extractTextFromPdf(fileBuffer: ArrayBuffer): Promise<strin
       const page: PDFPageProxy = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(item => (item as TextItem).str).join(' ');
-      fullText += pageText + '\n';
+      fullText += pageText + '\n\n'; // Add extra newline for page breaks
     }
     return fullText.trim();
   } catch (error) {
@@ -32,31 +32,32 @@ export async function extractTextFromPdf(fileBuffer: ArrayBuffer): Promise<strin
   }
 }
 
-export async function convertPdfPageToImageUri(fileBuffer: ArrayBuffer, pageNumber: number = 1): Promise<string> {
+export async function convertAllPdfPagesToImageUris(fileBuffer: ArrayBuffer): Promise<string[]> {
   try {
     const pdf: PDFDocumentProxy = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
-    if (pageNumber < 1 || pageNumber > pdf.numPages) {
-      throw new Error(`Page number ${pageNumber} is out of range (1-${pdf.numPages}).`);
+    const imageUris: string[] = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page: PDFPageProxy = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 }); // Adjust scale as needed for quality/performance
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error("Could not get canvas context.");
+      }
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: context, viewport: viewport }).promise;
+      
+      // Return as PNG data URI. Could also use 'image/jpeg'.
+      imageUris.push(canvas.toDataURL('image/png'));
     }
-
-    const page: PDFPageProxy = await pdf.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1.5 }); // Adjust scale as needed for quality/performance
-
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error("Could not get canvas context.");
-    }
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
-    
-    // Return as PNG data URI. Could also use 'image/jpeg'.
-    return canvas.toDataURL('image/png');
+    return imageUris;
   } catch (error) {
-    console.error("Error converting PDF page to image:", error);
-    throw new Error("Failed to convert PDF page to image.");
+    console.error("Error converting PDF pages to images:", error);
+    throw new Error("Failed to convert PDF pages to images.");
   }
 }
 
