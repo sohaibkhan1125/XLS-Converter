@@ -162,19 +162,29 @@ export default function HomePage() {
         throw new Error("No transactions could be extracted from the file.");
       }
 
-      recordConversion(currentUser ? currentUser.uid : null);
-
-      if (currentUser) {
-        setLoadingStep("Saving document to your account...");
-        await uploadUserDocuments(currentUser.uid, [file]);
-        toast({ title: "Document Saved", description: `${file.name} has been added to your Documents page.` });
-      }
-
+      // **FIX:** Show results to user immediately, before saving the file.
       setLoadingStep("Formatting data for Excel...");
       const excelData = formatStructuredDataForExcel(structuredDataResult);
       setExcelReadyData(excelData);
+      
+      // Stop the main loading indicator now, as user has their result.
+      setIsLoading(false);
+      setLoadingStep("");
 
       toast({ title: "Conversion Successful", description: "Data processed and structured. Ready for preview/download." });
+
+      // **FIX:** Record conversion and save document in the background *after* showing results.
+      recordConversion(currentUser ? currentUser.uid : null);
+      if (currentUser) {
+        // No need to show "Saving..." to the user, it happens silently.
+        // We can add a small, non-blocking toast notification if we want.
+        uploadUserDocuments(currentUser.uid, [file]).then(() => {
+          toast({ title: "Document Saved", description: `${file.name} has been added to your Documents page.` });
+        }).catch((uploadError) => {
+          console.error("Background document save failed:", uploadError);
+          toast({ variant: "destructive", title: "Save Failed", description: `Could not save ${file.name} to your documents.` });
+        });
+      }
 
     } catch (err: any) {
       console.error("Detailed error in handleFileSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
@@ -187,7 +197,7 @@ export default function HomePage() {
       setError(displayMessage);
       toast({ variant: "destructive", title: "Processing Error", description: displayMessage, duration: 9000 });
       setExcelReadyData(null);
-    } finally {
+      // Ensure loading is stopped on error
       setIsLoading(false);
       setLoadingStep("");
     }
