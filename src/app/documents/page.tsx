@@ -1,142 +1,318 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UploadCloud, BrainCircuit, FileSpreadsheet, ShieldCheck, FileText, FileImage, Zap } from "lucide-react";
-import type { GeneralSiteSettings } from '@/types/site-settings';
-import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { MoreHorizontal, FileText, Upload, Trash2, Download, CirclePlay, Loader2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import LoadingSpinner from '@/components/core/loading-spinner';
+import FileUploader from '@/components/core/file-uploader';
+
+import {
+  getUserDocuments,
+  deleteUserDocument,
+  uploadUserDocuments,
+  type UserDocument,
+  downloadFileFromStorage,
+} from '@/lib/firebase-document-service';
+
+import { extractTextFromPdf, convertAllPdfPagesToImageUris, formatStructuredDataForExcel } from '@/lib/pdf-utils';
+import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
+import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
+import { exportToExcel } from '@/lib/excel-export';
 import { useLanguage } from '@/context/language-context';
 
-const GENERIC_APP_NAME = "Our Application";
-const GENERIC_PAGE_TITLE = "Documentation";
-const GENERIC_PAGE_DESCRIPTION = "Learn how our application works, its key features, and how we handle your data.";
+const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
+const MAX_FILES_PER_UPLOAD = 5;
 
 export default function DocumentsPage() {
-  const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
-  const pathname = usePathname();
+  const { currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
   const { getTranslation } = useLanguage();
 
+  const [documents, setDocuments] = useState<UserDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<UserDocument | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+
   useEffect(() => {
-    const unsubscribe = subscribeToGeneralSettings((settings) => {
-      const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
-      setDisplayedSiteTitle(currentSiteTitle);
+    if (!authLoading && !currentUser) {
+      router.push('/login');
+    }
+  }, [currentUser, authLoading, router]);
 
-      let pageTitle = `${GENERIC_PAGE_TITLE} - ${currentSiteTitle}`;
-      let pageDescription = GENERIC_PAGE_DESCRIPTION;
+  const fetchDocuments = useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    try {
+      const userDocs = await getUserDocuments(currentUser.uid);
+      setDocuments(userDocs);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load your documents.' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser, toast]);
 
-      if (settings?.seoSettings && settings.seoSettings[pathname]) {
-        const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) pageTitle = seoData.title;
-        if (seoData?.description) pageDescription = seoData.description;
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  const handleFilesUpload = async (files: File[]) => {
+    if (!currentUser || files.length === 0) return;
+
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      toast({
+        variant: 'destructive',
+        title: 'Too Many Files',
+        description: `You can upload a maximum of ${MAX_FILES_PER_UPLOAD} files at a time.`,
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await uploadUserDocuments(currentUser.uid, files);
+      toast({ title: 'Upload Successful', description: `${files.length} document(s) have been uploaded.` });
+      fetchDocuments(); // Refresh the list
+      setShowUploadDialog(false); // Close dialog on success
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteClick = (doc: UserDocument) => {
+    setDocToDelete(doc);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!docToDelete || !currentUser) return;
+    setIsDeleting(true);
+    try {
+      await deleteUserDocument(currentUser.uid, docToDelete.id, docToDelete.storagePath);
+      toast({ title: 'Document Deleted', description: `"${docToDelete.fileName}" has been deleted.` });
+      setDocuments(prev => prev.filter(d => d.id !== docToDelete.id));
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: `Could not delete document: ${error.message}` });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setDocToDelete(null);
+    }
+  };
+  
+  const processAndDownload = async (docsToProcess: UserDocument[]) => {
+    if (docsToProcess.length === 0 || !currentUser) return;
+    
+    setIsProcessing(true);
+    let allTransactions: Transaction[] = [];
+
+    try {
+      for (let i = 0; i < docsToProcess.length; i++) {
+        const doc = docsToProcess[i];
+        const progressPrefix = docsToProcess.length > 1 ? `(File ${i + 1}/${docsToProcess.length}) ` : '';
+        setProcessingStatus(`${progressPrefix}Downloading "${doc.fileName}"...`);
+
+        const fileBuffer = await downloadFileFromStorage(doc.storagePath);
         
-        let keywordsTag = document.querySelector('meta[name="keywords"]');
-        if (!keywordsTag) {
-          keywordsTag = document.createElement('meta');
-          keywordsTag.setAttribute('name', 'keywords');
-          document.head.appendChild(keywordsTag);
+        setProcessingStatus(`${progressPrefix}Extracting text from "${doc.fileName}"...`);
+        const directText = await extractTextFromPdf(fileBuffer);
+        let rawTextOutput: string;
+
+        if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
+          rawTextOutput = directText;
+        } else {
+          setProcessingStatus(`${progressPrefix}Scanning pages of "${doc.fileName}" with OCR...`);
+          const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
+          let ocrTextFromAllPages = '';
+          for (let pageIndex = 0; pageIndex < imageDataUris.length; pageIndex++) {
+              setProcessingStatus(`${progressPrefix}"${doc.fileName}" - OCR on page ${pageIndex + 1}/${imageDataUris.length}...`);
+              const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[pageIndex] });
+              if (aiOcrResult?.extractedText) ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
+          }
+          if (!ocrTextFromAllPages) throw new Error(`OCR failed to extract text from ${doc.fileName}.`);
+          rawTextOutput = ocrTextFromAllPages;
         }
-        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
+        
+        setProcessingStatus(`${progressPrefix}Structuring data from "${doc.fileName}"...`);
+        const structuredDataResult = await structurePdfDataAI({ rawText: rawTextOutput });
+        
+        if (structuredDataResult?.transactions) {
+          allTransactions.push(...structuredDataResult.transactions);
+        }
       }
-      document.title = pageTitle;
-      let descriptionTag = document.querySelector('meta[name="description"]');
-      if (!descriptionTag) {
-        descriptionTag = document.createElement('meta');
-        descriptionTag.setAttribute('name', 'description');
-        document.head.appendChild(descriptionTag);
-      }
-      descriptionTag.setAttribute('content', pageDescription);
-    });
-    return () => unsubscribe();
-  }, [pathname]);
+
+      if (allTransactions.length === 0) throw new Error("No transactions could be extracted.");
+
+      setProcessingStatus("Aggregating data for Excel...");
+      allTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const excelData = formatStructuredDataForExcel({ transactions: allTransactions });
+      
+      const excelFileName = docsToProcess.length > 1 ? 'consolidated_statements.xlsx' : `${docsToProcess[0].fileName.replace('.pdf', '')}.xlsx`;
+      exportToExcel(excelData, excelFileName);
+
+      toast({ title: 'Conversion Successful', description: 'Your Excel file is downloading.' });
+
+    } catch (err: any) {
+      console.error("Processing error:", err);
+      toast({ variant: 'destructive', title: 'Processing Error', description: err.message, duration: 9000 });
+    } finally {
+      setIsProcessing(false);
+      setProcessingStatus('');
+    }
+  };
+
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+        <LoadingSpinner message="Loading your documents..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-12">
-      <section className="text-center py-10 bg-card shadow-lg rounded-lg">
-        <h1 className="text-5xl font-extrabold text-primary mb-4">Documentation</h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-          Everything you need to know about {displayedSiteTitle}.
-        </p>
-      </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">How It Works</CardTitle>
-          <CardDescription>A simple three-step process to get your data.</CardDescription>
+    <div className="space-y-6">
+      <Card className="shadow-xl">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-3xl font-bold text-primary flex items-center gap-2">
+              <FileText /> My Documents
+            </CardTitle>
+            <CardDescription>Upload, manage, and convert your PDF statements.</CardDescription>
+          </div>
+          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Upload className="mr-2 h-4 w-4" /> Upload New Documents
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload PDF Statements</DialogTitle>
+              </DialogHeader>
+              {isUploading ? (
+                 <div className="py-10"><LoadingSpinner message="Uploading..." /></div>
+              ) : (
+                <FileUploader
+                  onFilesSelect={handleFilesUpload}
+                  selectedFiles={[]}
+                  clearSelection={() => {}}
+                  isSubscribed={true} // Allow multiple files
+                  dragText={`Drag & drop up to ${MAX_FILES_PER_UPLOAD} PDF files here`}
+                  clickText="Click to select files"
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         </CardHeader>
-        <CardContent className="space-y-8">
-          <div className="flex items-start gap-6">
-            <div className="flex flex-col items-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <UploadCloud className="h-6 w-6" />
-              </div>
-              <div className="h-16 w-px bg-border my-2"></div>
+        <CardContent>
+          {isProcessing ? (
+             <div className="text-center py-10"><LoadingSpinner message={processingStatus || 'Processing documents...'} /></div>
+          ) : documents.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-lg text-muted-foreground">You haven&apos;t uploaded any documents yet.</p>
+              <p className="text-sm text-muted-foreground">Click the &quot;Upload&quot; button to get started.</p>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold">Step 1: Upload Your PDF</h3>
-              <p className="text-muted-foreground">Drag and drop your PDF bank statement or select it from your device. Our system accepts both text-based and image-based (scanned) PDFs.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File Name</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Date Uploaded</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documents.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">{doc.fileName}</TableCell>
+                      <TableCell>{(doc.fileSize / 1024).toFixed(2)} KB</TableCell>
+                      <TableCell>{format(new Date(doc.uploadedAt), 'PPp')}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => processAndDownload([doc])}>
+                              <Download className="mr-2 h-4 w-4" /> Convert to Excel
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteClick(doc)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-          <div className="flex items-start gap-6">
-            <div className="flex flex-col items-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <BrainCircuit className="h-6 w-6" />
-                </div>
-                <div className="h-16 w-px bg-border my-2"></div>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold">Step 2: AI-Powered Processing</h3>
-              <p className="text-muted-foreground">Our advanced AI gets to work. It first determines if the PDF contains selectable text. If not, it performs Optical Character Recognition (OCR) to extract the text. Then, it analyzes the raw text to identify and structure the transaction data, including dates, descriptions, debits, credits, and running balances.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-6">
-             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <FileSpreadsheet className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold">Step 3: Preview and Download</h3>
-              <p className="text-muted-foreground">Once processed, you'll see a preview of the structured data right on the page. If everything looks correct, simply click the "Download Excel" button to get your neatly organized `.xlsx` file.</p>
-            </div>
-          </div>
+          )}
         </CardContent>
+        {documents.length > 0 && !isProcessing && (
+           <CardContent className="border-t pt-6 text-center">
+             <Button size="lg" onClick={() => processAndDownload(documents)} disabled={isProcessing}>
+              {isProcessing ? (
+                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <CirclePlay className="mr-2 h-5 w-5" />
+              )}
+               Convert All ({documents.length}) to One Excel File
+            </Button>
+           </CardContent>
+        )}
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">Key Features</CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-8">
-            <div className="flex gap-4">
-                <FileText className="h-8 w-8 text-accent shrink-0 mt-1" />
-                <div>
-                    <h4 className="font-semibold text-lg">Text-Based PDF Support</h4>
-                    <p className="text-muted-foreground">For PDFs created directly from software (e-bills, etc.), our tool extracts text with perfect accuracy, ensuring a clean and reliable conversion.</p>
-                </div>
-            </div>
-            <div className="flex gap-4">
-                <FileImage className="h-8 w-8 text-accent shrink-0 mt-1" />
-                <div>
-                    <h4 className="font-semibold text-lg">Image-Based (Scanned) PDF Support</h4>
-                    <p className="text-muted-foreground">Have a scanned paper statement? No problem. Our AI performs OCR to read the text from the image before structuring the data.</p>
-                </div>
-            </div>
-            <div className="flex gap-4">
-                <Zap className="h-8 w-8 text-accent shrink-0 mt-1" />
-                <div>
-                    <h4 className="font-semibold text-lg">Intelligent Data Structuring</h4>
-                    <p className="text-muted-foreground">More than just text extraction, our AI understands bank statements. It correctly identifies columns for dates, descriptions, and monetary values, even with complex layouts.</p>
-                </div>
-            </div>
-            <div className="flex gap-4">
-                <ShieldCheck className="h-8 w-8 text-accent shrink-0 mt-1" />
-                <div>
-                    <h4 className="font-semibold text-lg">Privacy and Security</h4>
-                    <p className="text-muted-foreground">We prioritize your privacy. Uploaded documents are processed in memory and are not stored on our servers after the conversion is complete. Your data remains your own.</p>
-                </div>
-            </div>
-        </CardContent>
-      </Card>
+      
+       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the file &quot;{docToDelete?.fileName}&quot;. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isDeleting ? <LoadingSpinner message="Deleting..." /> : "Yes, delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -12,20 +12,20 @@ interface FileUploaderProps {
   selectedFiles: File[];
   clearSelection: () => void;
   disabled?: boolean;
-  isSubscribed?: boolean;
+  isSubscribed?: boolean; // Can be used for plan-based limits in future
   dragText?: string;
   orText?: string;
   clickText?: string;
 }
 
-const MAX_FILES = 12;
+const MAX_FILES_LOGGED_IN = 5;
 
 export default function FileUploader({ 
   onFilesSelect, 
   selectedFiles, 
   clearSelection, 
   disabled = false,
-  isSubscribed = false,
+  isSubscribed = false, // True for any logged-in user now
   dragText = "Drag & drop a PDF file here",
   orText = "or",
   clickText = "Click to select file"
@@ -40,18 +40,18 @@ export default function FileUploader({
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: isSubscribed ? MAX_FILES : 1,
+    maxFiles: isSubscribed ? MAX_FILES_LOGGED_IN : 1,
     multiple: isSubscribed,
     disabled,
   });
 
   const uploaderText = isSubscribed 
-    ? dragText.replace('a PDF file', `up to ${MAX_FILES} PDF files`)
+    ? dragText.replace('a PDF file', `up to ${MAX_FILES_LOGGED_IN} PDF files`)
     : dragText;
   
   const selectedFileCount = selectedFiles.length;
 
-  if (selectedFileCount > 0) {
+  if (selectedFileCount > 0 && !isSubscribed) { // Only show this view for single-file uploader
     return (
       <Card className="border-dashed border-2 border-primary/50 bg-primary/5">
         <CardContent className="p-6 flex flex-col items-center justify-center text-center">
@@ -94,7 +94,7 @@ export default function FileUploader({
               {clickText}
             </Button>
             <p className="text-xs text-muted-foreground mt-4">
-              Max file size: 10MB each. PDF only. {isSubscribed && `Max ${MAX_FILES} files.`}
+              Max file size: 10MB each. PDF only. {isSubscribed && `Max ${MAX_FILES_LOGGED_IN} files.`}
             </p>
           </>
         )}
@@ -102,5 +102,3 @@ export default function FileUploader({
     </Card>
   );
 }
-
-    

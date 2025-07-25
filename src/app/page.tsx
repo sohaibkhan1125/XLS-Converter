@@ -10,7 +10,7 @@ import FeatureSection from '@/components/core/feature-section';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Download, Trash2, Zap } from 'lucide-react';
+import { Terminal, Download, Trash2, Zap, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { checkConversionLimit, recordConversion, formatTime, type LimitStatus, getActivePlan, type ActivePlan } from '@/lib/local-storage-limits';
@@ -20,14 +20,15 @@ import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extra
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/language-context';
+import Link from 'next/link';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
 
 export default function HomePage() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
@@ -45,6 +46,7 @@ export default function HomePage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
+  const router = useRouter();
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
   const { getTranslation } = useLanguage();
@@ -94,127 +96,94 @@ export default function HomePage() {
   }, [pathname]);
 
 
-  const handleFilesSelect = async (files: File[]) => {
-    setSelectedFiles(files);
+  const handleFileSelect = async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    if (currentUser) {
+      toast({
+        title: "Please use the Documents page",
+        description: "As a logged-in user, please upload and manage your files on the dedicated Documents page for a better experience.",
+        duration: 8000
+      });
+      router.push('/documents');
+      return;
+    }
+
+    setSelectedFile(file);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
 
-    if (files.length === 0) return;
-
-    const numFiles = files.length;
-    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null, numFiles);
+    const limitStatus: LimitStatus = checkConversionLimit(null, 1);
     
     if (!limitStatus.allowed) {
       setLimitDialogContent({
-        userType: currentUser ? 'loggedIn' : 'guest',
+        userType: 'guest',
         timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
-        onPlan: limitStatus.onPlan,
-        planName: limitStatus.planName,
-        isPlanExhausted: limitStatus.isPlanExhausted,
       });
       setShowLimitDialog(true);
-      setSelectedFiles([]); // Clear selection as we can't proceed
-      return; // CRITICAL: Stop the function here
+      setSelectedFile(null); // Clear selection
+      return;
     }
 
     setIsLoading(true);
-    let allTransactions: Transaction[] = [];
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const progressPrefix = files.length > 1 ? `(File ${i + 1}/${files.length})` : '';
+      const fileBuffer = await file.arrayBuffer();
+      let rawTextOutput: string;
 
-        const fileBuffer = await file.arrayBuffer();
-        let rawTextOutput: string;
+      setLoadingStep(`Extracting text from PDF...`);
+      const directText = await extractTextFromPdf(fileBuffer);
 
-        setLoadingStep(`${progressPrefix} Extracting text from PDF...`);
-        const directText = await extractTextFromPdf(fileBuffer);
+      if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
+        rawTextOutput = directText;
+        toast({ title: "Text Extracted", description: `Successfully extracted text from ${file.name}.` });
+      } else {
+        toast({ title: "Image PDF Detected", description: `Scanning all pages of ${file.name} with OCR. This may take a moment.` });
+        setLoadingStep(`Performing OCR on all PDF pages...`);
+        const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
 
-        if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
-          rawTextOutput = directText;
-          toast({ title: "Text Extracted", description: `Successfully extracted text from ${file.name}.` });
-        } else {
-          toast({ title: "Image PDF Detected", description: `Scanning all pages of ${file.name} with OCR. This may take a moment.` });
-          setLoadingStep(`${progressPrefix} Performing OCR on all PDF pages...`);
-          const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
-
-          let ocrTextFromAllPages = '';
-          for (let pageIndex = 0; pageIndex < imageDataUris.length; pageIndex++) {
-              setLoadingStep(`${progressPrefix} OCR on page ${pageIndex + 1}/${imageDataUris.length}...`);
-              const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[pageIndex] });
-              if (aiOcrResult && aiOcrResult.extractedText) {
-                  ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
-              }
-          }
-
-          if (!ocrTextFromAllPages) {
-            throw new Error(`OCR process failed to extract any text from ${file.name}.`);
-          }
-          rawTextOutput = ocrTextFromAllPages;
-          toast({ title: "OCR Successful", description: `Text extracted from all pages of ${file.name} using OCR.` });
-        }
-        
-        setLoadingStep(`${progressPrefix} Structuring transaction data with AI...`);
-        toast({ title: "Structuring Data", description: `AI is analyzing ${file.name} for transactions.` });
-        const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
-        
-        if (structuredDataResult && structuredDataResult.transactions) {
-          allTransactions.push(...structuredDataResult.transactions);
-        } else {
-           console.warn(`AI structuring returned no transactions for ${file.name}:`, structuredDataResult);
-           toast({ variant: "destructive", title: "AI Structuring Issue", description: `AI could not find transactions in ${file.name}.` });
+        let ocrTextFromAllPages = '';
+        for (let pageIndex = 0; pageIndex < imageDataUris.length; pageIndex++) {
+            setLoadingStep(`OCR on page ${pageIndex + 1}/${imageDataUris.length}...`);
+            const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[pageIndex] });
+            if (aiOcrResult && aiOcrResult.extractedText) {
+                ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
+            }
         }
 
-        // Record a conversion for each successfully processed file.
-        recordConversion(currentUser ? currentUser.uid : null);
+        if (!ocrTextFromAllPages) {
+          throw new Error(`OCR process failed to extract any text from ${file.name}.`);
+        }
+        rawTextOutput = ocrTextFromAllPages;
+        toast({ title: "OCR Successful", description: `Text extracted from all pages of ${file.name} using OCR.` });
       }
-
-      if (allTransactions.length === 0) {
-        throw new Error("No transactions could be extracted from any of the provided files.");
-      }
-
-      setLoadingStep("Aggregating and formatting data for Excel...");
-      // Sort all transactions by date ascending. Handle potential invalid date strings.
-      allTransactions.sort((a, b) => {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          if (isNaN(dateA)) return 1; // Put invalid dates at the end
-          if (isNaN(dateB)) return -1;
-          return dateA - dateB;
-      });
       
-      const combinedOutput: StructuredPdfDataOutput = { transactions: allTransactions };
-      const excelData = formatStructuredDataForExcel(combinedOutput);
+      setLoadingStep(`Structuring transaction data with AI...`);
+      toast({ title: "Structuring Data", description: `AI is analyzing ${file.name} for transactions.` });
+      const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
+      
+      if (!structuredDataResult || !structuredDataResult.transactions || structuredDataResult.transactions.length === 0) {
+        throw new Error("No transactions could be extracted from the file.");
+      }
+
+      recordConversion(null); // Record guest conversion
+
+      setLoadingStep("Formatting data for Excel...");
+      const excelData = formatStructuredDataForExcel(structuredDataResult);
       setExcelReadyData(excelData);
 
-      const newLimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null);
-      let conversionToastDescription = "All PDF data processed and structured. Ready for preview/download.";
-      if (newLimitStatus.onPlan && newLimitStatus.planName) {
-        conversionToastDescription += ` ${newLimitStatus.remaining} ${newLimitStatus.planName} conversions remaining.`;
-      } else {
-        conversionToastDescription += ` ${newLimitStatus.remaining} free conversions remaining.`;
-      }
-      toast({ title: "Batch Conversion Successful", description: conversionToastDescription, duration: 9000 });
+      toast({ title: "Conversion Successful", description: "Data processed and structured. Ready for preview/download." });
 
     } catch (err: any) {
-      console.error("Detailed error in handleFilesSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      console.error("Detailed error in handleFileSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
       let displayMessage = "Processing failed. ";
       if (err.message) {
         displayMessage += err.message;
       } else {
         displayMessage += "An unknown error occurred.";
       }
-      if (err.details) {
-        try {
-          displayMessage += ` Details: ${JSON.stringify(err.details)}`;
-        } catch (e) { /* ignore stringify error */ }
-      }
-      if (err.cause && err.cause.message) {
-         displayMessage += ` Cause: ${err.cause.message}`;
-      }
-      
       setError(displayMessage);
       toast({ variant: "destructive", title: "Processing Error", description: displayMessage, duration: 9000 });
       setExcelReadyData(null);
@@ -225,15 +194,15 @@ export default function HomePage() {
   };
 
   const handleClearSelection = () => {
-    setSelectedFiles([]);
+    setSelectedFile(null);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
   };
 
   const handleDownload = () => {
-    if (excelReadyData) {
-      const fileName = activePlan ? `${activePlan.name}_consolidated_statements.xlsx` : 'converted_data.xlsx';
+    if (excelReadyData && selectedFile) {
+      const fileName = `${selectedFile.name.replace(/\.pdf$/i, '')}.xlsx`;
       exportToExcel(excelReadyData, fileName);
       toast({ title: "Download Started", description: `${fileName} is being downloaded.` });
     }
@@ -247,20 +216,36 @@ export default function HomePage() {
             <Zap className="mr-2 h-8 w-8 text-primary" /> {getTranslation('pageTitle')}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
-            {getTranslation('pageDescription')}
+            {currentUser 
+              ? "Upload and manage your documents on your dedicated Documents page." 
+              : getTranslation('pageDescription')
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <FileUploader 
-            onFilesSelect={handleFilesSelect} 
-            selectedFiles={selectedFiles}
-            clearSelection={handleClearSelection}
-            disabled={isLoading}
-            isSubscribed={!!activePlan}
-            dragText={getTranslation('fileUploaderDrag')}
-            orText={getTranslation('fileUploaderOr')}
-            clickText={getTranslation('fileUploaderClick')}
-          />
+          {currentUser ? (
+             <div className="text-center p-8 border-dashed border-2 rounded-lg bg-muted/30">
+                <FileText className="mx-auto h-12 w-12 text-primary mb-4" />
+                <h3 className="text-xl font-semibold text-foreground">Welcome Back!</h3>
+                <p className="text-muted-foreground mt-2 mb-4">
+                    Manage your files, upload in batches, and convert multiple statements at once from your personal Documents page.
+                </p>
+                <Button asChild size="lg">
+                    <Link href="/documents">Go to My Documents</Link>
+                </Button>
+            </div>
+          ) : (
+            <FileUploader 
+              onFilesSelect={handleFileSelect} 
+              selectedFiles={selectedFile ? [selectedFile] : []}
+              clearSelection={handleClearSelection}
+              disabled={isLoading}
+              isSubscribed={false} // Guest always single-file
+              dragText={getTranslation('fileUploaderDrag')}
+              orText={getTranslation('fileUploaderOr')}
+              clickText={getTranslation('fileUploaderClick')}
+            />
+          )}
 
           {isLoading && (
             <div className="py-10">
@@ -269,17 +254,17 @@ export default function HomePage() {
             </div>
           )}
 
-          {error && !isLoading && (
+          {error && !isLoading && !currentUser && (
             <Alert variant="destructive">
               <Terminal className="h-4 w-4" />
-              <AlertTitle>Error Processing PDF(s)</AlertTitle>
+              <AlertTitle>Error Processing PDF</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {excelReadyData && !isLoading && (
+          {excelReadyData && !isLoading && !currentUser && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-foreground">Data Preview (Consolidated)</h2>
+              <h2 className="text-2xl font-semibold text-foreground">Data Preview</h2>
               <DataPreview data={excelReadyData} />
               <div className="flex justify-end space-x-3 pt-4">
                 <Button variant="outline" onClick={handleClearSelection} disabled={isLoading}>
@@ -299,9 +284,6 @@ export default function HomePage() {
         onOpenChange={setShowLimitDialog}
         userType={limitDialogContent.userType}
         timeToWaitFormatted={limitDialogContent.timeToWaitFormatted}
-        onPlan={limitDialogContent.onPlan}
-        planName={limitDialogContent.planName}
-        isPlanExhausted={limitDialogContent.isPlanExhausted}
       />
 
       <FeatureSection siteTitle={displayedSiteTitle} />

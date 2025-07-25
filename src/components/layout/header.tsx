@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import AppLogo from './app-logo';
-import { Languages, Menu, User as UserIcon, LogOut, CreditCard, Settings } from 'lucide-react'; 
+import { Languages, Menu, User as UserIcon, LogOut, CreditCard, Settings, FileText } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -63,7 +63,6 @@ export default function AppHeader() {
   
   const loggedOutLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
-    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
     { id: 'login', href: '/login', labelKey: 'login' },
     { id: 'register', href: '/signup', labelKey: 'register' },
@@ -71,9 +70,9 @@ export default function AppHeader() {
 
   const loggedInLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
+    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
     { id: 'settings', href: '/settings', labelKey: 'navSettings' },
-    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
   ];
 
   const mobileLinks = currentUser ? loggedInLinks : loggedOutLinks;
@@ -165,6 +164,9 @@ export default function AppHeader() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/billing"><CreditCard className="mr-2 h-4 w-4" />Billing</Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                  <Link href="/documents"><FileText className="mr-2 h-4 w-4" />My Documents</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}>
