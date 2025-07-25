@@ -18,6 +18,7 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertAllPdfPagesToImageUris, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
+import { uploadUserDocuments } from '@/lib/firebase-document-service'; // Import the upload service
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname, useRouter } from 'next/navigation';
@@ -100,27 +101,20 @@ export default function HomePage() {
     const file = files[0];
     if (!file) return;
 
-    if (currentUser) {
-      toast({
-        title: "Please use the Documents page",
-        description: "As a logged-in user, please upload and manage your files on the dedicated Documents page for a better experience.",
-        duration: 8000
-      });
-      router.push('/documents');
-      return;
-    }
-
     setSelectedFile(file);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
 
-    const limitStatus: LimitStatus = checkConversionLimit(null, 1);
+    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null, 1);
     
     if (!limitStatus.allowed) {
       setLimitDialogContent({
-        userType: 'guest',
+        userType: currentUser ? 'loggedIn' : 'guest',
         timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
+        onPlan: limitStatus.onPlan,
+        planName: limitStatus.planName,
+        isPlanExhausted: limitStatus.isPlanExhausted
       });
       setShowLimitDialog(true);
       setSelectedFile(null); // Clear selection
@@ -168,7 +162,13 @@ export default function HomePage() {
         throw new Error("No transactions could be extracted from the file.");
       }
 
-      recordConversion(null); // Record guest conversion
+      recordConversion(currentUser ? currentUser.uid : null);
+
+      if (currentUser) {
+        setLoadingStep("Saving document to your account...");
+        await uploadUserDocuments(currentUser.uid, [file]);
+        toast({ title: "Document Saved", description: `${file.name} has been added to your Documents page.` });
+      }
 
       setLoadingStep("Formatting data for Excel...");
       const excelData = formatStructuredDataForExcel(structuredDataResult);
@@ -216,36 +216,20 @@ export default function HomePage() {
             <Zap className="mr-2 h-8 w-8 text-primary" /> {getTranslation('pageTitle')}
           </CardTitle>
           <CardDescription className="text-center text-lg text-muted-foreground">
-            {currentUser 
-              ? "Upload and manage your documents on your dedicated Documents page." 
-              : getTranslation('pageDescription')
-            }
+            {getTranslation('pageDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {currentUser ? (
-             <div className="text-center p-8 border-dashed border-2 rounded-lg bg-muted/30">
-                <FileText className="mx-auto h-12 w-12 text-primary mb-4" />
-                <h3 className="text-xl font-semibold text-foreground">Welcome Back!</h3>
-                <p className="text-muted-foreground mt-2 mb-4">
-                    Manage your files, upload in batches, and convert multiple statements at once from your personal Documents page.
-                </p>
-                <Button asChild size="lg">
-                    <Link href="/documents">Go to My Documents</Link>
-                </Button>
-            </div>
-          ) : (
-            <FileUploader 
-              onFilesSelect={handleFileSelect} 
-              selectedFiles={selectedFile ? [selectedFile] : []}
-              clearSelection={handleClearSelection}
-              disabled={isLoading}
-              isSubscribed={false} // Guest always single-file
-              dragText={getTranslation('fileUploaderDrag')}
-              orText={getTranslation('fileUploaderOr')}
-              clickText={getTranslation('fileUploaderClick')}
-            />
-          )}
+          <FileUploader 
+            onFilesSelect={handleFileSelect} 
+            selectedFiles={selectedFile ? [selectedFile] : []}
+            clearSelection={handleClearSelection}
+            disabled={isLoading}
+            isSubscribed={!!currentUser} // Allow multiple files for logged-in users
+            dragText={getTranslation('fileUploaderDrag')}
+            orText={getTranslation('fileUploaderOr')}
+            clickText={getTranslation('fileUploaderClick')}
+          />
 
           {isLoading && (
             <div className="py-10">
@@ -254,7 +238,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {error && !isLoading && !currentUser && (
+          {error && !isLoading && (
             <Alert variant="destructive">
               <Terminal className="h-4 w-4" />
               <AlertTitle>Error Processing PDF</AlertTitle>
@@ -262,7 +246,7 @@ export default function HomePage() {
             </Alert>
           )}
 
-          {excelReadyData && !isLoading && !currentUser && (
+          {excelReadyData && !isLoading && (
             <div className="space-y-4">
               <h2 className="text-2xl font-semibold text-foreground">Data Preview</h2>
               <DataPreview data={excelReadyData} />
@@ -284,6 +268,9 @@ export default function HomePage() {
         onOpenChange={setShowLimitDialog}
         userType={limitDialogContent.userType}
         timeToWaitFormatted={limitDialogContent.timeToWaitFormatted}
+        onPlan={limitDialogContent.onPlan}
+        planName={limitDialogContent.planName}
+        isPlanExhausted={limitDialogContent.isPlanExhausted}
       />
 
       <FeatureSection siteTitle={displayedSiteTitle} />
