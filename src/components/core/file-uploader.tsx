@@ -56,7 +56,7 @@ export default function FileUploader({
         <input {...getInputProps()} />
         <UploadCloud className={`h-12 w-12 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
         {isDragActive ? (
-          <p className="text-lg font-semibold text-primary">{uploaderText.replace('&', 'and')} ...</p>
+          <p className="text-lg font-semibold text-primary">{uploaderText.replace('&', 'and')}...</p>
         ) : (
           <>
             <p className="text-lg font-semibold text-foreground">{uploaderText}</p>

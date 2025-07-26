@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -45,6 +45,7 @@ const MAX_FILES_PER_UPLOAD = 5;
 export default function DocumentsPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { getTranslation } = useLanguage();
 
@@ -58,6 +59,15 @@ export default function DocumentsPage() {
   const [docToDelete, setDocToDelete] = useState<UserDocument | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('upload') === 'true') {
+      setShowUploadDialog(true);
+      // Clean the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -80,8 +90,10 @@ export default function DocumentsPage() {
   }, [currentUser, toast]);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (currentUser) {
+      fetchDocuments();
+    }
+  }, [currentUser, fetchDocuments]);
 
   const handleFilesUpload = async (files: File[]) => {
     if (!currentUser || files.length === 0) return;
@@ -224,9 +236,7 @@ export default function DocumentsPage() {
               ) : (
                 <FileUploader
                   onFilesSelect={handleFilesUpload}
-                  selectedFiles={[]}
-                  clearSelection={() => {}}
-                  isSubscribed={true} // Allow multiple files
+                  isSubscribed={true}
                   dragText={`Drag & drop up to ${MAX_FILES_PER_UPLOAD} PDF files here`}
                   clickText="Click to select files"
                 />

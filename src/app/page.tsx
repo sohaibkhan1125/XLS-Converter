@@ -18,7 +18,7 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertAllPdfPagesToImageUris, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
-import { uploadUserDocuments } from '@/lib/firebase-document-service'; // Import the upload service
+import { uploadUserDocuments } from '@/lib/firebase-document-service'; 
 import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname, useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ import { useLanguage } from '@/context/language-context';
 import Link from 'next/link';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
-const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
+const GENERIC_APP_NAME = "PDF to Excel Converter";
 
 export default function HomePage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -71,7 +71,7 @@ export default function HomePage() {
         if (seoData?.title) {
           document.title = seoData.title;
         } else {
-          document.title = currentSiteTitle; // Fallback document title to site title
+          document.title = currentSiteTitle; 
         }
         
         let descriptionTag = document.querySelector('meta[name="description"]');
@@ -90,50 +90,96 @@ export default function HomePage() {
         }
         if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
       } else {
-         document.title = currentSiteTitle; // Fallback document title
+         document.title = currentSiteTitle;
       }
     });
     return () => unsubscribe();
   }, [pathname]);
 
-
-  const handleFileSelect = async (files: File[]) => {
+  const handleFileSelectForGuest = async (files: File[]) => {
     if (!files || files.length === 0) return;
+    const file = files[0]; 
 
-    if (!currentUser) {
-        toast({
-            variant: "destructive",
-            title: "Login Required",
-            description: "Please log in or create an account to upload and save documents.",
-        });
-        router.push('/login?redirect=/documents');
-        return;
+    const limitStatus = checkConversionLimit(null);
+    if (!limitStatus.allowed) {
+      setLimitDialogContent({
+        userType: 'guest',
+        timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
+      });
+      setShowLimitDialog(true);
+      return;
     }
-
+    
     setIsLoading(true);
-    setLoadingStep(`Uploading ${files.length} document(s)...`);
     setError(null);
+    setExcelReadyData(null);
+    setLoadingStep("Processing PDF...");
 
     try {
-        await uploadUserDocuments(currentUser.uid, files);
-        toast({
-            title: "Upload Successful!",
-            description: `${files.length} document(s) have been saved to your account. Redirecting...`,
-        });
-        router.push('/documents');
-        // Do not turn off loading here, let the redirect happen.
-        // If redirect fails, the user can manually navigate.
-        // Or we can add a timeout to turn off loading. For now, this is cleaner.
+      const fileBuffer = await file.arrayBuffer();
+      setLoadingStep("Extracting text from PDF...");
+      const directText = await extractTextFromPdf(fileBuffer);
+
+      let rawTextOutput: string;
+      if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
+        rawTextOutput = directText;
+      } else {
+        setLoadingStep("PDF has no text, using OCR to scan pages...");
+        const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
+        let ocrTextFromAllPages = '';
+        for (let i = 0; i < imageDataUris.length; i++) {
+          setLoadingStep(`Scanning page ${i + 1} of ${imageDataUris.length}...`);
+          const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[i] });
+          if (aiOcrResult?.extractedText) ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
+        }
+        if (!ocrTextFromAllPages) throw new Error("OCR failed to extract any text from the document.");
+        rawTextOutput = ocrTextFromAllPages;
+      }
+
+      setLoadingStep("Structuring data with AI...");
+      const structuredDataResult = await structurePdfDataAI({ rawText: rawTextOutput });
+
+      setLoadingStep("Preparing Excel data...");
+      const formattedData = formatStructuredDataForExcel(structuredDataResult);
+      setExcelReadyData(formattedData);
+      setSelectedFiles([file]);
+
+      recordConversion(null);
 
     } catch (err: any) {
-        const errorMessage = err.message || "An unknown error occurred during upload.";
-        console.error("Detailed error in handleFileSelect (upload):", err);
-        setError(errorMessage);
-        toast({ variant: "destructive", title: "Upload Failed", description: errorMessage, duration: 9000 });
-        setIsLoading(false); // IMPORTANT: Stop loading on error
+      const errorMessage = err.message || "An unknown error occurred during conversion.";
+      console.error("Detailed error in handleFileSelect (guest):", err);
+      setError(errorMessage);
+      toast({ variant: "destructive", title: "Conversion Failed", description: errorMessage, duration: 9000 });
+    } finally {
+      setIsLoading(false);
+      setLoadingStep("");
+    }
+  };
+  
+  const handleFileSelect = async (files: File[]) => {
+    // If not logged in, use the old guest flow
+    if (!currentUser) {
+      handleFileSelectForGuest(files);
+      return;
+    }
+    
+    // If logged in, redirect to the documents page to handle the upload
+    if (files.length > 0) {
+        toast({
+            title: "Redirecting to Documents",
+            description: "Please complete your upload on the documents page."
+        });
+        router.push('/documents?upload=true');
     }
   };
 
+  const handleDownload = () => {
+    if (excelReadyData && selectedFiles.length > 0) {
+      const originalFileName = selectedFiles[0].name.replace(/\.[^/.]+$/, "");
+      exportToExcel(excelReadyData, `${originalFileName}.xlsx`);
+    }
+  };
 
   const handleClearSelection = () => {
     setSelectedFiles([]);
@@ -154,14 +200,34 @@ export default function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <FileUploader 
-            onFilesSelect={handleFileSelect}
-            disabled={isLoading}
-            isSubscribed={!!currentUser}
-            dragText={getTranslation('fileUploaderDrag')}
-            orText={getTranslation('fileUploaderOr')}
-            clickText={getTranslation('fileUploaderClick')}
-          />
+          {!excelReadyData ? (
+            <FileUploader 
+              onFilesSelect={handleFileSelect}
+              disabled={isLoading}
+              isSubscribed={!!currentUser}
+              dragText={getTranslation('fileUploaderDrag')}
+              orText={getTranslation('fileUploaderOr')}
+              clickText={getTranslation('fileUploaderClick')}
+            />
+          ) : (
+             <div className="space-y-4">
+               <Card>
+                 <CardHeader className="flex flex-row items-center justify-between">
+                   <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary"/>
+                    <CardTitle className="text-xl">Conversion Preview</CardTitle>
+                   </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handleClearSelection}><Trash2 className="mr-2 h-4 w-4"/>Start Over</Button>
+                      <Button size="sm" onClick={handleDownload}><Download className="mr-2 h-4 w-4"/>Download Excel</Button>
+                    </div>
+                 </CardHeader>
+                 <CardContent>
+                    <DataPreview data={excelReadyData} />
+                 </CardContent>
+               </Card>
+            </div>
+          )}
 
           {isLoading && (
             <div className="py-10">
