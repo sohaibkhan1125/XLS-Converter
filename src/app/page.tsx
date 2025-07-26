@@ -110,10 +110,9 @@ export default function HomePage() {
         return;
     }
 
-    setSelectedFiles(files);
-    setError(null);
     setIsLoading(true);
     setLoadingStep(`Uploading ${files.length} document(s) to your account...`);
+    setError(null);
 
     try {
         await uploadUserDocuments(currentUser.uid, files);
@@ -128,7 +127,8 @@ export default function HomePage() {
         const displayMessage = err.message || "An unknown error occurred during upload.";
         setError(displayMessage);
         toast({ variant: "destructive", title: "Upload Failed", description: displayMessage, duration: 9000 });
-        setIsLoading(false);
+    } finally {
+        setIsLoading(false); // This ensures loading is always stopped
     }
   };
 
