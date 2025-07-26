@@ -9,8 +9,6 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface FileUploaderProps {
   onFilesSelect: (files: File[]) => void;
-  selectedFiles: File[];
-  clearSelection: () => void;
   disabled?: boolean;
   isSubscribed?: boolean;
   dragText?: string;
@@ -22,8 +20,6 @@ const MAX_FILES_LOGGED_IN = 5;
 
 export default function FileUploader({ 
   onFilesSelect, 
-  selectedFiles, 
-  clearSelection, 
   disabled = false,
   isSubscribed = false,
   dragText = "Drag & drop a PDF file here",
@@ -31,11 +27,8 @@ export default function FileUploader({
   clickText = "Click to select file"
 }: FileUploaderProps) {
   
-  const [internalSelectedFiles, setInternalSelectedFiles] = useState<File[]>([]);
-
   const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
-      setInternalSelectedFiles(acceptedFiles); // Keep track of selection for display
       onFilesSelect(acceptedFiles);
     }
   }, [onFilesSelect]);
@@ -51,39 +44,6 @@ export default function FileUploader({
   const uploaderText = isSubscribed 
     ? dragText.replace('a PDF file', `up to ${MAX_FILES_LOGGED_IN} PDF files`)
     : dragText;
-  
-  const selectedFileCount = internalSelectedFiles.length;
-
-  if (selectedFileCount > 0 && !disabled) {
-    return (
-      <Card className="border-dashed border-2 border-primary/50 bg-primary/5">
-        <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-          {selectedFileCount === 1 ? (
-             <FileText className="h-12 w-12 text-primary mb-4" />
-          ) : (
-             <Files className="h-12 w-12 text-primary mb-4" />
-          )}
-          <p className="text-lg font-medium text-foreground mb-1">
-            {selectedFileCount === 1 ? internalSelectedFiles[0].name : `${selectedFileCount} files selected`}
-          </p>
-          {selectedFileCount === 1 && (
-             <p className="text-sm text-muted-foreground mb-4">({(internalSelectedFiles[0].size / 1024).toFixed(2)} KB)</p>
-          )}
-          <Button 
-            onClick={() => {
-              setInternalSelectedFiles([]);
-              clearSelection();
-            }} 
-            variant="destructive" 
-            size="sm" 
-            disabled={disabled}
-          >
-            <XCircle className="mr-2 h-4 w-4" /> Clear Selection
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card 

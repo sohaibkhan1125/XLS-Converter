@@ -111,7 +111,7 @@ export default function HomePage() {
     }
 
     setIsLoading(true);
-    setLoadingStep(`Uploading ${files.length} document(s) to your account...`);
+    setLoadingStep(`Uploading ${files.length} document(s)...`);
     setError(null);
 
     try {
@@ -120,17 +120,20 @@ export default function HomePage() {
             title: "Upload Successful!",
             description: `${files.length} document(s) have been saved to your account. Redirecting...`,
         });
-        // Redirect to documents page to see the new files and convert them.
         router.push('/documents');
+        // Do not turn off loading here, let the redirect happen.
+        // If redirect fails, the user can manually navigate.
+        // Or we can add a timeout to turn off loading. For now, this is cleaner.
+
     } catch (err: any) {
-        console.error("Detailed error in handleFileSelect (upload):", JSON.stringify(err, Object.getOwnPropertyNames(err)));
-        const displayMessage = err.message || "An unknown error occurred during upload.";
-        setError(displayMessage);
-        toast({ variant: "destructive", title: "Upload Failed", description: displayMessage, duration: 9000 });
-    } finally {
-        setIsLoading(false); // This ensures loading is always stopped
+        const errorMessage = err.message || "An unknown error occurred during upload.";
+        console.error("Detailed error in handleFileSelect (upload):", err);
+        setError(errorMessage);
+        toast({ variant: "destructive", title: "Upload Failed", description: errorMessage, duration: 9000 });
+        setIsLoading(false); // IMPORTANT: Stop loading on error
     }
   };
+
 
   const handleClearSelection = () => {
     setSelectedFiles([]);
@@ -152,9 +155,7 @@ export default function HomePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <FileUploader 
-            onFilesSelect={handleFileSelect} 
-            selectedFiles={selectedFiles}
-            clearSelection={handleClearSelection}
+            onFilesSelect={handleFileSelect}
             disabled={isLoading}
             isSubscribed={!!currentUser}
             dragText={getTranslation('fileUploaderDrag')}
