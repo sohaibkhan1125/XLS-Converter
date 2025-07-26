@@ -29,7 +29,7 @@ const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter"; // Generic fallback
 
 export default function HomePage() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
@@ -98,124 +98,45 @@ export default function HomePage() {
 
 
   const handleFileSelect = async (files: File[]) => {
-    const file = files[0];
-    if (!file) return;
+    if (!files || files.length === 0) return;
 
-    setSelectedFile(file);
-    setExcelReadyData(null);
-    setError(null);
-    setLoadingStep("");
-
-    const limitStatus: LimitStatus = checkConversionLimit(currentUser ? currentUser.uid : null, 1);
-    
-    if (!limitStatus.allowed) {
-      setLimitDialogContent({
-        userType: currentUser ? 'loggedIn' : 'guest',
-        timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
-        onPlan: limitStatus.onPlan,
-        planName: limitStatus.planName,
-        isPlanExhausted: limitStatus.isPlanExhausted
-      });
-      setShowLimitDialog(true);
-      setSelectedFile(null); // Clear selection
-      return;
+    if (!currentUser) {
+        toast({
+            variant: "destructive",
+            title: "Login Required",
+            description: "Please log in or create an account to upload and save documents.",
+        });
+        router.push('/login?redirect=/documents');
+        return;
     }
 
+    setSelectedFiles(files);
+    setError(null);
     setIsLoading(true);
+    setLoadingStep(`Uploading ${files.length} document(s) to your account...`);
 
     try {
-      const fileBuffer = await file.arrayBuffer();
-      let rawTextOutput: string;
-
-      setLoadingStep(`Extracting text from PDF...`);
-      const directText = await extractTextFromPdf(fileBuffer);
-
-      if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
-        rawTextOutput = directText;
-        toast({ title: "Text Extracted", description: `Successfully extracted text from ${file.name}.` });
-      } else {
-        toast({ title: "Image PDF Detected", description: `Scanning all pages of ${file.name} with OCR. This may take a moment.` });
-        setLoadingStep(`Performing OCR on all PDF pages...`);
-        const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
-
-        let ocrTextFromAllPages = '';
-        for (let pageIndex = 0; pageIndex < imageDataUris.length; pageIndex++) {
-            setLoadingStep(`OCR on page ${pageIndex + 1}/${imageDataUris.length}...`);
-            const aiOcrResult = await extractTextFromImageAI({ photoDataUri: imageDataUris[pageIndex] });
-            if (aiOcrResult && aiOcrResult.extractedText) {
-                ocrTextFromAllPages += aiOcrResult.extractedText + '\n\n';
-            }
-        }
-
-        if (!ocrTextFromAllPages) {
-          throw new Error(`OCR process failed to extract any text from ${file.name}.`);
-        }
-        rawTextOutput = ocrTextFromAllPages;
-        toast({ title: "OCR Successful", description: `Text extracted from all pages of ${file.name} using OCR.` });
-      }
-      
-      setLoadingStep(`Structuring transaction data with AI...`);
-      toast({ title: "Structuring Data", description: `AI is analyzing ${file.name} for transactions.` });
-      const structuredDataResult: StructuredPdfDataOutput = await structurePdfDataAI({ rawText: rawTextOutput });
-      
-      if (!structuredDataResult || !structuredDataResult.transactions || structuredDataResult.transactions.length === 0) {
-        throw new Error("No transactions could be extracted from the file.");
-      }
-
-      // **FIX:** Show results to user immediately, before saving the file.
-      setLoadingStep("Formatting data for Excel...");
-      const excelData = formatStructuredDataForExcel(structuredDataResult);
-      setExcelReadyData(excelData);
-      
-      // Stop the main loading indicator now, as user has their result.
-      setIsLoading(false);
-      setLoadingStep("");
-
-      toast({ title: "Conversion Successful", description: "Data processed and structured. Ready for preview/download." });
-
-      // **FIX:** Record conversion and save document in the background *after* showing results.
-      recordConversion(currentUser ? currentUser.uid : null);
-      if (currentUser) {
-        // No need to show "Saving..." to the user, it happens silently.
-        // We can add a small, non-blocking toast notification if we want.
-        uploadUserDocuments(currentUser.uid, [file]).then(() => {
-          toast({ title: "Document Saved", description: `${file.name} has been added to your Documents page.` });
-        }).catch((uploadError) => {
-          console.error("Background document save failed:", uploadError);
-          toast({ variant: "destructive", title: "Save Failed", description: `Could not save ${file.name} to your documents.` });
+        await uploadUserDocuments(currentUser.uid, files);
+        toast({
+            title: "Upload Successful!",
+            description: `${files.length} document(s) have been saved to your account. Redirecting...`,
         });
-      }
-
+        // Redirect to documents page to see the new files and convert them.
+        router.push('/documents');
     } catch (err: any) {
-      console.error("Detailed error in handleFileSelect:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
-      let displayMessage = "Processing failed. ";
-      if (err.message) {
-        displayMessage += err.message;
-      } else {
-        displayMessage += "An unknown error occurred.";
-      }
-      setError(displayMessage);
-      toast({ variant: "destructive", title: "Processing Error", description: displayMessage, duration: 9000 });
-      setExcelReadyData(null);
-      // Ensure loading is stopped on error
-      setIsLoading(false);
-      setLoadingStep("");
+        console.error("Detailed error in handleFileSelect (upload):", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+        const displayMessage = err.message || "An unknown error occurred during upload.";
+        setError(displayMessage);
+        toast({ variant: "destructive", title: "Upload Failed", description: displayMessage, duration: 9000 });
+        setIsLoading(false);
     }
   };
 
   const handleClearSelection = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
-  };
-
-  const handleDownload = () => {
-    if (excelReadyData && selectedFile) {
-      const fileName = `${selectedFile.name.replace(/\.pdf$/i, '')}.xlsx`;
-      exportToExcel(excelReadyData, fileName);
-      toast({ title: "Download Started", description: `${fileName} is being downloaded.` });
-    }
   };
 
   return (
@@ -232,10 +153,10 @@ export default function HomePage() {
         <CardContent className="space-y-6">
           <FileUploader 
             onFilesSelect={handleFileSelect} 
-            selectedFiles={selectedFile ? [selectedFile] : []}
+            selectedFiles={selectedFiles}
             clearSelection={handleClearSelection}
             disabled={isLoading}
-            isSubscribed={!!currentUser} // Allow multiple files for logged-in users
+            isSubscribed={!!currentUser}
             dragText={getTranslation('fileUploaderDrag')}
             orText={getTranslation('fileUploaderOr')}
             clickText={getTranslation('fileUploaderClick')}
@@ -243,33 +164,18 @@ export default function HomePage() {
 
           {isLoading && (
             <div className="py-10">
-              <LoadingSpinner />
-              {loadingStep && <p className="text-center text-muted-foreground mt-2">{loadingStep}</p>}
+              <LoadingSpinner message={loadingStep || 'Processing...'} />
             </div>
           )}
 
           {error && !isLoading && (
             <Alert variant="destructive">
               <Terminal className="h-4 w-4" />
-              <AlertTitle>Error Processing PDF</AlertTitle>
+              <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {excelReadyData && !isLoading && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-foreground">Data Preview</h2>
-              <DataPreview data={excelReadyData} />
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button variant="outline" onClick={handleClearSelection} disabled={isLoading}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Clear and Upload New
-                </Button>
-                <Button onClick={handleDownload} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading}>
-                  <Download className="mr-2 h-4 w-4" /> Download Excel
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 

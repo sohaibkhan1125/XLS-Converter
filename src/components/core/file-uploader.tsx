@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone, type FileWithPath } from 'react-dropzone';
 import { UploadCloud, FileText, XCircle, Files } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ interface FileUploaderProps {
   selectedFiles: File[];
   clearSelection: () => void;
   disabled?: boolean;
-  isSubscribed?: boolean; // Can be used for plan-based limits in future
+  isSubscribed?: boolean;
   dragText?: string;
   orText?: string;
   clickText?: string;
@@ -25,14 +25,17 @@ export default function FileUploader({
   selectedFiles, 
   clearSelection, 
   disabled = false,
-  isSubscribed = false, // True for any logged-in user now
+  isSubscribed = false,
   dragText = "Drag & drop a PDF file here",
   orText = "or",
   clickText = "Click to select file"
 }: FileUploaderProps) {
   
+  const [internalSelectedFiles, setInternalSelectedFiles] = useState<File[]>([]);
+
   const onDrop = useCallback((acceptedFiles: FileWithPath[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
+      setInternalSelectedFiles(acceptedFiles); // Keep track of selection for display
       onFilesSelect(acceptedFiles);
     }
   }, [onFilesSelect]);
@@ -49,9 +52,9 @@ export default function FileUploader({
     ? dragText.replace('a PDF file', `up to ${MAX_FILES_LOGGED_IN} PDF files`)
     : dragText;
   
-  const selectedFileCount = selectedFiles.length;
+  const selectedFileCount = internalSelectedFiles.length;
 
-  if (selectedFileCount > 0 && !isSubscribed) { // Only show this view for single-file uploader
+  if (selectedFileCount > 0 && !disabled) {
     return (
       <Card className="border-dashed border-2 border-primary/50 bg-primary/5">
         <CardContent className="p-6 flex flex-col items-center justify-center text-center">
@@ -61,12 +64,20 @@ export default function FileUploader({
              <Files className="h-12 w-12 text-primary mb-4" />
           )}
           <p className="text-lg font-medium text-foreground mb-1">
-            {selectedFileCount === 1 ? selectedFiles[0].name : `${selectedFileCount} files selected`}
+            {selectedFileCount === 1 ? internalSelectedFiles[0].name : `${selectedFileCount} files selected`}
           </p>
           {selectedFileCount === 1 && (
-             <p className="text-sm text-muted-foreground mb-4">({(selectedFiles[0].size / 1024).toFixed(2)} KB)</p>
+             <p className="text-sm text-muted-foreground mb-4">({(internalSelectedFiles[0].size / 1024).toFixed(2)} KB)</p>
           )}
-          <Button onClick={clearSelection} variant="destructive" size="sm" disabled={disabled}>
+          <Button 
+            onClick={() => {
+              setInternalSelectedFiles([]);
+              clearSelection();
+            }} 
+            variant="destructive" 
+            size="sm" 
+            disabled={disabled}
+          >
             <XCircle className="mr-2 h-4 w-4" /> Clear Selection
           </Button>
         </CardContent>
