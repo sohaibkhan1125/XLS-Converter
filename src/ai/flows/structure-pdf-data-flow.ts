@@ -17,7 +17,7 @@ const TransactionSchema = z.object({
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
   credit: z.number().optional().describe("The deposit amount (money in), as a positive number. This is a critical field to find."),
-  balance: z.number().optional().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you may output null for this field, but the key must be present."),
+  balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you MUST output null for this field. The 'balance' key must always be present in the output for every transaction."),
 }).describe("A single transaction line item.");
 export type Transaction = z.infer<typeof TransactionSchema>;
 
@@ -58,7 +58,7 @@ const prompt = ai.definePrompt({
 
 5.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
 
-6.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you must output 'null' for the 'balance' field. Do not omit the 'balance' key.
+6.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you MUST output 'null' for the 'balance' field. Do not omit the 'balance' key.
 
 7.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
