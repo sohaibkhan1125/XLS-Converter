@@ -53,7 +53,7 @@ const prompt = ai.definePrompt({
 3.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
 
 4.  **COLUMN ALIASES (VERY IMPORTANT):** Bank statements use different names for columns. It is CRITICAL that you recognize these variations:
-    *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", or similar terms.
+    *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", "Charges", or similar terms.
     *   For **'credit'** (money in), you MUST look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. This is a critical field; do not miss it.
 
 5.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
@@ -62,7 +62,7 @@ const prompt = ai.definePrompt({
 
 7.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
-8.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have \`credit\` and \`balance\`, but no \`debit\` key.
+8.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have 'credit' and 'balance', but no 'debit' key.
 
 9.  **CLEAN DATA:**
     *   Do not merge lines. Each transaction is a single, distinct row.
@@ -122,8 +122,8 @@ const structurePdfDataFlow = ai.defineFlow(
     // Filter out any invalid or incomplete transaction entries returned by the AI.
     // A valid transaction must have a non-empty date and description.
     const cleanedTransactions = output.transactions.filter(t => {
-        const hasDate = t.date && t.date.trim() !== '';
-        const hasDescription = t.description && t.description.trim() !== '';
+        const hasDate = t.date && typeof t.date === 'string' && t.date.trim() !== '';
+        const hasDescription = t.description && typeof t.description === 'string' && t.description.trim() !== '';
         return hasDate && hasDescription;
     });
 

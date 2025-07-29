@@ -70,7 +70,6 @@ export default function AppHeader() {
 
   const loggedInLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
-    { id: 'documents', href: '/documents', labelKey: 'navDocuments' },
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
     { id: 'settings', href: '/settings', labelKey: 'navSettings' },
   ];
@@ -164,9 +163,6 @@ export default function AppHeader() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/billing"><CreditCard className="mr-2 h-4 w-4" />Billing</Link>
-                </DropdownMenuItem>
-                 <DropdownMenuItem asChild>
-                  <Link href="/documents"><FileText className="mr-2 h-4 w-4" />My Documents</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}>

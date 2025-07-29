@@ -18,18 +18,16 @@ import { exportToExcel } from '@/lib/excel-export';
 import { extractTextFromPdf, convertAllPdfPagesToImageUris, formatStructuredDataForExcel } from '@/lib/pdf-utils';
 import { extractTextFromImage as extractTextFromImageAI } from '@/ai/flows/extract-text-from-image';
 import { structurePdfData as structurePdfDataAI, type StructuredPdfDataOutput, type Transaction } from '@/ai/flows/structure-pdf-data-flow';
-import { uploadUserDocuments } from '@/lib/firebase-document-service'; 
-import type { GeneralSiteSettings, PageSEOInfo } from '@/types/site-settings';
+import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/context/language-context';
-import Link from 'next/link';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter";
 
 export default function HomePage() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [excelReadyData, setExcelReadyData] = useState<string[][] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
@@ -47,7 +45,6 @@ export default function HomePage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
-  const router = useRouter();
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(null);
   const { getTranslation } = useLanguage();
@@ -59,7 +56,6 @@ export default function HomePage() {
       setActivePlan(null);
     }
   }, [currentUser]);
-
 
   useEffect(() => {
     const unsubscribe = subscribeToGeneralSettings((settings) => {
@@ -96,15 +92,20 @@ export default function HomePage() {
     return () => unsubscribe();
   }, [pathname]);
 
-  const handleFileSelectForGuest = async (files: File[]) => {
+  const handleFileSelect = async (files: File[]) => {
     if (!files || files.length === 0) return;
-    const file = files[0]; 
+    const file = files[0];
 
-    const limitStatus = checkConversionLimit(null);
+    const userId = currentUser ? currentUser.uid : null;
+    const limitStatus = checkConversionLimit(userId);
+    
     if (!limitStatus.allowed) {
       setLimitDialogContent({
-        userType: 'guest',
+        userType: currentUser ? 'loggedIn' : 'guest',
         timeToWaitFormatted: limitStatus.timeToWaitMs ? formatTime(limitStatus.timeToWaitMs) : undefined,
+        onPlan: limitStatus.onPlan,
+        planName: limitStatus.planName,
+        isPlanExhausted: limitStatus.isPlanExhausted,
       });
       setShowLimitDialog(true);
       return;
@@ -113,14 +114,15 @@ export default function HomePage() {
     setIsLoading(true);
     setError(null);
     setExcelReadyData(null);
-    setLoadingStep("Processing PDF...");
+    setLoadingStep("Processing your PDF, please wait...");
 
     try {
       const fileBuffer = await file.arrayBuffer();
+      
       setLoadingStep("Extracting text from PDF...");
       const directText = await extractTextFromPdf(fileBuffer);
-
       let rawTextOutput: string;
+
       if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
         rawTextOutput = directText;
       } else {
@@ -142,13 +144,14 @@ export default function HomePage() {
       setLoadingStep("Preparing Excel data...");
       const formattedData = formatStructuredDataForExcel(structuredDataResult);
       setExcelReadyData(formattedData);
-      setSelectedFiles([file]);
-
-      recordConversion(null);
+      setSelectedFile(file);
+      
+      recordConversion(userId);
+      toast({ title: "Conversion Successful", description: "Your data is ready for download." });
 
     } catch (err: any) {
       const errorMessage = err.message || "An unknown error occurred during conversion.";
-      console.error("Detailed error in handleFileSelect (guest):", err);
+      console.error("Detailed error in handleFileSelect:", err);
       setError(errorMessage);
       toast({ variant: "destructive", title: "Conversion Failed", description: errorMessage, duration: 9000 });
     } finally {
@@ -156,33 +159,16 @@ export default function HomePage() {
       setLoadingStep("");
     }
   };
-  
-  const handleFileSelect = async (files: File[]) => {
-    // If not logged in, use the old guest flow
-    if (!currentUser) {
-      handleFileSelectForGuest(files);
-      return;
-    }
-    
-    // If logged in, redirect to the documents page to handle the upload
-    if (files.length > 0) {
-        toast({
-            title: "Redirecting to Documents",
-            description: "Please complete your upload on the documents page."
-        });
-        router.push('/documents?upload=true');
-    }
-  };
 
   const handleDownload = () => {
-    if (excelReadyData && selectedFiles.length > 0) {
-      const originalFileName = selectedFiles[0].name.replace(/\.[^/.]+$/, "");
+    if (excelReadyData && selectedFile) {
+      const originalFileName = selectedFile.name.replace(/\.[^/.]+$/, "");
       exportToExcel(excelReadyData, `${originalFileName}.xlsx`);
     }
   };
 
   const handleClearSelection = () => {
-    setSelectedFiles([]);
+    setSelectedFile(null);
     setExcelReadyData(null);
     setError(null);
     setLoadingStep("");
@@ -204,7 +190,7 @@ export default function HomePage() {
             <FileUploader 
               onFilesSelect={handleFileSelect}
               disabled={isLoading}
-              isSubscribed={!!currentUser}
+              isSubscribed={false} // Revert to single file upload for all
               dragText={getTranslation('fileUploaderDrag')}
               orText={getTranslation('fileUploaderOr')}
               clickText={getTranslation('fileUploaderClick')}
