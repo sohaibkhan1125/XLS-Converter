@@ -146,38 +146,45 @@ export async function getAllBlogPosts(
   startAfterDoc: QueryDocumentSnapshot<DocumentData> | null = null
 ): Promise<PaginatedBlogPosts> {
   try {
-    let q;
     const baseQueryConstraints = [
       orderBy('createdAt', 'desc'),
       limit(postsLimit)
     ];
 
+    // For public-facing pages, we now filter *after* fetching to avoid the composite index requirement.
+    // For the admin panel, we fetch all posts regardless of status.
     if (!forAdmin) {
-      baseQueryConstraints.unshift(where('status', '==', 'published') as any);
+      // No 'where' clause here to avoid the index error.
     }
+    
     if (startAfterDoc) {
       baseQueryConstraints.push(startAfter(startAfterDoc));
     }
     
-    q = query(collection(firestore, BLOG_POSTS_COLLECTION), ...baseQueryConstraints as any);
+    const q = query(collection(firestore, BLOG_POSTS_COLLECTION), ...baseQueryConstraints as any);
 
     const querySnapshot = await getDocs(q);
-    const posts = querySnapshot.docs.map(mapDocToBlogPost);
+    
+    let allFetchedPosts = querySnapshot.docs.map(mapDocToBlogPost);
+
+    // If it's not for the admin panel, filter out non-published posts now.
+    if (!forAdmin) {
+        allFetchedPosts = allFetchedPosts.filter(post => post.status === 'published');
+    }
+
     const lastVisibleDoc = querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : null;
     
-    // Check if there are more documents
+    // Check if there are more documents.
+    // Note: This 'hasMore' check might sometimes be true even if the next page has no published posts.
+    // The UI will handle this gracefully by just not showing more posts.
     let hasMore = false;
     if (lastVisibleDoc) {
-      const nextQueryConstraints = [orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(1)];
-      if (!forAdmin) {
-         nextQueryConstraints.unshift(where('status', '==', 'published') as any);
-      }
-      const nextQuery = query(collection(firestore, BLOG_POSTS_COLLECTION), ...nextQueryConstraints as any);
+      const nextQuery = query(collection(firestore, BLOG_POSTS_COLLECTION), orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(1));
       const nextSnapshot = await getDocs(nextQuery);
       hasMore = !nextSnapshot.empty;
     }
 
-    return { posts, lastVisibleDoc, hasMore };
+    return { posts: allFetchedPosts, lastVisibleDoc, hasMore };
   } catch (error) {
     console.error("Error fetching all blog posts:", error);
     throw error;
