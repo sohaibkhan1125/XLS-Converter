@@ -13,6 +13,26 @@ import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import LoadingSpinner from '@/components/core/loading-spinner';
 
+// Helper to update meta tags
+const updateMeta = (name: string, content: string) => {
+    let tag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', name);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', content);
+
+    const ogName = `og:${name}`;
+     let ogTag = document.querySelector(`meta[property="${ogName}"]`) as HTMLMetaElement;
+    if (!ogTag) {
+        ogTag = document.createElement('meta');
+        ogTag.setAttribute('property', ogName);
+        document.head.appendChild(ogTag);
+    }
+    ogTag.setAttribute('content', content);
+};
+
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const { currentUser, loading: authLoading } = useAuth();
@@ -23,29 +43,33 @@ export default function PricingPage() {
   const fetchSettings = useCallback(() => {
     setIsLoadingSettings(true);
     const unsubscribe = subscribeToGeneralSettings((settings) => {
-      setSiteTitle(settings?.siteTitle || "Our Service");
+      const currentSiteTitle = settings?.siteTitle || "Our Service";
+      setSiteTitle(currentSiteTitle);
       setIsLoadingSettings(false);
-      if (settings?.seoSettings && settings.seoSettings[pathname]) {
-        const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) document.title = seoData.title;
-        
-        let descriptionTag = document.querySelector('meta[name="description"]');
-        if (!descriptionTag) {
-          descriptionTag = document.createElement('meta');
-          descriptionTag.setAttribute('name', 'description');
-          document.head.appendChild(descriptionTag);
-        }
-        if (seoData?.description) descriptionTag.setAttribute('content', seoData.description);
 
+      const seoData = settings?.seoSettings?.[pathname];
+      const pageTitle = seoData?.title || `Pricing - ${currentSiteTitle}`;
+      const pageDescription = seoData?.description || `Explore pricing plans for ${currentSiteTitle}.`;
+      
+      document.title = pageTitle;
+      updateMeta('description', pageDescription);
+      
+      let ogTitleTag = document.querySelector('meta[property="og:title"]') as HTMLMetaElement;
+      if (!ogTitleTag) {
+          ogTitleTag = document.createElement('meta');
+          ogTitleTag.setAttribute('property', 'og:title');
+          document.head.appendChild(ogTitleTag);
+      }
+      ogTitleTag.setAttribute('content', pageTitle);
+
+      if (seoData?.keywords) {
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
           keywordsTag = document.createElement('meta');
           keywordsTag.setAttribute('name', 'keywords');
           document.head.appendChild(keywordsTag);
         }
-        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
-      } else if (settings?.siteTitle) {
-        document.title = `Pricing - ${settings.siteTitle}`;
+        keywordsTag.setAttribute('content', seoData.keywords);
       }
     });
     return () => unsubscribe();

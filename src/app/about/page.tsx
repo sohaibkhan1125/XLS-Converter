@@ -11,6 +11,28 @@ import Link from 'next/link';
 
 const GENERIC_APP_NAME = "Our Application";
 
+// Helper to update meta tags
+const updateMeta = (name: string, content: string) => {
+    let tag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', name);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', content);
+
+    // Also update OG tags
+    const ogName = `og:${name}`;
+     let ogTag = document.querySelector(`meta[property="${ogName}"]`) as HTMLMetaElement;
+    if (!ogTag) {
+        ogTag = document.createElement('meta');
+        ogTag.setAttribute('property', ogName);
+        document.head.appendChild(ogTag);
+    }
+    ogTag.setAttribute('content', content);
+};
+
+
 export default function AboutPage() {
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const pathname = usePathname();
@@ -20,37 +42,30 @@ export default function AboutPage() {
       const currentSiteTitle = settings?.siteTitle || GENERIC_APP_NAME;
       setDisplayedSiteTitle(currentSiteTitle);
 
-      if (settings?.seoSettings && settings.seoSettings[pathname]) {
-        const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) {
-            document.title = seoData.title;
-        } else {
-            document.title = `About ${currentSiteTitle}`; // Fallback document title
-        }
-        
-        let descriptionTag = document.querySelector('meta[name="description"]');
-        if (!descriptionTag) {
-          descriptionTag = document.createElement('meta');
-          descriptionTag.setAttribute('name', 'description');
-          document.head.appendChild(descriptionTag);
-        }
-        if (seoData?.description) {
-            descriptionTag.setAttribute('content', seoData.description);
-        } else {
-            descriptionTag.setAttribute('content', `Learn more about ${currentSiteTitle} and our mission.`);
-        }
+      const seoData = settings?.seoSettings?.[pathname];
+      const pageTitle = seoData?.title || `About ${currentSiteTitle}`;
+      const pageDescription = seoData?.description || `Learn more about ${currentSiteTitle} and our mission.`;
+      
+      document.title = pageTitle;
+      updateMeta('description', pageDescription);
+      
+      // Update specific OG tags
+      let ogTitleTag = document.querySelector('meta[property="og:title"]') as HTMLMetaElement;
+      if (!ogTitleTag) {
+          ogTitleTag = document.createElement('meta');
+          ogTitleTag.setAttribute('property', 'og:title');
+          document.head.appendChild(ogTitleTag);
+      }
+      ogTitleTag.setAttribute('content', pageTitle);
 
+      if (seoData?.keywords) {
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
           keywordsTag = document.createElement('meta');
           keywordsTag.setAttribute('name', 'keywords');
           document.head.appendChild(keywordsTag);
         }
-        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
-      } else {
-         document.title = `About ${currentSiteTitle}`;
-         let descriptionTag = document.querySelector('meta[name="description"]');
-         if(descriptionTag) descriptionTag.setAttribute('content', `Learn more about ${currentSiteTitle} and our mission.`);
+        keywordsTag.setAttribute('content', seoData.keywords);
       }
     });
     return () => unsubscribe();

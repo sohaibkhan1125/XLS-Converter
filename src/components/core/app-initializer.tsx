@@ -18,6 +18,19 @@ import { PREDEFINED_THEMES, DEFAULT_LIGHT_THEME_ID } from '@/config/themes';
 export const DEFAULT_SITE_NAME_FALLBACK = "Bank Statement Converter - Convert PDF File into Excel";
 const DEFAULT_FALLBACK_DESCRIPTION = "Easily convert your PDF files to structured Excel spreadsheets.";
 
+// Helper function to update or create a meta tag
+function setMetaTag(property: 'name' | 'property', content: string, value: string) {
+  if (typeof document === 'undefined') return;
+
+  let element = document.querySelector(`meta[${property}="${content}"]`) as HTMLMetaElement;
+  if (!element) {
+    element = document.createElement('meta');
+    element.setAttribute(property, content);
+    document.head.appendChild(element);
+  }
+  element.setAttribute('content', value);
+}
+
 /**
  * This component handles all the application's client-side initialization logic,
  * such as theme loading, popups, and dynamic header/footer rendering.
@@ -36,10 +49,13 @@ export default function AppInitializer({
   useEffect(() => {
     // Set default metadata on mount
     document.title = DEFAULT_SITE_NAME_FALLBACK;
-    const descTag = document.querySelector('meta[name="description"]');
-    if (descTag) {
-        descTag.setAttribute('content', DEFAULT_FALLBACK_DESCRIPTION);
+    setMetaTag('name', 'description', DEFAULT_FALLBACK_DESCRIPTION);
+    setMetaTag('property', 'og:title', DEFAULT_SITE_NAME_FALLBACK);
+    setMetaTag('property', 'og:description', DEFAULT_FALLBACK_DESCRIPTION);
+    if (typeof window !== 'undefined') {
+        setMetaTag('property', 'og:url', window.location.href);
     }
+
 
     // Subscribe to settings for dynamic updates
     const unsubscribe = subscribeToGeneralSettings((settings) => {
@@ -49,6 +65,14 @@ export default function AppInitializer({
 
     return () => unsubscribe();
   }, []);
+
+  // Update OG URL whenever pathname changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setMetaTag('property', 'og:url', window.location.href);
+    }
+  }, [pathname]);
+
 
   // Apply the theme whenever the activeThemeId changes
   useEffect(() => {

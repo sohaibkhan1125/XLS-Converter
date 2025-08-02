@@ -34,6 +34,26 @@ const contactFormSchema = z.object({
 type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 
+// Helper to update meta tags
+const updateMeta = (name: string, content: string) => {
+    let tag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', name);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', content);
+
+    const ogName = `og:${name}`;
+     let ogTag = document.querySelector(`meta[property="${ogName}"]`) as HTMLMetaElement;
+    if (!ogTag) {
+        ogTag = document.createElement('meta');
+        ogTag.setAttribute('property', ogName);
+        document.head.appendChild(ogTag);
+    }
+    ogTag.setAttribute('content', content);
+};
+
 export default function ContactPage() {
   const [displayedSiteTitle, setDisplayedSiteTitle] = useState<string>(GENERIC_APP_NAME);
   const [contactEmail, setContactEmail] = useState<string>(ADMIN_EMAIL_RECIPIENT); // Set initial state to the correct email
@@ -56,37 +76,29 @@ export default function ContactPage() {
       setContactEmail(ADMIN_EMAIL_RECIPIENT);
       setSupportEmail(ADMIN_EMAIL_RECIPIENT);
 
-       if (settings?.seoSettings && settings.seoSettings[pathname]) {
-        const seoData = settings.seoSettings[pathname];
-        if (seoData?.title) {
-            document.title = seoData.title;
-        } else {
-            document.title = `Contact ${currentSiteTitle}`;
-        }
-        
-        let descriptionTag = document.querySelector('meta[name="description"]');
-        if (!descriptionTag) {
-          descriptionTag = document.createElement('meta');
-          descriptionTag.setAttribute('name', 'description');
-          document.head.appendChild(descriptionTag);
-        }
-        if (seoData?.description) {
-            descriptionTag.setAttribute('content', seoData.description);
-        } else {
-            descriptionTag.setAttribute('content', `Get in touch with ${currentSiteTitle}.`);
-        }
+      const seoData = settings?.seoSettings?.[pathname];
+      const pageTitle = seoData?.title || `Contact ${currentSiteTitle}`;
+      const pageDescription = seoData?.description || `Get in touch with ${currentSiteTitle}.`;
+      
+      document.title = pageTitle;
+      updateMeta('description', pageDescription);
 
+      let ogTitleTag = document.querySelector('meta[property="og:title"]') as HTMLMetaElement;
+      if (!ogTitleTag) {
+          ogTitleTag = document.createElement('meta');
+          ogTitleTag.setAttribute('property', 'og:title');
+          document.head.appendChild(ogTitleTag);
+      }
+      ogTitleTag.setAttribute('content', pageTitle);
+
+      if (seoData?.keywords) {
         let keywordsTag = document.querySelector('meta[name="keywords"]');
         if (!keywordsTag) {
           keywordsTag = document.createElement('meta');
           keywordsTag.setAttribute('name', 'keywords');
           document.head.appendChild(keywordsTag);
         }
-        if (seoData?.keywords) keywordsTag.setAttribute('content', seoData.keywords);
-      } else {
-         document.title = `Contact ${currentSiteTitle}`;
-         let descriptionTag = document.querySelector('meta[name="description"]');
-         if(descriptionTag) descriptionTag.setAttribute('content', `Get in touch with ${currentSiteTitle}.`);
+        keywordsTag.setAttribute('content', seoData.keywords);
       }
     });
     return () => unsubscribe();
