@@ -86,7 +86,7 @@ export default function AboutPage() {
           <p className="text-lg text-muted-foreground mb-4">
             At {displayedSiteTitle}, our mission is to provide an intuitive, efficient, and reliable solution for individuals and businesses
             to overcome the challenges of manual data extraction from PDFs. We believe in empowering users with tools
-            that save time, reduce errors, and enhance productivity. You can try our <Link href="/" className="text-primary underline">PDF to Excel converter</Link> right now.
+            that save time, reduce errors, and enhance productivity. You can try our <Link href="/" className="text-primary underline">PDF to Excel converter</Link> right now or check out our latest updates on our <Link href="/blogs" className="text-primary underline">blog</Link>.
           </p>
           <p className="text-lg text-muted-foreground">
             We leverage cutting-edge AI technology to understand document structures and ensure the highest accuracy in

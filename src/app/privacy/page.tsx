@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const GENERIC_APP_NAME = "Our Company";
 const GENERIC_EMAIL_DOMAIN_PART = "example.com";
@@ -92,7 +93,7 @@ export default function PrivacyPolicyPage() {
               with regards to your personal information, please contact us at <a href={`mailto:${privacyEmail}`} className="text-primary hover:underline">{privacyEmail}</a>.
             </p>
             <p className="text-muted-foreground leading-relaxed mt-2">
-              This privacy notice describes how we might use your information if you visit our website at [YourWebsiteURL.com],
+              This privacy notice describes how we might use your information if you visit our website at <Link href="/" className="text-primary underline">[YourWebsiteURL.com]</Link>,
               use our web application, or otherwise engage with us.
             </p>
           </section>
