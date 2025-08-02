@@ -44,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <head>
+        <title>{DEFAULT_SITE_NAME_FALLBACK}</title>
         {/* Basic meta tags. Title and description will be set by pages or AppInitializer */}
         {/* Default Open Graph tags */}
         <meta property="og:type" content="website" />
