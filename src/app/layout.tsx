@@ -14,6 +14,22 @@ const geistSans = Geist({
   subsets: ['latin'],
 });
 
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: DEFAULT_SITE_NAME_FALLBACK,
+  url: typeof window !== 'undefined' ? window.location.origin : 'https://bankstatementconverter.com', // Fallback URL
+};
+
+const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: DEFAULT_SITE_NAME_FALLBACK,
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://bankstatementconverter.com',
+    logo: typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : 'https://bankstatementconverter.com/logo.png', // Adjust if you have a logo
+};
+
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,6 +52,16 @@ export default function RootLayout({
         <meta property="og:image" content="https://placehold.co/1200x630.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
+        
+        {/* Schema.org markup */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
 
       </head>
       <body className={`${geistSans.variable} antialiased font-sans flex flex-col min-h-screen`} suppressHydrationWarning={true}>
