@@ -1,15 +1,21 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
-import BlogPostForm from '@/components/admin/blog-manager/blog-post-form';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getBlogPostById } from '@/lib/firebase-blog-service';
 import type { BlogPost } from '@/types/blog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
+
+const BlogPostForm = dynamic(() => import('@/components/admin/blog-manager/blog-post-form'), { 
+  loading: () => <div className="h-64 flex items-center justify-center"><LoadingSpinner message="Loading Editor..." /></div>,
+  ssr: false 
+});
+
 
 export default function EditBlogPostPage() {
   const params = useParams();
@@ -81,7 +87,9 @@ export default function EditBlogPostPage() {
           <CardDescription>Modify the details of your blog post below.</CardDescription>
         </CardHeader>
         <CardContent>
-          <BlogPostForm existingPost={post} />
+          <Suspense fallback={<div className="h-64 flex items-center justify-center"><LoadingSpinner message="Loading Editor..." /></div>}>
+            <BlogPostForm existingPost={post} />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
