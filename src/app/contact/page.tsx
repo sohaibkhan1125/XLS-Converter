@@ -19,6 +19,7 @@ import { Mail, Phone, MapPin } from "lucide-react";
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const GENERIC_APP_NAME = "Our Company";
 const ADMIN_EMAIL_RECIPIENT = "info@bankstatementconverted.com"; // Updated recipient email
@@ -228,6 +229,12 @@ export default function ContactPage() {
                 <h3 className="font-semibold text-foreground">Email Us</h3>
                 <p>For general inquiries: <a href={`mailto:${contactEmail}`} className="text-primary hover:underline">{contactEmail}</a></p>
                 <p>For support: <a href={`mailto:${supportEmail}`} className="text-primary hover:underline">{supportEmail}</a></p>
+              </div>
+            </div>
+             <div className="flex items-start gap-4">
+               <div>
+                  <h3 className="font-semibold text-foreground">Data Privacy</h3>
+                  <p>To understand how we handle your data, please review our <Link href="/privacy" className="text-primary underline">Privacy Policy</Link>.</p>
               </div>
             </div>
           </CardContent>

@@ -121,7 +121,7 @@ export default function PricingPage() {
           </div>
           <div>
             <h4 className="font-medium text-foreground">Can I change my plan later?</h4>
-            <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan. Changes will typically apply from the next billing cycle. Contact support for assistance.</p>
+            <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan. Changes will typically apply from the next billing cycle. Please <Link href="/contact" className="text-primary underline">contact us</Link> for assistance.</p>
           </div>
           <div>
             <h4 className="font-medium text-foreground">What happens if I exceed my conversions?</h4>

@@ -7,6 +7,7 @@ import { BrainCircuit, Zap, Users } from "lucide-react";
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 const GENERIC_APP_NAME = "Our Application";
 
@@ -74,7 +75,7 @@ export default function AboutPage() {
           </p>
           <p className="text-lg text-muted-foreground">
             We leverage cutting-edge AI technology to understand document structures and ensure the highest accuracy in
-            your conversions, allowing you to focus on what truly matters – your data insights.
+            your conversions, allowing you to focus on what truly matters – your data insights. If you have any questions, please feel free to <Link href="/contact" className="text-primary underline">contact us</Link>.
           </p>
         </div>
         <div className="flex justify-center">

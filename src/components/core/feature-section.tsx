@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
 import { useLanguage } from '@/context/language-context';
+import { Button } from '../ui/button';
+import Link from 'next/link';
 
 interface Feature {
   icon: React.ElementType;
@@ -72,6 +74,11 @@ export default function FeatureSection({ siteTitle: propSiteTitle }: FeatureSect
               </CardContent>
             </Card>
           ))}
+        </div>
+        <div className="text-center mt-12">
+            <Button asChild size="lg">
+                <Link href="/pricing">View Plans & Pricing</Link>
+            </Button>
         </div>
       </div>
     </section>
