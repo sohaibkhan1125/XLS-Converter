@@ -46,6 +46,7 @@ export default function RootLayout({
       <head>
         <title>{DEFAULT_SITE_NAME_FALLBACK}</title>
         {/* Basic meta tags. Title and description will be set by pages or AppInitializer */}
+        <meta name="description" content="Easily convert your PDF files to structured Excel spreadsheets with AI." />
         {/* Default Open Graph tags */}
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content={DEFAULT_SITE_NAME_FALLBACK} />
