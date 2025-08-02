@@ -177,11 +177,11 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center text-primary flex items-center justify-center">
-            <Zap className="mr-2 h-8 w-8 text-primary" /> {getTranslation('pageTitle')}
-          </CardTitle>
-          <CardDescription className="text-center text-lg text-muted-foreground">
+        <CardHeader className="text-center">
+          <h1 className="text-3xl font-bold text-primary flex items-center justify-center">
+            <Zap className="mr-2 h-8 w-8" /> {getTranslation('pageTitle')}
+          </h1>
+          <CardDescription className="text-lg text-muted-foreground">
             {getTranslation('pageDescription')}
           </CardDescription>
         </CardHeader>
@@ -190,7 +190,7 @@ export default function HomePage() {
             <FileUploader 
               onFilesSelect={handleFileSelect}
               disabled={isLoading}
-              isSubscribed={false} // Revert to single file upload for all
+              isSubscribed={false}
               dragText={getTranslation('fileUploaderDrag')}
               orText={getTranslation('fileUploaderOr')}
               clickText={getTranslation('fileUploaderClick')}

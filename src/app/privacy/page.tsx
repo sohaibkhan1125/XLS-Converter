@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
     <div className="space-y-8">
       <Card className="shadow-lg">
         <CardHeader className="text-center py-10 bg-card rounded-t-lg">
-          <CardTitle className="text-5xl font-extrabold text-primary">Privacy Policy</CardTitle>
+          <h1 className="text-5xl font-extrabold text-primary">Privacy Policy</h1>
           <CardDescription className="text-xl text-muted-foreground max-w-2xl mx-auto mt-2">
             Your privacy is important to us.
           </CardDescription>
