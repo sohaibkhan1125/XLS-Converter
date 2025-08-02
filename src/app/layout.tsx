@@ -14,19 +14,18 @@ const geistSans = Geist({
   subsets: ['latin'],
 });
 
+// Schema.org data is now simplified to avoid hydration errors.
+// Dynamic properties like `url` are handled by Open Graph tags in AppInitializer.
 const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: DEFAULT_SITE_NAME_FALLBACK,
-  url: typeof window !== 'undefined' ? window.location.origin : 'https://bankstatementconverter.com', // Fallback URL
 };
 
 const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: DEFAULT_SITE_NAME_FALLBACK,
-    url: typeof window !== 'undefined' ? window.location.origin : 'https://bankstatementconverter.com',
-    logo: typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : 'https://bankstatementconverter.com/logo.png', // Adjust if you have a logo
 };
 
 
