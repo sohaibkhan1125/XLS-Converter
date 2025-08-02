@@ -247,6 +247,7 @@ export default function ContactPage() {
                <div>
                   <h3 className="font-semibold text-foreground">Data Privacy</h3>
                   <p>To understand how we handle your data, please review our <Link href="/privacy" className="text-primary underline">Privacy Policy</Link>.</p>
+                  <p className="mt-2">To learn more about our company, visit our <Link href="/about" className="text-primary underline">About Us</Link> page.</p>
               </div>
             </div>
           </CardContent>
