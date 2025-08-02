@@ -31,6 +31,20 @@ function setMetaTag(property: 'name' | 'property', content: string, value: strin
   element.setAttribute('content', value);
 }
 
+// Helper function to update or create a link tag
+function setLinkTag(rel: string, href: string) {
+    if (typeof document === 'undefined') return;
+
+    let element = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement;
+    if (!element) {
+        element = document.createElement('link');
+        element.setAttribute('rel', rel);
+        document.head.appendChild(element);
+    }
+    element.setAttribute('href', href);
+}
+
+
 /**
  * This component handles all the application's client-side initialization logic,
  * such as theme loading, popups, and dynamic header/footer rendering.
@@ -53,7 +67,9 @@ export default function AppInitializer({
     setMetaTag('property', 'og:title', DEFAULT_SITE_NAME_FALLBACK);
     setMetaTag('property', 'og:description', DEFAULT_FALLBACK_DESCRIPTION);
     if (typeof window !== 'undefined') {
-        setMetaTag('property', 'og:url', window.location.href);
+        const canonicalUrl = window.location.origin + pathname;
+        setMetaTag('property', 'og:url', canonicalUrl);
+        setLinkTag('canonical', canonicalUrl);
     }
 
 
@@ -66,10 +82,12 @@ export default function AppInitializer({
     return () => unsubscribe();
   }, []);
 
-  // Update OG URL whenever pathname changes
+  // Update OG URL and Canonical URL whenever pathname changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setMetaTag('property', 'og:url', window.location.href);
+        const canonicalUrl = window.location.origin + pathname;
+        setMetaTag('property', 'og:url', canonicalUrl);
+        setLinkTag('canonical', canonicalUrl);
     }
   }, [pathname]);
 
