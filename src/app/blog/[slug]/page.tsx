@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { notFound, usePathname } from 'next/navigation';
+import { notFound, usePathname, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Calendar, User, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,8 +42,9 @@ const updateMeta = (name: string, content: string) => {
     ogTag.setAttribute('content', content);
 };
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default function BlogPostPage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const [post, setPost] = useState<BlogPost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
