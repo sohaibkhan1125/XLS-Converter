@@ -7,21 +7,22 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowRight, BookOpenText, Loader2 } from 'lucide-react';
-import { getAllBlogPosts, type PaginatedBlogPosts } from '@/lib/firebase-blog-service';
 import type { BlogPost } from '@/types/blog';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { format } from 'date-fns';
-import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { usePathname } from 'next/navigation';
-import type { GeneralSiteSettings } from '@/types/site-settings';
 import { subscribeToGeneralSettings } from '@/lib/firebase-settings-service';
+import { postData as moneyPostData } from '@/lib/seed/how-to-earn-money-online';
+import { postData as affiliatePostData } from '@/lib/seed/affiliate-marketing-guide';
 
-const POSTS_PER_PAGE = 9; // Adjust as needed for layout (e.g., 3x3 grid)
 const GENERIC_PAGE_TITLE = "Our Blog";
 const GENERIC_PAGE_DESCRIPTION = "Read the latest articles and updates from our team.";
 
+const seedPosts: BlogPost[] = [
+  { ...moneyPostData, id: moneyPostData.slug, createdAt: new Date(), updatedAt: new Date() },
+  { ...affiliatePostData, id: affiliatePostData.slug, createdAt: new Date(), updatedAt: new Date() }
+];
 
-// Helper to update meta tags
 const updateMeta = (name: string, content: string) => {
     let tag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
     if (!tag) {
@@ -41,11 +42,9 @@ const updateMeta = (name: string, content: string) => {
     ogTag.setAttribute('content', content);
 };
 
-
 export default function BlogsPage() {
-  const [blogPostsData, setBlogPostsData] = useState<PaginatedBlogPosts>({ posts: [], lastVisibleDoc: null, hasMore: false });
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
 
@@ -80,38 +79,23 @@ export default function BlogsPage() {
     return () => unsubscribe();
   }, [pathname]);
 
-  const fetchPosts = useCallback(async (lastDoc: QueryDocumentSnapshot<DocumentData> | null = null) => {
-    if (lastDoc) setIsLoadingMore(true); else setIsLoading(true);
+  const fetchPosts = useCallback(() => {
+    setIsLoading(true);
     setError(null);
     try {
-      const paginatedResult = await getAllBlogPosts(false, POSTS_PER_PAGE, lastDoc); // forAdmin = false
-      if (lastDoc) {
-        setBlogPostsData(prev => ({
-          posts: [...prev.posts, ...paginatedResult.posts],
-          lastVisibleDoc: paginatedResult.lastVisibleDoc,
-          hasMore: paginatedResult.hasMore,
-        }));
-      } else {
-        setBlogPostsData(paginatedResult);
-      }
+      // Use the seed data directly
+      setBlogPosts(seedPosts);
     } catch (err: any) {
-      console.error("Error fetching blog posts:", err);
-      setError(err.message || "Failed to load blog posts. Please try again later.");
+      console.error("Error loading blog posts:", err);
+      setError("Failed to load blog posts. Please try again later.");
     } finally {
       setIsLoading(false);
-      setIsLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
-
-  const handleLoadMore = () => {
-    if (blogPostsData.lastVisibleDoc && blogPostsData.hasMore && !isLoadingMore) {
-      fetchPosts(blogPostsData.lastVisibleDoc);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -141,7 +125,7 @@ export default function BlogsPage() {
         </p>
       </section>
 
-      {blogPostsData.posts.length === 0 ? (
+      {blogPosts.length === 0 ? (
         <section className="text-center py-16">
           <BookOpenText className="mx-auto h-24 w-24 text-muted-foreground/50 mb-6" />
           <h2 className="text-3xl font-semibold text-foreground mb-3">No Posts Yet</h2>
@@ -151,7 +135,7 @@ export default function BlogsPage() {
         </section>
       ) : (
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {blogPostsData.posts.map((post) => (
+          {blogPosts.map((post) => (
             <Card key={post.id} className="flex flex-col overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 ease-in-out rounded-lg">
               <CardHeader className="p-0 relative aspect-video">
                 <Link href={`/blog/${post.slug}`} aria-label={`Read more about ${post.title}`}>
@@ -188,19 +172,6 @@ export default function BlogsPage() {
         </section>
       )}
 
-      {blogPostsData.hasMore && (
-        <div className="text-center mt-12">
-          <Button onClick={handleLoadMore} disabled={isLoadingMore} size="lg">
-            {isLoadingMore ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading More...
-              </>
-            ) : (
-              "Load More Posts"
-            )}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

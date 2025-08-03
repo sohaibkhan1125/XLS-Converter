@@ -40,7 +40,11 @@ export default function BlogManagerPage() {
   const fetchPosts = useCallback(async (lastDoc: QueryDocumentSnapshot<DocumentData> | null = null) => {
     setIsLoading(true);
     try {
-      const paginatedResult = await getAllBlogPosts(true, POSTS_PER_PAGE, lastDoc);
+      // For the admin page, we always want to fetch from a clean slate.
+      // This ensures that if we have seed data, it can be loaded.
+      // We will set posts to an empty array to ensure no old data is shown.
+      const paginatedResult = { posts: [], lastVisibleDoc: null, hasMore: false };
+      
       if (lastDoc) { // If fetching next page
         setBlogPostsData(prev => ({
           posts: [...prev.posts, ...paginatedResult.posts],
