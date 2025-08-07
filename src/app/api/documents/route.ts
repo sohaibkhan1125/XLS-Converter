@@ -3,8 +3,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Readable } from 'stream';
 import { auth as adminAuth } from 'firebase-admin';
-import { getFirebaseAdminApp } from '@/lib/firebase-admin-config'; // You'll need to create this
+import { getFirebaseAdminApp } from '@/lib/firebase-admin-config';
 import { ObjectId } from 'mongodb';
+
+// This is the crucial fix: It ensures this route is always run dynamically on the server.
+export const dynamic = 'force-dynamic';
 
 // Helper to verify Firebase ID token and get UID
 async function getUserId(request: NextRequest): Promise<string | null> {
@@ -119,4 +122,3 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
     }
 }
-
