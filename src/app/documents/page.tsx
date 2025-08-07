@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { FileText, UploadCloud, Trash2, AlertCircle, Package } from 'lucide-react';
+import { FileText, UploadCloud, Trash2, AlertCircle, Package, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface StoredDocument {
@@ -108,6 +109,9 @@ export default function DocumentsPage() {
 
             toast({ title: 'Success', description: `${selectedFile.name} uploaded successfully.` });
             setSelectedFile(null); // Reset file input
+            if (document.getElementById('pdf-upload')) {
+                (document.getElementById('pdf-upload') as HTMLInputElement).value = '';
+            }
             fetchDocuments(); // Refresh the list
         } catch (err: any) {
             setError(err.message);
@@ -215,7 +219,10 @@ export default function DocumentsPage() {
                             ) : documents.length === 0 ? (
                                 <div className="text-center py-10 text-muted-foreground">
                                     <Package className="mx-auto h-12 w-12 mb-4" />
-                                    <p>You haven't uploaded any documents yet.</p>
+                                    <p className="mb-4">You haven't uploaded any documents yet.</p>
+                                    <Button asChild>
+                                        <Link href="/"><Zap className="mr-2 h-4 w-4"/>Convert Your First File</Link>
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
