@@ -1,7 +1,177 @@
 
 "use client";
 
-// This service is no longer in use as the document management feature has been removed.
-// It is kept here to prevent build errors from potential lingering imports, but its functions are obsolete.
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  where,
+  Timestamp,
+  orderBy,
+} from 'firebase/firestore';
+import { firestore, auth } from './firebase';
 
-console.warn("firebase-document-service.ts is obsolete and should be deleted.");
+const USER_FILES_COLLECTION = 'userFiles';
+
+// --- Interfaces ---
+export interface StoredDocument {
+  id: string; // Firestore document ID
+  fileName: string;
+  fileData?: string; // The Base64 encoded string
+  uploadedAt: Timestamp;
+  userId: string;
+}
+
+// --- Helper Functions ---
+
+/**
+ * Converts a File object to a Base64 encoded string.
+ * @param file The file to convert.
+ * @returns A promise that resolves with the Base64 string (without the data URI prefix).
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the "data:application/pdf;base64," prefix
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = error => reject(error);
+  });
+}
+
+/**
+ * Converts a Base64 string back to a downloadable PDF file.
+ * @param base64Data The Base64 string of the PDF.
+ * @param fileName The name for the downloaded file.
+ */
+export function base64ToPDF(base64Data: string, fileName: string): void {
+  try {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a link and trigger the download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url); // Clean up the object URL
+  } catch (error) {
+    console.error("Error converting Base64 to PDF:", error);
+    // Potentially show a toast to the user
+  }
+}
+
+
+// --- Firestore Service Functions ---
+
+/**
+ * Fetches all document metadata for a given user, filtering out files older than 24 hours.
+ * @param userId The UID of the logged-in user.
+ * @returns An array of StoredDocument objects.
+ */
+export async function getRecentUserDocuments(userId: string): Promise<StoredDocument[]> {
+  if (!userId) return [];
+
+  const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+  const cutOffTimestamp = Timestamp.fromMillis(twentyFourHoursAgo);
+
+  const q = query(
+    collection(firestore, USER_FILES_COLLECTION),
+    where("userId", "==", userId),
+    where("uploadedAt", ">=", cutOffTimestamp),
+    orderBy("uploadedAt", "desc")
+  );
+
+  try {
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as StoredDocument));
+  } catch (error) {
+    console.error("Error fetching user documents:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches a single document with its Base64 data.
+ * @param docId The ID of the Firestore document.
+ * @returns The full StoredDocument object including fileData, or null if not found.
+ */
+export async function getDocumentWithData(docId: string): Promise<StoredDocument | null> {
+    const docRef = doc(firestore, USER_FILES_COLLECTION, docId);
+    const docSnap = await getDocs(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as StoredDocument;
+    }
+    return null;
+}
+
+
+/**
+ * Uploads a new PDF file for a user after converting it to Base64.
+ * Checks the user's upload limit before proceeding.
+ * @param file The PDF file to upload.
+ * @returns The ID of the newly created document.
+ */
+export async function uploadDocument(file: File): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("You must be logged in to upload files.");
+  }
+
+  // Check upload limit first
+  const recentDocs = await getRecentUserDocuments(user.uid);
+  if (recentDocs.length >= 10) {
+    throw new Error("Upload limit reached. You can store a maximum of 10 files in a 24-hour period.");
+  }
+
+  const base64Data = await fileToBase64(file);
+
+  const docData = {
+    fileName: file.name,
+    fileData: base64Data,
+    uploadedAt: Timestamp.now(),
+    userId: user.uid,
+  };
+
+  const docRef = await addDoc(collection(firestore, USER_FILES_COLLECTION), docData);
+  return docRef.id;
+}
+
+
+/**
+ * Deletes a document from Firestore.
+ * @param docId The ID of the document to delete.
+ */
+export async function deleteDocument(docId: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) {
+        throw new Error("Authentication required to delete files.");
+    }
+    // For security, you might add a rule in Firestore to ensure a user can only delete their own docs.
+    const docRef = doc(firestore, USER_FILES_COLLECTION, docId);
+    await deleteDoc(docRef);
+}
+
+// NOTE on Automatic Cleanup:
+// The requirement for automatically deleting files older than 24 hours is best handled
+// by a server-side process like a Firebase Cloud Function scheduled to run periodically (e.g., every hour).
+// The client-side `getRecentUserDocuments` function ensures that users only SEE files from the last 24 hours,
+// but a server-side function is needed to perform the actual deletion from the database to manage storage.
+// This file does not include the Cloud Function code, which would need to be deployed separately in your Firebase project.

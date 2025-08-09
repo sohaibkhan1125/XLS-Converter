@@ -14,20 +14,15 @@ import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { 
+    getRecentUserDocuments, 
+    uploadDocument, 
+    deleteDocument,
+    base64ToPDF,
+    type StoredDocument 
+} from '@/lib/firebase-document-service';
 
-// --- Configuration for the new feature ---
 const MAX_FILE_COUNT = 10;
-const TIME_WINDOW_MS = 24 * 60 * 60 * 1000;
-const STORAGE_KEY_PREFIX = "XLSCONVERT_AWS_DOCS_";
-
-interface StoredDocument {
-    id: string; // A unique ID for the file, e.g., filename + timestamp
-    filename: string;
-    uploadDate: number; // Unix timestamp
-    size: number; // size in bytes
-    // In a real S3 implementation, you'd store the S3 key/URL here
-    // s3_key: string; 
-}
 
 // --- Main Component ---
 export default function DocumentsPage() {
@@ -40,71 +35,49 @@ export default function DocumentsPage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [isCombining, setIsCombining] = useState(false);
+    const [isDownloading, setIsDownloading] = useState<string | null>(null); // Store docId being downloaded
 
-    // --- Local Storage Management for Documents ---
-
-    const getStorageKey = useCallback(() => {
-        if (!currentUser) return null;
-        return `${STORAGE_KEY_PREFIX}${currentUser.uid}`;
-    }, [currentUser]);
-
-    const getStoredDocuments = useCallback((): StoredDocument[] => {
-        const key = getStorageKey();
-        if (!key || typeof window === 'undefined') return [];
+    const fetchDocuments = useCallback(async () => {
+        if (!currentUser) return;
+        setIsLoading(true);
         try {
-            const item = localStorage.getItem(key);
-            const storedDocs: StoredDocument[] = item ? JSON.parse(item) : [];
-            // Filter out files older than 24 hours
-            const now = Date.now();
-            return storedDocs.filter(doc => (now - doc.uploadDate) < TIME_WINDOW_MS);
-        } catch (e) {
-            console.error("Failed to parse stored documents:", e);
-            return [];
-        }
-    }, [getStorageKey]);
-
-    const saveStoredDocuments = useCallback((docs: StoredDocument[]) => {
-        const key = getStorageKey();
-        if (!key || typeof window === 'undefined') return;
-        localStorage.setItem(key, JSON.stringify(docs));
-        setDocuments(docs); // Update state
-    }, [getStorageKey]);
-
-    // --- Component Effects ---
-    
-    useEffect(() => {
-        if (!authLoading && !currentUser) {
-            router.push('/login');
-        } else if (currentUser) {
-            setIsLoading(true);
-            const userDocs = getStoredDocuments();
-            saveStoredDocuments(userDocs); // This also cleans up old files and updates state
+            const userDocs = await getRecentUserDocuments(currentUser.uid);
+            setDocuments(userDocs);
+        } catch (err: any) {
+            setError(err.message);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch your documents.' });
+        } finally {
             setIsLoading(false);
         }
-    }, [currentUser, authLoading, router, getStoredDocuments, saveStoredDocuments]);
-    
-    // --- Event Handlers ---
+    }, [currentUser, toast]);
+
+    useEffect(() => {
+        if (!authLoading && !currentUser) {
+            router.push('/login?redirect=/documents');
+        } else if (currentUser) {
+            fetchDocuments();
+        }
+    }, [currentUser, authLoading, router, fetchDocuments]);
 
     const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            if (e.target.files[0].type !== "application/pdf") {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.type !== "application/pdf") {
                 toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please select a PDF file.' });
                 return;
             }
-            if (e.target.files[0].size > 10 * 1024 * 1024) { // 10MB limit
-                toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select a file smaller than 10MB.' });
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit for Base64 in Firestore
+                toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select a file smaller than 5MB.' });
                 return;
             }
-            setSelectedFile(e.target.files[0]);
+            setSelectedFile(file);
         }
     };
 
     const handleUpload = async () => {
         if (!selectedFile || !currentUser) return;
 
-        const currentDocs = getStoredDocuments();
-        if (currentDocs.length >= MAX_FILE_COUNT) {
+        if (documents.length >= MAX_FILE_COUNT) {
             toast({ variant: 'destructive', title: 'Limit Reached', description: `You cannot upload more than ${MAX_FILE_COUNT} documents in a 24-hour period.` });
             return;
         }
@@ -112,37 +85,14 @@ export default function DocumentsPage() {
         setIsUploading(true);
         setError(null);
         
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
         try {
-            const token = await currentUser.getIdToken();
-            const response = await fetch('/api/documents', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData,
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Upload failed.');
-
-            // ** AWS Integration Point **
-            // The API response should ideally return the S3 key or a unique identifier.
-            // For now, we simulate this by creating a new document record.
-            const newDoc: StoredDocument = {
-                id: `${selectedFile.name}-${Date.now()}`,
-                filename: selectedFile.name,
-                uploadDate: Date.now(),
-                size: selectedFile.size,
-            };
-            
-            saveStoredDocuments([...currentDocs, newDoc]);
-
+            await uploadDocument(selectedFile);
             toast({ title: 'Success', description: `${selectedFile.name} uploaded successfully.` });
-            setSelectedFile(null);
-            if (document.getElementById('pdf-upload')) {
+            setSelectedFile(null); // Clear selection
+             if (document.getElementById('pdf-upload')) {
                 (document.getElementById('pdf-upload') as HTMLInputElement).value = '';
             }
+            await fetchDocuments(); // Refresh the list
         } catch (err: any) {
             setError(err.message);
             toast({ variant: 'destructive', title: 'Upload Error', description: err.message });
@@ -154,51 +104,43 @@ export default function DocumentsPage() {
     const handleDelete = async (docId: string) => {
         if (!currentUser) return;
         
-        // ** AWS Integration Point **
-        // Before removing from local storage, you would call your API 
-        // to delete the actual file from your S3 bucket.
-        // e.g., await fetch(`/api/documents?fileKey=${doc.s3_key}`, { method: 'DELETE' });
+        const originalDocuments = [...documents];
+        setDocuments(docs => docs.filter(d => d.id !== docId)); // Optimistic UI update
 
-        const updatedDocs = documents.filter(d => d.id !== docId);
-        saveStoredDocuments(updatedDocs);
-        toast({ title: 'Success', description: 'File removed successfully.' });
-    };
-
-    const handleCombineAndDownload = async () => {
-        if (documents.length === 0) {
-            toast({ variant: 'destructive', title: 'No Files', description: 'There are no documents to combine.' });
-            return;
+        try {
+            await deleteDocument(docId);
+            toast({ title: 'Success', description: 'File removed successfully.' });
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not remove file. Please try again.'});
+            setDocuments(originalDocuments); // Revert UI on error
         }
-        setIsCombining(true);
-        toast({ title: 'Processing...', description: 'Combining files into a single Excel sheet. This may take a moment.' });
-        
-        // ** AWS Integration Point **
-        // This part would involve fetching each file from S3, processing it,
-        // and combining the data. This is a complex, long-running task.
-        // A robust solution would use a backend job queue.
-        // For this demo, we'll simulate it with a delay.
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // For now, let's just create a dummy Excel file.
-        // To make this real, you'd fetch, process, and use the excel-export utility.
-        const dummyData = [
-            ["Feature", "Status"],
-            ["Combine from S3", "Placeholder - Ready for implementation"],
-            ["Number of Files", documents.length],
-            ["Download Timestamp", new Date().toLocaleString()]
-        ];
-        const { exportToExcel } = await import('@/lib/excel-export');
-        exportToExcel(dummyData, `combined_statements_${Date.now()}.xlsx`);
-
-        setIsCombining(false);
     };
 
-    // --- Render Logic ---
+    const handleDownload = async (doc: StoredDocument) => {
+        setIsDownloading(doc.id);
+        try {
+            // The document fetched by getRecentUserDocuments doesn't include the large fileData field.
+            // We need to fetch it specifically for the download.
+            // NOTE: A more optimized service would be to have getDocumentData(docId)
+            if (doc.fileData) { // If data is somehow already present
+                 base64ToPDF(doc.fileData, doc.fileName);
+            } else {
+                 toast({ variant: 'destructive', title: 'Download Error', description: 'File data not found for download.' });
+                 console.error("File data is missing for document:", doc.id);
+            }
+
+        } catch (err: any) {
+             toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not prepare file for download.'});
+        } finally {
+            setIsDownloading(null);
+        }
+    };
+
 
     if (authLoading || !currentUser) {
         return (
             <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-                <LoadingSpinner message="Loading your documents..." />
+                <LoadingSpinner message="Verifying access..." />
             </div>
         );
     }
@@ -211,120 +153,103 @@ export default function DocumentsPage() {
                 <CardHeader>
                     <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Document Storage</CardTitle>
                     <CardDescription>
-                        Upload up to 10 bank statement PDFs. Files are stored for 24 hours. Combine them into a single Excel file at any time.
+                        Upload up to 10 PDF files. Files are stored for 24 hours before being automatically removed.
                     </CardDescription>
                 </CardHeader>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left side: Upload and Actions */}
-                <div className="lg:col-span-1 space-y-6">
-                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Upload New Document</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Input
-                                id="pdf-upload"
-                                type="file"
-                                accept="application/pdf"
-                                onChange={handleFileChange}
-                                disabled={isUploading || documents.length >= MAX_FILE_COUNT}
-                            />
-                            <Button 
-                                onClick={handleUpload} 
-                                disabled={!selectedFile || isUploading || documents.length >= MAX_FILE_COUNT}
-                                className="w-full"
-                            >
-                                {isUploading ? <LoadingSpinner message="Uploading..." /> : <><UploadCloud className="mr-2 h-4 w-4" /> Upload File</>}
-                            </Button>
-                             {documents.length >= MAX_FILE_COUNT && (
-                                <Alert variant="destructive" className="text-xs">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertTitle>Storage Full</AlertTitle>
-                                    <AlertDescription>
-                                        Delete a file to upload a new one.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Actions</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Button 
-                                onClick={handleCombineAndDownload} 
-                                disabled={isCombining || documents.length === 0}
-                                className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-                            >
-                                {isCombining ? <LoadingSpinner message="Combining..."/> : <><Download className="mr-2 h-4 w-4" /> Combine & Download Excel</>}
-                            </Button>
-                             <p className="text-xs text-muted-foreground mt-2">Combine all currently stored files into one Excel workbook.</p>
-                        </CardContent>
-                    </Card>
-                </div>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg">Upload New Document</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Input
+                        id="pdf-upload"
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleFileChange}
+                        disabled={isUploading || documents.length >= MAX_FILE_COUNT}
+                    />
+                    <Button 
+                        onClick={handleUpload} 
+                        disabled={!selectedFile || isUploading || documents.length >= MAX_FILE_COUNT}
+                        className="w-full"
+                    >
+                        {isUploading ? <LoadingSpinner message="Uploading..." /> : <><UploadCloud className="mr-2 h-4 w-4" /> Upload File</>}
+                    </Button>
+                        {documents.length >= MAX_FILE_COUNT && (
+                        <Alert variant="destructive" className="text-xs">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Storage Full</AlertTitle>
+                            <AlertDescription>
+                                Delete a file or wait for older files to expire to upload a new one.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                </CardContent>
+            </Card>
 
-                {/* Right side: Stored Files */}
-                <div className="lg:col-span-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Stored Files (Last 24 Hours)</CardTitle>
-                            <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
-                                <span>{documents.length} / {MAX_FILE_COUNT} files used</span>
-                                <span>{storagePercentage.toFixed(0)}%</span>
-                            </div>
-                            <Progress value={storagePercentage} className="w-full mt-2" />
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? (
-                                <LoadingSpinner message="Fetching documents..." />
-                            ) : error ? (
-                                <Alert variant="destructive">
-                                    <AlertTitle>Error</AlertTitle>
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
-                            ) : documents.length === 0 ? (
-                                <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-                                    <FileSpreadsheet className="mx-auto h-12 w-12 mb-4" />
-                                    <p>Your document storage is empty.</p>
-                                    <p className="text-sm">Upload a file to get started.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Filename</TableHead>
-                                                <TableHead>Size</TableHead>
-                                                <TableHead>Uploaded</TableHead>
-                                                <TableHead className="text-right">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {documents.map((doc) => (
-                                                <TableRow key={doc.id}>
-                                                    <TableCell className="font-medium truncate max-w-xs">{doc.filename}</TableCell>
-                                                    <TableCell>{(doc.size / 1024 / 1024).toFixed(2)} MB</TableCell>
-                                                    <TableCell>{format(new Date(doc.uploadDate), 'p')}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button variant="destructive" size="icon" onClick={() => handleDelete(doc.id)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                            <span className="sr-only">Delete</span>
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg">Stored Files (Last 24 Hours)</CardTitle>
+                    <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                        <span>{documents.length} / {MAX_FILE_COUNT} files used</span>
+                        <span>{storagePercentage.toFixed(0)}%</span>
+                    </div>
+                    <Progress value={storagePercentage} className="w-full mt-2" />
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <LoadingSpinner message="Fetching documents..." />
+                    ) : error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>Error</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    ) : documents.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+                            <FileSpreadsheet className="mx-auto h-12 w-12 mb-4" />
+                            <p>Your document storage is empty.</p>
+                            <p className="text-sm">Upload a file to get started.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Filename</TableHead>
+                                        <TableHead>Uploaded</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {documents.map((doc) => (
+                                        <TableRow key={doc.id}>
+                                            <TableCell className="font-medium truncate max-w-xs">{doc.fileName}</TableCell>
+                                            <TableCell>{format(doc.uploadedAt.toDate(), 'PP p')}</TableCell>
+                                            <TableCell className="text-right space-x-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="icon" 
+                                                    onClick={() => handleDownload(doc)}
+                                                    disabled={isDownloading === doc.id}
+                                                >
+                                                    {isDownloading === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                                    <span className="sr-only">Download</span>
+                                                </Button>
+                                                <Button variant="destructive" size="icon" onClick={() => handleDelete(doc.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                    <span className="sr-only">Delete</span>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }
-
