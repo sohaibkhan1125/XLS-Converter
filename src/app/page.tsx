@@ -165,28 +165,7 @@ export default function HomePage() {
       setExcelReadyData(formattedData);
       
       recordConversion(userId);
-
-      // New Step: Automatically save the document for logged-in users
-      if (currentUser) {
-        setLoadingStep("Saving document to your account...");
-        const formData = new FormData();
-        formData.append('file', fileToProcess);
-        const token = await currentUser.getIdToken();
-        const response = await fetch('/api/documents', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData,
-        });
-        if (!response.ok) {
-           const result = await response.json();
-           // Show a non-blocking warning if save fails
-           toast({ variant: "destructive", title: "Save Failed", description: result.error || 'Could not save to your documents.' });
-        } else {
-            toast({ title: "Conversion Successful!", description: "Your file has been saved to your Documents page." });
-        }
-      } else {
-        toast({ title: "Conversion Successful", description: "Your data is ready for download." });
-      }
+      toast({ title: "Conversion Successful", description: "Your data is ready for download." });
 
     } catch (err: any) {
       const errorMessage = err.message || "An unknown error occurred during conversion.";
