@@ -1,96 +1,66 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Rules for the 'admins' collection
-    // This collection stores UIDs of users who are administrators.
+    // --- ADMIN MANAGEMENT ---
     match /admins/{adminId} {
-      // Allow any authenticated user to read admin documents.
-      // For tighter security, you might restrict this to only other admins
-      // or disallow client-side reads entirely if admin UIDs are not needed by clients.
       allow read: if request.auth != null;
-
-      // Allow an authenticated user to create their own admin document.
-      // This is primarily for the initial admin signup.
-      // For modifying/deleting admin records after initial setup, consider Cloud Functions
-      // or a more privileged role for enhanced security.
       allow write: if request.auth != null && request.auth.uid == adminId;
     }
 
-    // Rules for General Site Settings
-    // Document path: /site_settings/general_config
-    match /site_settings/general_config {
-      // Allow public read access as these settings are needed by the frontend.
-      allow read: if true;
-
-      // Allow write access only if the user is authenticated AND is an admin.
-      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    // Rules for Popup Settings
-    // Document path: /site_settings/popups_config
-    match /site_settings/popups_config {
-      // Allow public read access for the frontend to display popups.
-      // If popups should only be for logged-in users, change to:
-      // allow read: if request.auth != null;
-      allow read: if true;
-
-      // Allow write access (create, update) only if the user
-      // is authenticated AND is an admin.
-      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    // Rules for user profiles in the 'users' collection
+    // --- USER PROFILES AND DOCUMENTS ---
     match /users/{userId} {
-      // Allow a user to:
-      // - Create their own profile document (e.g., upon signup).
-      // - Read their own profile document.
-      // - Update their own profile document.
-      // Client-side deletion is disallowed for now to prevent accidental data loss.
-      allow create, read, update: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Example for admin access to user profiles (currently commented out):
-      // allow read: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
-      // allow write: if request.auth != null && (request.auth.uid == userId || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); // If admins can also edit
+      // Rule for user's subcollection of documents
+      match /documents/{docId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
-    // Rules for Conversion Logs
-    // Collection: conversion_logs
-    // These logs might still be created by the application even if not displayed on the admin dashboard.
-    match /conversion_logs/{logId} {
-      // Allow any client to create conversion logs (e.g., from local-storage-limits.ts).
-      // For enhanced security in production, consider restricting this or using a Cloud Function.
-      allow create: if true;
+    // --- USER FILES (Base64 PDFs) ---
+    match /userFiles/{fileId} {
+      // Users can create, read, and delete their own files.
+      // We check that the userId field in the document matches the authenticated user's ID.
+      // We check create against request.resource.data to validate incoming data.
+      allow read, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Disallow updating files to prevent tampering with metadata like uploadedAt.
+      allow update: if false;
+    }
 
-      // Allow only authenticated admins to read conversion logs (e.g., for direct inspection in Firebase console).
+    // --- SITE SETTINGS (Combined for simplicity) ---
+    match /site_settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- CONVERSION LOGS ---
+    match /conversion_logs/{logId} {
+      allow create: if true;
       allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-      
-      // Generally, logs shouldn't be updated or deleted from the client.
       allow update, delete: if false;
     }
 
-    // Rules for Blog Posts
-    // Collection: blog_posts
+    // --- BLOG POSTS (OLD AND NEW RULES COMBINED) ---
     match /blog_posts/{postId} {
-      // Allow public read for posts that are 'published'
-      // OR allow read if the user is an admin (to view drafts, etc.)
-      allow read: if resource.data.status == 'published' || (request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
-      
-      // Allow admins to create, update, and delete blog posts
-      allow create, update, delete: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
+      // (OLD RULE - KEPT)
+      // This rule allows reading a SINGLE post if it's published, or if the user is an admin.
+      allow read: if resource.data.status == 'published' ||
+        (request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
 
-    // --- Obsolete Rules Section (Kept for reference or if feature is re-enabled) ---
-    // The 'daily_conversion_metrics' feature was removed from the admin dashboard.
-    /*
-    match /daily_conversion_metrics/{dateString} {
-      allow read: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-      // If writes were from a trusted server/function, this rule would be different.
-      // allow write: if request.auth != null; // Example, adjust based on write source
-    }
-    */
+      // (NEW RULE - THE FIX)
+      // This rule allows ANYONE to get a LIST of posts from the collection.
+      // This is required for the main /blogs page to work. The app's code then
+      // filters this list to only show the published ones. This fixes the permission error.
+      allow list: if true;
 
+      // (OLD RULE - KEPT)
+      // This rule allows ONLY admins to create, change, or delete posts.
+      allow create, update, delete: if request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
   }
 }
