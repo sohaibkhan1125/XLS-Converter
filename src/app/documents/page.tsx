@@ -12,17 +12,18 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Download } from 'lucide-react';
+import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Eye, Download } from 'lucide-react';
 import { format } from 'date-fns';
-import { 
-    getRecentUserDocuments, 
-    uploadDocument, 
-    deleteDocument,
-    base64ToPDF,
-    type StoredDocument 
-} from '@/lib/firebase-document-service';
 
 const MAX_FILE_COUNT = 10;
+
+interface StoredDocument {
+    _id: string;
+    fileName: string;
+    cloudinaryUrl: string;
+    uploadedAt: string; // ISO string date
+    userId: string;
+}
 
 // --- Main Component ---
 export default function DocumentsPage() {
@@ -35,13 +36,21 @@ export default function DocumentsPage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [isDownloading, setIsDownloading] = useState<string | null>(null); // Store docId being downloaded
 
     const fetchDocuments = useCallback(async () => {
         if (!currentUser) return;
         setIsLoading(true);
+        setError(null);
         try {
-            const userDocs = await getRecentUserDocuments(currentUser.uid);
+            const idToken = await currentUser.getIdToken();
+            const response = await fetch('/api/documents', {
+                headers: { 'Authorization': `Bearer ${idToken}` },
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch documents.');
+            }
+            const userDocs = await response.json();
             setDocuments(userDocs);
         } catch (err: any) {
             setError(err.message);
@@ -66,8 +75,8 @@ export default function DocumentsPage() {
                 toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please select a PDF file.' });
                 return;
             }
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit for Base64 in Firestore
-                toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select a file smaller than 5MB.' });
+            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select a file smaller than 10MB.' });
                 return;
             }
             setSelectedFile(file);
@@ -76,22 +85,35 @@ export default function DocumentsPage() {
 
     const handleUpload = async () => {
         if (!selectedFile || !currentUser) return;
-
+        
         if (documents.length >= MAX_FILE_COUNT) {
-            toast({ variant: 'destructive', title: 'Limit Reached', description: `You cannot upload more than ${MAX_FILE_COUNT} documents in a 24-hour period.` });
+            toast({ variant: 'destructive', title: 'Limit Reached', description: `You can store a maximum of ${MAX_FILE_COUNT} files.` });
             return;
         }
 
         setIsUploading(true);
         setError(null);
         
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
         try {
-            await uploadDocument(selectedFile);
+            const idToken = await currentUser.getIdToken();
+            const response = await fetch('/api/documents', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${idToken}` },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Upload failed');
+            }
+
             toast({ title: 'Success', description: `${selectedFile.name} uploaded successfully.` });
             setSelectedFile(null); // Clear selection
-             if (document.getElementById('pdf-upload')) {
-                (document.getElementById('pdf-upload') as HTMLInputElement).value = '';
-            }
+             const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
+             if (fileInput) fileInput.value = '';
             await fetchDocuments(); // Refresh the list
         } catch (err: any) {
             setError(err.message);
@@ -105,10 +127,24 @@ export default function DocumentsPage() {
         if (!currentUser) return;
         
         const originalDocuments = [...documents];
-        setDocuments(docs => docs.filter(d => d.id !== docId)); // Optimistic UI update
+        setDocuments(docs => docs.filter(d => d._id !== docId)); // Optimistic UI update
 
         try {
-            await deleteDocument(docId);
+            const idToken = await currentUser.getIdToken();
+            const response = await fetch('/api/documents', {
+                method: 'DELETE',
+                headers: { 
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ docId }),
+            });
+
+            if (!response.ok) {
+                 const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete file.');
+            }
+
             toast({ title: 'Success', description: 'File removed successfully.' });
         } catch (err: any) {
             toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not remove file. Please try again.'});
@@ -116,28 +152,7 @@ export default function DocumentsPage() {
         }
     };
 
-    const handleDownload = async (doc: StoredDocument) => {
-        setIsDownloading(doc.id);
-        try {
-            // The document fetched by getRecentUserDocuments doesn't include the large fileData field.
-            // We need to fetch it specifically for the download.
-            // NOTE: A more optimized service would be to have getDocumentData(docId)
-            if (doc.fileData) { // If data is somehow already present
-                 base64ToPDF(doc.fileData, doc.fileName);
-            } else {
-                 toast({ variant: 'destructive', title: 'Download Error', description: 'File data not found for download.' });
-                 console.error("File data is missing for document:", doc.id);
-            }
-
-        } catch (err: any) {
-             toast({ variant: 'destructive', title: 'Download Failed', description: 'Could not prepare file for download.'});
-        } finally {
-            setIsDownloading(null);
-        }
-    };
-
-
-    if (authLoading || !currentUser) {
+    if (authLoading || (!currentUser && !authLoading)) {
         return (
             <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
                 <LoadingSpinner message="Verifying access..." />
@@ -153,7 +168,7 @@ export default function DocumentsPage() {
                 <CardHeader>
                     <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Document Storage</CardTitle>
                     <CardDescription>
-                        Upload up to 10 PDF files. Files are stored for 24 hours before being automatically removed.
+                        Upload up to {MAX_FILE_COUNT} PDF files. Files are automatically removed after 24 hours.
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -224,20 +239,29 @@ export default function DocumentsPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {documents.map((doc) => (
-                                        <TableRow key={doc.id}>
+                                        <TableRow key={doc._id}>
                                             <TableCell className="font-medium truncate max-w-xs">{doc.fileName}</TableCell>
-                                            <TableCell>{format(doc.uploadedAt.toDate(), 'PP p')}</TableCell>
+                                            <TableCell>{format(new Date(doc.uploadedAt), 'PP p')}</TableCell>
                                             <TableCell className="text-right space-x-2">
+                                                 <Button 
+                                                    variant="outline" 
+                                                    size="icon" 
+                                                    onClick={() => window.open(doc.cloudinaryUrl, '_blank')}
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                    <span className="sr-only">View</span>
+                                                </Button>
                                                 <Button 
                                                     variant="outline" 
                                                     size="icon" 
-                                                    onClick={() => handleDownload(doc)}
-                                                    disabled={isDownloading === doc.id}
+                                                    asChild
                                                 >
-                                                    {isDownloading === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                                    <span className="sr-only">Download</span>
+                                                   <a href={`${doc.cloudinaryUrl}?fl_attachment`} download={doc.fileName}>
+                                                        <Download className="h-4 w-4" />
+                                                        <span className="sr-only">Download</span>
+                                                   </a>
                                                 </Button>
-                                                <Button variant="destructive" size="icon" onClick={() => handleDelete(doc.id)}>
+                                                <Button variant="destructive" size="icon" onClick={() => handleDelete(doc._id)}>
                                                     <Trash2 className="h-4 w-4" />
                                                     <span className="sr-only">Delete</span>
                                                 </Button>
