@@ -11,6 +11,7 @@ import {
   where,
   Timestamp,
   orderBy,
+  getDoc,
 } from 'firebase/firestore';
 import { firestore, auth } from './firebase';
 
@@ -79,29 +80,36 @@ export function base64ToPDF(base64Data: string, fileName: string): void {
 // --- Firestore Service Functions ---
 
 /**
- * Fetches all document metadata for a given user, filtering out files older than 24 hours.
+ * Fetches all document metadata for a given user, then filters for files from the last 24 hours.
  * @param userId The UID of the logged-in user.
  * @returns An array of StoredDocument objects.
  */
 export async function getRecentUserDocuments(userId: string): Promise<StoredDocument[]> {
   if (!userId) return [];
 
-  const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-  const cutOffTimestamp = Timestamp.fromMillis(twentyFourHoursAgo);
-
+  // This query is simplified to avoid needing a composite index.
+  // It fetches all documents for a user, ordered by date.
   const q = query(
     collection(firestore, USER_FILES_COLLECTION),
     where("userId", "==", userId),
-    where("uploadedAt", ">=", cutOffTimestamp),
     orderBy("uploadedAt", "desc")
   );
 
   try {
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const allUserDocs = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     } as StoredDocument));
+
+    // Client-side filtering for the 24-hour window.
+    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const recentDocs = allUserDocs.filter(doc => 
+        doc.uploadedAt.toMillis() >= twentyFourHoursAgo
+    );
+    
+    return recentDocs;
+
   } catch (error) {
     console.error("Error fetching user documents:", error);
     throw error;
@@ -115,7 +123,7 @@ export async function getRecentUserDocuments(userId: string): Promise<StoredDocu
  */
 export async function getDocumentWithData(docId: string): Promise<StoredDocument | null> {
     const docRef = doc(firestore, USER_FILES_COLLECTION, docId);
-    const docSnap = await getDocs(docRef);
+    const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() } as StoredDocument;
     }
