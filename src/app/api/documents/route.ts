@@ -1,10 +1,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Readable } from 'stream';
 import { auth as adminAuth } from 'firebase-admin';
 import { getFirebaseAdminApp } from '@/lib/firebase-admin-config';
-import { ObjectId } from 'mongodb';
 
 // This is the crucial fix: It ensures this route is always run dynamically on the server.
 export const dynamic = 'force-dynamic';
@@ -26,23 +23,23 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 }
 
 // GET handler to fetch user's documents
+// ** AWS Integration Point **
+// In a real implementation, this would list files from your S3 bucket for the user.
 export async function GET(request: NextRequest) {
     const userId = await getUserId(request);
     if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    try {
-        const { bucket } = await connectToDatabase();
-        const documents = await bucket.find({ 'metadata.userId': userId }).toArray();
-        return NextResponse.json(documents);
-    } catch (error) {
-        console.error('Failed to fetch documents:', error);
-        return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 });
-    }
+    // This is now a placeholder. You would replace this with a call to AWS SDK to list objects.
+    // For example: `const userFiles = await listFilesFromS3(userId);`
+    // The documents page now manages the file list on the client-side as a temporary measure.
+    return NextResponse.json([]);
 }
 
 // POST handler to upload a new document
+// ** AWS Integration Point **
+// This is where you would use the AWS SDK to upload the file to S3.
 export async function POST(request: NextRequest) {
     const userId = await getUserId(request);
     if (!userId) {
@@ -50,39 +47,24 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const { db, bucket } = await connectToDatabase();
-        
-        const count = await db.collection('pdfs.files').countDocuments({ 'metadata.userId': userId });
-        if (count >= 10) {
-            return NextResponse.json({ error: 'Maximum file limit of 10 reached.' }, { status: 400 });
-        }
-
         const formData = await request.formData();
         const file = formData.get('file') as File;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
         }
-        
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const stream = new Readable();
-        stream.push(buffer);
-        stream.push(null); // Signify end of stream
 
-        const uploadStream = bucket.openUploadStream(file.name, {
-            metadata: {
-                contentType: file.type,
-                userId: userId,
-            },
-        });
+        // Here you would implement the AWS S3 upload logic.
+        // Example using a placeholder function:
+        // const s3Key = `uploads/${userId}/${Date.now()}-${file.name}`;
+        // await uploadToS3(file, s3Key);
 
-        await new Promise((resolve, reject) => {
-            stream.pipe(uploadStream)
-                .on('error', reject)
-                .on('finish', resolve);
-        });
+        // For now, we just simulate a successful upload.
+        console.log(`Simulating upload for user ${userId}, file: ${file.name}`);
 
-        return NextResponse.json({ message: 'File uploaded successfully', fileId: uploadStream.id }, { status: 201 });
+        // On success, you might return the S3 key or a success message.
+        return NextResponse.json({ message: 'File uploaded successfully', simulatedKey: `${userId}/${file.name}` }, { status: 201 });
+
     } catch (error) {
         console.error('File upload failed:', error);
         return NextResponse.json({ error: 'File upload failed' }, { status: 500 });
@@ -91,6 +73,8 @@ export async function POST(request: NextRequest) {
 
 
 // DELETE handler to remove a document
+// ** AWS Integration Point **
+// This is where you would use the AWS SDK to delete the object from S3.
 export async function DELETE(request: NextRequest) {
     const userId = await getUserId(request);
     if (!userId) {
@@ -98,24 +82,19 @@ export async function DELETE(request: NextRequest) {
     }
     
     const { searchParams } = new URL(request.url);
-    const fileId = searchParams.get('fileId');
+    const fileKey = searchParams.get('fileKey'); // You would pass the S3 key here
 
-    if (!fileId) {
-        return NextResponse.json({ error: 'File ID is required' }, { status: 400 });
+    if (!fileKey) {
+        return NextResponse.json({ error: 'File key is required' }, { status: 400 });
     }
     
     try {
-        const { bucket, db } = await connectToDatabase();
-        const file = await db.collection('pdfs.files').findOne({ 
-            _id: new ObjectId(fileId), 
-            'metadata.userId': userId 
-        });
+        // Here you would implement the AWS S3 delete logic.
+        // Example using a placeholder function:
+        // await deleteFromS3(fileKey);
 
-        if (!file) {
-            return NextResponse.json({ error: 'File not found or you do not have permission to delete it.' }, { status: 404 });
-        }
+        console.log(`Simulating deletion for user ${userId}, file key: ${fileKey}`);
 
-        await bucket.delete(new ObjectId(fileId));
         return NextResponse.json({ message: 'File deleted successfully' });
     } catch (error) {
         console.error('Failed to delete file:', error);
