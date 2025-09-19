@@ -35,7 +35,13 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = global._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri!, {
+  // The MONGODB_URI must be present in the runtime environment (e.g., Vercel's environment variables).
+  if (!uri) {
+    // This will be caught at runtime if the variable is missing in production,
+    // but allows the build to pass.
+    throw new Error('The MONGODB_URI environment variable is not defined in the production environment.');
+  }
+  client = new MongoClient(uri, {
     serverApi: {
       version: ServerApiVersion.v1,
       strict: true,
