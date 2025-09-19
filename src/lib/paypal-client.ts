@@ -10,6 +10,7 @@ import {
 import { getGeneralSettings } from './firebase-settings-service';
 
 let clientInstance: Client | null = null;
+const PAYPAL_CLIENT_ID = "AZTt9MVK63m_kcmv3r43nZKDotUbgcrz8y4g3dnAJn5FhPsQ9bV5sbYcUfWaELDF1Ij7jYjPaZLhpO-o";
 
 // This function now fetches credentials from Firebase instead of process.env
 // It should only be called in a server-side context (e.g., API routes)
@@ -25,7 +26,6 @@ export function getPayPalClient(): Client {
     }
 
     const {
-        PAYPAL_CLIENT_ID,
         PAYPAL_CLIENT_SECRET,
     } = process.env;
 

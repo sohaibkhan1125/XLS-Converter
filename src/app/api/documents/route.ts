@@ -11,7 +11,12 @@ export const dynamic = 'force-dynamic';
 
 const getUserIdFromToken = async (request: NextRequest): Promise<string | null> => {
   const authorization = request.headers.get('Authorization');
-  if (!authorization || !authorization.startsWith('Bearer ')) {
+  // During build time or for unauthenticated requests, the header might be null.
+  if (!authorization) {
+    return null;
+  }
+  // The original error happened here because 'authorization' was null.
+  if (!authorization.startsWith('Bearer ')) {
     return null;
   }
   const idToken = authorization.split('Bearer ')[1];
