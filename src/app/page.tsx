@@ -25,6 +25,15 @@ import { useLanguage } from '@/context/language-context';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter";
+const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
+const MAX_FILE_COUNT = 10;
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+interface StoredExcelFile {
+    name: string;
+    data: string[][];
+    timestamp: number;
+}
 
 // Helper to update meta tags
 const updateMeta = (name: string, content: string) => {
@@ -182,10 +191,42 @@ export default function HomePage() {
 
   const handleDownload = () => {
     if (excelReadyData && selectedFile) {
-      const originalFileName = selectedFile.name.replace(/\.[^/.]+$/, "");
-      exportToExcel(excelReadyData, `${originalFileName}.xlsx`);
+        const originalFileName = selectedFile.name.replace(/\.[^/.]+$/, "") + ".xlsx";
+        exportToExcel(excelReadyData, originalFileName);
+
+        // Store file in local storage
+        if (typeof window !== 'undefined') {
+            try {
+                const storedData = localStorage.getItem(STORAGE_KEY);
+                let files: StoredExcelFile[] = storedData ? JSON.parse(storedData) : [];
+                const now = Date.now();
+
+                // Filter out files older than 24 hours
+                files = files.filter(file => (now - file.timestamp) < TWENTY_FOUR_HOURS_MS);
+
+                // Add the new file
+                const newFile: StoredExcelFile = {
+                    name: originalFileName,
+                    data: excelReadyData,
+                    timestamp: now,
+                };
+                files.unshift(newFile); // Add to the beginning
+
+                // Keep only the 10 most recent files
+                if (files.length > MAX_FILE_COUNT) {
+                    files.length = MAX_FILE_COUNT;
+                }
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+                toast({ title: "File Saved", description: "This download has been saved to your Documents page for 24 hours." });
+
+            } catch (e) {
+                console.error("Failed to save file to local storage", e);
+                toast({ variant: "destructive", title: "Could Not Save History", description: "There was an error saving this file to your local history." });
+            }
+        }
     }
-  };
+};
 
   const handleClearSelection = () => {
     setSelectedFile(null);

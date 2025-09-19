@@ -14,15 +14,16 @@ import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
 import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Eye, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { exportToExcel } from '@/lib/excel-export';
 
 const MAX_FILE_COUNT = 10;
+const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-interface StoredDocument {
-    _id: string;
-    fileName: string;
-    cloudinaryUrl: string;
-    uploadedAt: string; // ISO string date
-    userId: string;
+interface StoredExcelFile {
+    name: string;
+    data: string[][];
+    timestamp: number;
 }
 
 // --- Main Component ---
@@ -31,201 +32,95 @@ export default function DocumentsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const [documents, setDocuments] = useState<StoredDocument[]>([]);
+    const [storedFiles, setStoredFiles] = useState<StoredExcelFile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
 
-    const fetchDocuments = useCallback(async () => {
-        if (!currentUser) return;
+    const fetchStoredFiles = useCallback(() => {
         setIsLoading(true);
-        setError(null);
-        try {
-            const idToken = await currentUser.getIdToken();
-            const response = await fetch('/api/documents', {
-                headers: { 'Authorization': `Bearer ${idToken}` },
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to fetch documents.');
+        if (typeof window !== 'undefined') {
+            const storedData = localStorage.getItem(STORAGE_KEY);
+            if (storedData) {
+                try {
+                    const files: StoredExcelFile[] = JSON.parse(storedData);
+                    const now = Date.now();
+                    const recentFiles = files.filter(file => (now - file.timestamp) < TWENTY_FOUR_HOURS_MS);
+                    
+                    // Sort by most recent first
+                    recentFiles.sort((a, b) => b.timestamp - a.timestamp);
+
+                    setStoredFiles(recentFiles);
+
+                    // Clean up expired files from localStorage
+                    if (recentFiles.length !== files.length) {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(recentFiles));
+                    }
+                } catch (error) {
+                    console.error("Error parsing stored files:", error);
+                    localStorage.removeItem(STORAGE_KEY); // Clear corrupted data
+                }
             }
-            const userDocs = await response.json();
-            setDocuments(userDocs);
-        } catch (err: any) {
-            setError(err.message);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch your documents.' });
-        } finally {
-            setIsLoading(false);
         }
-    }, [currentUser, toast]);
+        setIsLoading(false);
+    }, []);
 
     useEffect(() => {
-        if (!authLoading && !currentUser) {
-            router.push('/login?redirect=/documents');
-        } else if (currentUser) {
-            fetchDocuments();
-        }
-    }, [currentUser, authLoading, router, fetchDocuments]);
+        // This page is accessible to all users, so we don't redirect if not logged in.
+        fetchStoredFiles();
+    }, [fetchStoredFiles]);
 
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.type !== "application/pdf") {
-                toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please select a PDF file.' });
-                return;
-            }
-            if (file.size > 10 * 1024 * 1024) { // 10MB limit
-                toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select a file smaller than 10MB.' });
-                return;
-            }
-            setSelectedFile(file);
-        }
-    };
 
-    const handleUpload = async () => {
-        if (!selectedFile || !currentUser) return;
-        
-        if (documents.length >= MAX_FILE_COUNT) {
-            toast({ variant: 'destructive', title: 'Limit Reached', description: `You can store a maximum of ${MAX_FILE_COUNT} files.` });
-            return;
-        }
-
-        setIsUploading(true);
-        setError(null);
-        
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
+    const handleDownload = (file: StoredExcelFile) => {
         try {
-            const idToken = await currentUser.getIdToken();
-            const response = await fetch('/api/documents', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${idToken}` },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
-
-            toast({ title: 'Success', description: `${selectedFile.name} uploaded successfully.` });
-            setSelectedFile(null); // Clear selection
-             const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
-             if (fileInput) fileInput.value = '';
-            await fetchDocuments(); // Refresh the list
-        } catch (err: any) {
-            setError(err.message);
-            toast({ variant: 'destructive', title: 'Upload Error', description: err.message });
-        } finally {
-            setIsUploading(false);
+            exportToExcel(file.data, file.name);
+            toast({ title: "Download Started", description: `Downloading ${file.name}.` });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Download Error', description: 'Could not re-download the file.' });
         }
     };
     
-    const handleDelete = async (docId: string) => {
-        if (!currentUser) return;
-        
-        const originalDocuments = [...documents];
-        setDocuments(docs => docs.filter(d => d._id !== docId)); // Optimistic UI update
-
-        try {
-            const idToken = await currentUser.getIdToken();
-            const response = await fetch('/api/documents', {
-                method: 'DELETE',
-                headers: { 
-                    'Authorization': `Bearer ${idToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ docId }),
-            });
-
-            if (!response.ok) {
-                 const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to delete file.');
-            }
-
-            toast({ title: 'Success', description: 'File removed successfully.' });
-        } catch (err: any) {
-            toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not remove file. Please try again.'});
-            setDocuments(originalDocuments); // Revert UI on error
+    const handleClearHistory = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(STORAGE_KEY);
+            setStoredFiles([]);
+            toast({ title: "History Cleared", description: "Your local download history has been cleared." });
         }
     };
-
-    if (authLoading || (!currentUser && !authLoading)) {
-        return (
-            <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
-                <LoadingSpinner message="Verifying access..." />
-            </div>
-        );
-    }
     
-    const storagePercentage = (documents.length / MAX_FILE_COUNT) * 100;
+    const storagePercentage = (storedFiles.length / MAX_FILE_COUNT) * 100;
 
     return (
         <div className="space-y-8">
             <Card className="shadow-xl">
                 <CardHeader>
-                    <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Document Storage</CardTitle>
+                    <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Recent Documents</CardTitle>
                     <CardDescription>
-                        Upload up to {MAX_FILE_COUNT} PDF files. Files are automatically removed after 24 hours.
+                        This page lists the last {MAX_FILE_COUNT} Excel files you have downloaded in the last 24 hours. This data is stored only in your browser.
                     </CardDescription>
                 </CardHeader>
-            </Card>
-
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Upload New Document</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Input
-                        id="pdf-upload"
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        disabled={isUploading || documents.length >= MAX_FILE_COUNT}
-                    />
-                    <Button 
-                        onClick={handleUpload} 
-                        disabled={!selectedFile || isUploading || documents.length >= MAX_FILE_COUNT}
-                        className="w-full"
-                    >
-                        {isUploading ? <LoadingSpinner message="Uploading..." /> : <><UploadCloud className="mr-2 h-4 w-4" /> Upload File</>}
+                 <CardFooter>
+                    <Button variant="outline" onClick={handleClearHistory} disabled={storedFiles.length === 0}>
+                        <Trash2 className="mr-2 h-4 w-4"/> Clear History
                     </Button>
-                        {documents.length >= MAX_FILE_COUNT && (
-                        <Alert variant="destructive" className="text-xs">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Storage Full</AlertTitle>
-                            <AlertDescription>
-                                Delete a file or wait for older files to expire to upload a new one.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                </CardContent>
+                </CardFooter>
             </Card>
 
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg">Stored Files (Last 24 Hours)</CardTitle>
                     <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
-                        <span>{documents.length} / {MAX_FILE_COUNT} files used</span>
+                        <span>{storedFiles.length} / {MAX_FILE_COUNT} files stored</span>
                         <span>{storagePercentage.toFixed(0)}%</span>
                     </div>
                     <Progress value={storagePercentage} className="w-full mt-2" />
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <LoadingSpinner message="Fetching documents..." />
-                    ) : error ? (
-                        <Alert variant="destructive">
-                            <AlertTitle>Error</AlertTitle>
-                            <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                    ) : documents.length === 0 ? (
+                        <LoadingSpinner message="Fetching recent documents..." />
+                    ) : storedFiles.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
                             <FileSpreadsheet className="mx-auto h-12 w-12 mb-4" />
-                            <p>Your document storage is empty.</p>
-                            <p className="text-sm">Upload a file to get started.</p>
+                            <p>You have no recently downloaded files.</p>
+                            <p className="text-sm">Convert a PDF on the homepage to see it appear here.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -233,37 +128,23 @@ export default function DocumentsPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Filename</TableHead>
-                                        <TableHead>Uploaded</TableHead>
+                                        <TableHead>Saved At</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {documents.map((doc) => (
-                                        <TableRow key={doc._id}>
-                                            <TableCell className="font-medium truncate max-w-xs">{doc.fileName}</TableCell>
-                                            <TableCell>{format(new Date(doc.uploadedAt), 'PP p')}</TableCell>
+                                    {storedFiles.map((file, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="font-medium truncate max-w-xs">{file.name}</TableCell>
+                                            <TableCell>{format(new Date(file.timestamp), 'PP p')}</TableCell>
                                             <TableCell className="text-right space-x-2">
-                                                 <Button 
-                                                    variant="outline" 
-                                                    size="icon" 
-                                                    onClick={() => window.open(doc.cloudinaryUrl, '_blank')}
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                    <span className="sr-only">View</span>
-                                                </Button>
                                                 <Button 
                                                     variant="outline" 
-                                                    size="icon" 
-                                                    asChild
+                                                    size="sm" 
+                                                    onClick={() => handleDownload(file)}
                                                 >
-                                                   <a href={`${doc.cloudinaryUrl}?fl_attachment`} download={doc.fileName}>
-                                                        <Download className="h-4 w-4" />
-                                                        <span className="sr-only">Download</span>
-                                                   </a>
-                                                </Button>
-                                                <Button variant="destructive" size="icon" onClick={() => handleDelete(doc._id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                    <span className="sr-only">Delete</span>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download Again
                                                 </Button>
                                             </TableCell>
                                         </TableRow>

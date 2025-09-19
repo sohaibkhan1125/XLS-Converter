@@ -61,20 +61,26 @@ export default function AppHeader() {
     return 'U';
   };
   
-  const loggedOutLinks = [
+  const navLinks = [
     ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
+    { id: 'documents', href: '/documents', labelKey: 'navDocuments'},
     { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+  ];
+
+  const loggedOutLinks = [
+    ...navLinks,
     { id: 'login', href: '/login', labelKey: 'login' },
     { id: 'register', href: '/signup', labelKey: 'register' },
   ];
 
   const loggedInLinks = [
-    ...(!isHomePage ? [{ id: 'home', href: '/', labelKey: 'navHome' }] : []),
-    { id: 'pricing', href: '/pricing', labelKey: 'navPricing' },
+    ...navLinks,
     { id: 'settings', href: '/settings', labelKey: 'navSettings' },
   ];
 
   const mobileLinks = currentUser ? loggedInLinks : loggedOutLinks;
+  const desktopLinks = currentUser ? loggedInLinks : loggedOutLinks.filter(l => l.id !== 'register');
+
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card shadow-md">
@@ -94,19 +100,11 @@ export default function AppHeader() {
         <nav className="hidden md:flex flex-1 justify-center items-center gap-6 text-sm font-medium">
           {authLoading || isLoadingSettings ? (
             <div className="h-4 w-4/5 animate-pulse rounded-md bg-muted"></div>
-          ) : currentUser ? (
-            // Logged-in Links
-            loggedInLinks.map((link) => (
+          ) : (
+            desktopLinks.map((link) => (
                 <Link key={link.id} href={link.href!} className="text-muted-foreground hover:text-primary transition-colors">
                   {getTranslation(link.labelKey)}
                 </Link>
-            ))
-          ) : (
-            // Logged-out Links
-            loggedOutLinks.map((link) => (
-              <Link key={link.id} href={link.href!} className="text-muted-foreground hover:text-primary transition-colors">
-                {getTranslation(link.labelKey)}
-              </Link>
             ))
           )}
         </nav>
@@ -171,7 +169,11 @@ export default function AppHeader() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null }
+          ) : (
+            <Button asChild>
+              <Link href="/signup">Sign Up</Link>
+            </Button>
+          ) }
 
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
