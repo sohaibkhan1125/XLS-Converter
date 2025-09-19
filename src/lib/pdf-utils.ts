@@ -14,9 +14,14 @@ if (typeof window !== 'undefined') {
   ).toString();
 }
 
-export async function extractTextFromPdf(fileBuffer: ArrayBuffer): Promise<string> {
+/**
+ * Extracts raw text from a PDF ArrayBuffer.
+ * @param pdfBuffer The ArrayBuffer of the PDF file.
+ * @returns A promise that resolves with the extracted text.
+ */
+export async function extractTextFromPdf(pdfBuffer: ArrayBuffer): Promise<string> {
   try {
-    const pdf: PDFDocumentProxy = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+    const pdf: PDFDocumentProxy = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
     let fullText = '';
 
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -32,9 +37,14 @@ export async function extractTextFromPdf(fileBuffer: ArrayBuffer): Promise<strin
   }
 }
 
-export async function convertAllPdfPagesToImageUris(fileBuffer: ArrayBuffer): Promise<string[]> {
+/**
+ * Converts all pages of a PDF ArrayBuffer into image data URIs.
+ * @param pdfBuffer The ArrayBuffer of the PDF file.
+ * @returns A promise that resolves with an array of image data URIs.
+ */
+export async function convertAllPdfPagesToImageUris(pdfBuffer: ArrayBuffer): Promise<string[]> {
   try {
-    const pdf: PDFDocumentProxy = await pdfjsLib.getDocument({ data: fileBuffer }).promise;
+    const pdf: PDFDocumentProxy = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
     const imageUris: string[] = [];
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {

@@ -139,14 +139,16 @@ export default function HomePage() {
       const fileBuffer = await fileToProcess.arrayBuffer();
       
       setLoadingStep("Extracting text from PDF...");
-      const directText = await extractTextFromPdf(fileBuffer);
+      // Pass a clone of the buffer to prevent it from being detached.
+      const directText = await extractTextFromPdf(fileBuffer.slice(0));
       let rawTextOutput: string;
 
       if (directText && directText.length > MIN_TEXT_LENGTH_FOR_TEXT_PDF) {
         rawTextOutput = directText;
       } else {
         setLoadingStep("PDF has no text, using OCR to scan pages...");
-        const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer);
+        // Pass another clone to the image conversion function.
+        const imageDataUris = await convertAllPdfPagesToImageUris(fileBuffer.slice(0));
         let ocrTextFromAllPages = '';
         for (let i = 0; i < imageDataUris.length; i++) {
           setLoadingStep(`Scanning page ${i + 1} of ${imageDataUris.length}...`);
