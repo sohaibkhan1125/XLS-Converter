@@ -5,14 +5,14 @@ import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/core/loading-spinner';
-import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Eye, Download } from 'lucide-react';
+import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Eye, Download, Combine } from 'lucide-react';
 import { format } from 'date-fns';
 import { exportToExcel } from '@/lib/excel-export';
 
@@ -85,23 +85,71 @@ export default function DocumentsPage() {
             toast({ title: "History Cleared", description: "Your local download history has been cleared." });
         }
     };
+
+    const handleCombineAndDownload = () => {
+        if (storedFiles.length < 2) {
+            toast({
+                variant: 'destructive',
+                title: 'Not enough files',
+                description: 'You need at least two files to combine them.',
+            });
+            return;
+        }
+
+        try {
+            let combinedData: string[][] = [];
+            let headerTaken = false;
+
+            // Iterate through files (they are already sorted newest to oldest, let's reverse for chronological combine)
+            const filesToCombine = [...storedFiles].reverse();
+
+            filesToCombine.forEach(file => {
+                if (!file.data || file.data.length === 0) return;
+
+                if (!headerTaken) {
+                    combinedData.push(file.data[0]); // Add header from the first file
+                    headerTaken = true;
+                }
+                
+                // Add data rows (skip header)
+                combinedData.push(...file.data.slice(1));
+            });
+
+            if (combinedData.length <= 1) { // Only header was added
+                 toast({ variant: 'destructive', title: 'No Data to Combine', description: 'The stored files do not contain any data rows to combine.' });
+                 return;
+            }
+
+            exportToExcel(combinedData, 'combined-documents.xlsx');
+            toast({ title: 'Download Started', description: 'Downloading combined Excel file.' });
+
+        } catch (error) {
+            console.error("Error combining files:", error);
+            toast({ variant: 'destructive', title: 'Combine Error', description: 'An error occurred while combining the files.' });
+        }
+    };
     
     const storagePercentage = (storedFiles.length / MAX_FILE_COUNT) * 100;
 
     return (
         <div className="space-y-8">
             <Card className="shadow-xl">
-                <CardHeader>
-                    <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Recent Documents</CardTitle>
-                    <CardDescription>
-                        This page lists the last {MAX_FILE_COUNT} Excel files you have downloaded in the last 24 hours. This data is stored only in your browser.
-                    </CardDescription>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Recent Documents</CardTitle>
+                        <CardDescription className="mt-2">
+                            This page lists the last {MAX_FILE_COUNT} Excel files you have downloaded in the last 24 hours. This data is stored only in your browser.
+                        </CardDescription>
+                    </div>
+                    <div className="flex gap-2 mt-4 sm:mt-0 flex-shrink-0">
+                         <Button variant="outline" onClick={handleClearHistory} disabled={storedFiles.length === 0}>
+                            <Trash2 className="mr-2 h-4 w-4"/> Clear History
+                        </Button>
+                        <Button onClick={handleCombineAndDownload} disabled={storedFiles.length < 2}>
+                            <Combine className="mr-2 h-4 w-4"/> Combine & Download All
+                        </Button>
+                    </div>
                 </CardHeader>
-                 <CardFooter>
-                    <Button variant="outline" onClick={handleClearHistory} disabled={storedFiles.length === 0}>
-                        <Trash2 className="mr-2 h-4 w-4"/> Clear History
-                    </Button>
-                </CardFooter>
             </Card>
 
             <Card>
