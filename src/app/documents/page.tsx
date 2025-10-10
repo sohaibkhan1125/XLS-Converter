@@ -16,7 +16,7 @@ import { FileText, UploadCloud, Trash2, AlertCircle, FileSpreadsheet, Eye, Downl
 import { format } from 'date-fns';
 import { exportToExcel } from '@/lib/excel-export';
 
-const MAX_FILE_COUNT = 10;
+const MAX_FILE_COUNT = 12;
 const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 

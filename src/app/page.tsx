@@ -26,7 +26,7 @@ import { useLanguage } from '@/context/language-context';
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter";
 const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
-const MAX_FILE_COUNT = 10;
+const MAX_FILE_COUNT = 12;
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 interface StoredExcelFile {
@@ -212,7 +212,7 @@ export default function HomePage() {
                 };
                 files.unshift(newFile); // Add to the beginning
 
-                // Keep only the 10 most recent files
+                // Keep only the most recent files
                 if (files.length > MAX_FILE_COUNT) {
                     files.length = MAX_FILE_COUNT;
                 }
