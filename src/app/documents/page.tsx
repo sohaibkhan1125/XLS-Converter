@@ -106,16 +106,20 @@ export default function DocumentsPage() {
             filesToCombine.forEach(file => {
                 if (!file.data || file.data.length === 0) return;
 
-                if (!headerTaken) {
-                    combinedData.push(file.data[0]); // Add header from the first file
+                if (!headerTaken && file.data.length > 0) {
+                    combinedData.push(file.data[0]); // Add header from the first valid file
                     headerTaken = true;
                 }
                 
-                // Add data rows (skip header)
-                combinedData.push(...file.data.slice(1));
+                // Add data rows (skip header), only if they exist
+                if (file.data.length > 1) {
+                    combinedData.push(...file.data.slice(1));
+                }
             });
-
-            if (combinedData.length <= 1) { // Only header was added or no data at all
+            
+            // The check should be if we have more than just a single header row,
+            // or if we have no data at all (which shouldn't happen if headerTaken is true).
+            if (!headerTaken || combinedData.length <= 1) {
                  toast({ variant: 'destructive', title: 'No Data to Combine', description: 'The stored files do not contain any data rows to combine.' });
                  return;
             }
