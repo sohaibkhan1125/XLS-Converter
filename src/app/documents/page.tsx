@@ -100,8 +100,8 @@ export default function DocumentsPage() {
             let combinedData: string[][] = [];
             let headerTaken = false;
 
-            // Iterate through files (they are already sorted newest to oldest, let's reverse for chronological combine)
-            const filesToCombine = [...storedFiles].reverse();
+            // Sort files from oldest to newest to combine them chronologically
+            const filesToCombine = [...storedFiles].sort((a, b) => a.timestamp - b.timestamp);
 
             filesToCombine.forEach(file => {
                 if (!file.data || file.data.length === 0) return;
@@ -115,7 +115,7 @@ export default function DocumentsPage() {
                 combinedData.push(...file.data.slice(1));
             });
 
-            if (combinedData.length <= 1) { // Only header was added
+            if (combinedData.length <= 1) { // Only header was added or no data at all
                  toast({ variant: 'destructive', title: 'No Data to Combine', description: 'The stored files do not contain any data rows to combine.' });
                  return;
             }
