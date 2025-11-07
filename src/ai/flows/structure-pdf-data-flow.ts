@@ -15,8 +15,8 @@ import {z} from 'genkit';
 const TransactionSchema = z.object({
   date: z.string().describe("The date of the transaction. IMPORTANT: You must format this as YYYY-MM-DD. You MUST infer the correct year from the statement context and use that specific year (e.g., 2023, 2024). Do not literally output 'YYYY'."),
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
-  debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
-  credit: z.number().optional().describe("CRITICAL: The deposit amount (money in), as a positive number. Look for columns named 'Deposits', 'Credits', 'Paid In', or similar. This is a very important field to find if it exists."),
+  debit: z.number().optional().describe("The withdrawal or 'Paid Out' amount (money out), as a positive number. Look for keywords like Withdrawal, Debit, Payment Sent, DR, or Dr."),
+  credit: z.number().optional().describe("CRITICAL: The deposit or 'Paid In' amount (money in), as a positive number. You must explicitly search for columns or text indicating Credit, Deposit, Received, Transfer In, CR, or Cr. This is a very important field to find if it exists."),
   balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you MUST output null for this field. The 'balance' key must always be present in the output for every transaction."),
 }).describe("A single transaction line item.");
 export type Transaction = z.infer<typeof TransactionSchema>;
@@ -29,7 +29,7 @@ export type StructuredPdfDataOutput = z.infer<typeof StructuredPdfDataOutputSche
 
 
 const StructurePdfDataInputSchema = z.object({
-  rawText: z.string().describe("The raw text extracted from the PDF document, potentially including an OCR output."),
+  rawText: z.string().describe("The raw text extracted from the PDF document, potentially including an OCR output from a scanned document."),
 });
 export type StructurePdfDataInput = z.infer<typeof StructurePdfDataInputSchema>;
 
@@ -42,31 +42,42 @@ const prompt = ai.definePrompt({
   name: 'extractBankStatementTransactionsPrompt',
   input: {schema: StructurePdfDataInputSchema},
   output: {schema: StructuredPdfDataOutputSchema},
-  prompt: `You are an expert financial data extraction AI. Your task is to analyze raw text from a bank statement and convert ONLY the transaction table into a structured JSON format.
+  prompt: `You are an expert financial data extraction system that reads and converts bank statement PDFs into structured JSON with 100% data completeness and accuracy.
 
-**CRITICAL RULES:**
+Your task is to extract all transaction data — including both “Paid In” (credits) and “Paid Out” (debits) — from bank statement PDFs of any layout or structure.
 
-1.  **PROCESS ALL PAGES:** The provided text may come from multiple pages of a document. You MUST process the entire text from start to finish to find all transactions across all pages.
+**CRITICAL EXTRACTION RULES:**
 
-2.  **IGNORE ALL METADATA:** You MUST ignore everything outside the transaction tables. This includes headers, footers, bank names, account holder details, addresses, and summary sections. Your output should ONLY contain the list of transactions.
+1.  **Comprehensive Data Recognition**:
+    *   Identify every transaction row, even if the PDF layout is misaligned, irregular, or from a scanned document.
+    *   Do not rely only on table detection — use both text alignment and context clues to find transaction lines.
 
-3.  **FOCUS ON TRANSACTION ROWS:** A transaction row contains a date, a description, and at least one monetary value (debit, credit, or balance).
+2.  **“Paid In” (Credit) Column Detection (Highest Priority)**:
+    *   You MUST explicitly search for all credited amounts or incoming transactions, even if not clearly labeled.
+    *   Common indicators for the "credit" field include columns or text with words like: **Credit, Deposit, Received, Transfer In, Cash In, Refund, Interest, Payment Received, CR, Cr.**
+    *   Always extract the numeric value associated with these words and place it under the \`credit\` field in the JSON.
+    *   Even if there’s no clear “Paid In” header, you must infer it logically based on context or positive transaction patterns in the balance.
 
-4.  **COLUMN ALIASES (VERY IMPORTANT):** Bank statements use different names for columns. It is CRITICAL that you recognize these variations:
-    *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", "Charges", or similar terms.
-    *   For **'credit'** (money in), you MUST look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. This is a critical field; do not miss it. The "description" column should NEVER contain credit values.
+3.  **“Paid Out” (Debit) Column Detection**:
+    *   Detect outgoing transactions indicated by words like: **Withdrawal, Debit, Payment Sent, Transfer Out, Bill Payment, DR, Dr.**
+    *   Place these numeric values under the \`debit\` field in the JSON.
 
-5.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
+4.  **Date and Year Inference**:
+    *   This is a critical rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024').
+    *   You MUST apply this year to every single transaction date.
+    *   Format all dates as **YYYY-MM-DD**. Do not use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
 
-6.  **THE 'balance' FIELD IS NOT OPTIONAL:** For every single transaction, you MUST provide a value for the 'balance'. If a running balance is visible on the same line as the transaction, you must extract it. If it is genuinely not present on a specific transaction line, you MUST output 'null' for the 'balance' field. Do not omit the 'balance' key.
+5.  **Balance Field is MANDATORY**:
+    *   The 'balance' is the running balance *after* the transaction and is a critical field.
+    *   For every single transaction, you MUST provide a value for the 'balance'.
+    *   If a running balance is visible on the same line as the transaction, you must extract it.
+    *   If it is genuinely not present on a specific transaction line, you MUST output **null** for the 'balance' field. Do not omit the 'balance' key.
 
-7.  **YEAR INFERENCE AND DATE FORMATTING:** This is the most important date rule. You MUST find the year for the statement (e.g., from a 'Statement Period' line like 'Feb 1, 2024 - Feb 29, 2024'). You MUST apply this year to every single transaction date. Format all dates as YYYY-MM-DD. DO NOT use the literal string "YYYY"; use the actual year you found (e.g., "2024-02-05").
-
-8.  **MONETARY FIELDS:** Extract 'debit' and 'credit' amounts. If one is not present for a transaction, omit that specific field from the JSON object for that transaction. For example, if there is no debit, the transaction object should have 'credit' and 'balance', but no 'debit' key.
-
-9.  **CLEAN DATA:**
-    *   Do not merge lines. Each transaction is a single, distinct row.
-    *   Do not include "Balance brought forward" or similar summary lines in the transaction list.
+6.  **Data Cleaning & Final Output**:
+    *   Ignore everything outside the transaction table (headers, footers, bank details, summaries, etc.).
+    *   Do not include "Balance brought forward" or similar summary lines in the final transaction list.
+    *   Each transaction is a single, distinct row. Do not merge lines.
+    *   If a transaction has a value for 'debit' but not 'credit', the 'credit' key should be omitted from that transaction's JSON object (and vice-versa). The 'balance' key must always be present.
 
 **EXAMPLE:**
 
@@ -74,11 +85,11 @@ const prompt = ai.definePrompt({
 \`\`\`
 Statement Period: Feb 1, 2024 - Feb 29, 2024
 ...
-Date Narration Withdrawals Deposits Balance
-1 Feb Balance brought forward 40,000.00
-3 Feb Card payment - High St Petrol 24.50 39,975.50
-4 Feb Direct debit - Green Mobile 20.00 39,955.50
-5 Feb Salary - Acme Corp 5,000.00 44,955.50
+Date       Narration                     Withdrawals     Deposits        Balance
+1 Feb      Balance brought forward                                     40,000.00
+3 Feb      Card payment - High St Petrol 24.50                           39,975.50
+4 Feb      Direct debit - Green Mobile   20.00                           39,955.50
+5 Feb      Salary - Acme Corp                            5,000.00        44,955.50
 \`\`\`
 
 **Correct JSON Output for this Snippet:**
@@ -91,9 +102,9 @@ Date Narration Withdrawals Deposits Balance
   ]
 }
 \`\`\`
-*(Notice the "description" was correctly mapped from "Narration" and "credit" was mapped from "Deposits". "Balance brought forward" is completely ignored.)*
+*(Notice "credit" was correctly mapped from "Deposits" and "Balance brought forward" was ignored.)*
 
-Now, process the following full text and provide the structured JSON.
+Now, process the following full text from the document and provide the structured JSON output.
 
 **Input Text:**
 {{{rawText}}}
@@ -120,17 +131,19 @@ const structurePdfDataFlow = ai.defineFlow(
     }
 
     // Filter out any invalid or incomplete transaction entries returned by the AI.
-    // A valid transaction must have a non-empty date and description.
+    // A valid transaction must have a non-empty date and description, and the balance field must be present (even if null).
     const cleanedTransactions = output.transactions.filter(t => {
         const hasDate = t.date && typeof t.date === 'string' && t.date.trim() !== '';
         const hasDescription = t.description && typeof t.description === 'string' && t.description.trim() !== '';
-        // Final sanity check: if a credit exists, the balance should not be undefined. It can be null, but not missing.
+        // The balance field is mandatory in our schema (can be null), so we just check for its existence.
         const balanceIsPresent = t.balance !== undefined;
 
-        return hasDate && hasDescription && balanceIsPresent;
+        // A transaction should have either a debit or a credit.
+        const hasMonetaryValue = (t.debit !== undefined && t.debit !== null) || (t.credit !== undefined && t.credit !== null);
+
+        return hasDate && hasDescription && balanceIsPresent && hasMonetaryValue;
     });
 
     return { transactions: cleanedTransactions };
   }
 );
-
