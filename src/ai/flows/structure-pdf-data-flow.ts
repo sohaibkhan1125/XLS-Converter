@@ -16,7 +16,7 @@ const TransactionSchema = z.object({
   date: z.string().describe("The date of the transaction. IMPORTANT: You must format this as YYYY-MM-DD. You MUST infer the correct year from the statement context and use that specific year (e.g., 2023, 2024). Do not literally output 'YYYY'."),
   description: z.string().describe("The full description, narration, or particulars of the transaction."),
   debit: z.number().optional().describe("The withdrawal amount (money out), as a positive number."),
-  credit: z.number().optional().describe("The deposit amount (money in), as a positive number. This is a critical field to find."),
+  credit: z.number().optional().describe("CRITICAL: The deposit amount (money in), as a positive number. Look for columns named 'Deposits', 'Credits', 'Paid In', or similar. This is a very important field to find if it exists."),
   balance: z.number().nullable().describe("CRITICAL: The running balance after the transaction. If a balance value is not present for a transaction row, you MUST output null for this field. The 'balance' key must always be present in the output for every transaction."),
 }).describe("A single transaction line item.");
 export type Transaction = z.infer<typeof TransactionSchema>;
@@ -54,7 +54,7 @@ const prompt = ai.definePrompt({
 
 4.  **COLUMN ALIASES (VERY IMPORTANT):** Bank statements use different names for columns. It is CRITICAL that you recognize these variations:
     *   For **'debit'** (money out), look for columns named "Withdrawals", "Payments", "Money Out", "Debit", "Charges", or similar terms.
-    *   For **'credit'** (money in), you MUST look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. This is a critical field; do not miss it.
+    *   For **'credit'** (money in), you MUST look for columns named "Deposits", "Receipts", "Money In", "Credit", "Paid In", or similar terms. This is a critical field; do not miss it. The "description" column should NEVER contain credit values.
 
 5.  **MANDATORY FIELDS:** For every single transaction row you identify, you MUST extract the 'date', 'description', and 'balance' fields. The 'balance' is the running balance after the transaction and is the most critical field.
 
@@ -124,9 +124,13 @@ const structurePdfDataFlow = ai.defineFlow(
     const cleanedTransactions = output.transactions.filter(t => {
         const hasDate = t.date && typeof t.date === 'string' && t.date.trim() !== '';
         const hasDescription = t.description && typeof t.description === 'string' && t.description.trim() !== '';
-        return hasDate && hasDescription;
+        // Final sanity check: if a credit exists, the balance should not be undefined. It can be null, but not missing.
+        const balanceIsPresent = t.balance !== undefined;
+
+        return hasDate && hasDescription && balanceIsPresent;
     });
 
     return { transactions: cleanedTransactions };
   }
 );
+
