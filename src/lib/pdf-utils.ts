@@ -78,9 +78,9 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   }
 
   const { transactions } = structuredData;
-  const excelData: (string | number | undefined)[][] = [];
+  const excelData: (string | number | undefined | null)[][] = [];
 
-  // New column order including Description.
+  // Correct column order.
   const transactionHeaders = ['Date', 'Description', 'Paid Out', 'Paid In', 'Balance'];
   excelData.push(transactionHeaders);
 
@@ -93,7 +93,7 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   ]);
   excelData.push(...dataRows);
 
-  if (excelData.length === 1) { // Only headers are present
+  if (excelData.length <= 1) { // Only headers are present
      return [["No financial transaction data could be extracted from the document."]];
   }
   
