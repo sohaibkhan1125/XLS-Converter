@@ -25,7 +25,7 @@ import { useLanguage } from '@/context/language-context';
 
 const MIN_TEXT_LENGTH_FOR_TEXT_PDF = 100;
 const GENERIC_APP_NAME = "PDF to Excel Converter";
-const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
+const STORAGE_KEY_PREFIX = 'XLSCONVERT_DOWNLOADED_FILES_';
 const MAX_FILE_COUNT = 12;
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -34,6 +34,9 @@ interface StoredExcelFile {
     data: string[][];
     timestamp: number;
 }
+
+// Helper to get user-specific storage key
+const getStorageKey = (userId: string | null) => `${STORAGE_KEY_PREFIX}${userId || 'guest'}`;
 
 // Helper to update meta tags
 const updateMeta = (name: string, content: string) => {
@@ -194,10 +197,11 @@ export default function HomePage() {
         const originalFileName = selectedFile.name.replace(/\.[^/.]+$/, "") + ".xlsx";
         exportToExcel(excelReadyData, originalFileName);
 
-        // Store file in local storage
+        // Store file in local storage using user-specific key
         if (typeof window !== 'undefined') {
+            const storageKey = getStorageKey(currentUser?.uid || null);
             try {
-                const storedData = localStorage.getItem(STORAGE_KEY);
+                const storedData = localStorage.getItem(storageKey);
                 let files: StoredExcelFile[] = storedData ? JSON.parse(storedData) : [];
                 const now = Date.now();
 
@@ -217,7 +221,7 @@ export default function HomePage() {
                     files.length = MAX_FILE_COUNT;
                 }
 
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+                localStorage.setItem(storageKey, JSON.stringify(files));
                 toast({ title: "File Saved", description: "This download has been saved to your Documents page for 24 hours." });
 
             } catch (e) {

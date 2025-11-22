@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { exportToExcel } from '@/lib/excel-export';
 
 const MAX_FILE_COUNT = 12;
-const STORAGE_KEY = 'XLSCONVERT_DOWNLOADED_FILES';
+const STORAGE_KEY_PREFIX = 'XLSCONVERT_DOWNLOADED_FILES_';
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 interface StoredExcelFile {
@@ -25,6 +25,9 @@ interface StoredExcelFile {
     data: string[][];
     timestamp: number;
 }
+
+// Helper to get user-specific storage key
+const getStorageKey = (userId: string | null) => `${STORAGE_KEY_PREFIX}${userId || 'guest'}`;
 
 // --- Main Component ---
 export default function DocumentsPage() {
@@ -38,7 +41,8 @@ export default function DocumentsPage() {
     const fetchStoredFiles = useCallback(() => {
         setIsLoading(true);
         if (typeof window !== 'undefined') {
-            const storedData = localStorage.getItem(STORAGE_KEY);
+            const storageKey = getStorageKey(currentUser?.uid || null);
+            const storedData = localStorage.getItem(storageKey);
             if (storedData) {
                 try {
                     const files: StoredExcelFile[] = JSON.parse(storedData);
@@ -52,19 +56,22 @@ export default function DocumentsPage() {
 
                     // Clean up expired files from localStorage
                     if (recentFiles.length !== files.length) {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(recentFiles));
+                        localStorage.setItem(storageKey, JSON.stringify(recentFiles));
                     }
                 } catch (error) {
                     console.error("Error parsing stored files:", error);
-                    localStorage.removeItem(STORAGE_KEY); // Clear corrupted data
+                    localStorage.removeItem(storageKey); // Clear corrupted data
                 }
+            } else {
+                 setStoredFiles([]); // Ensure state is cleared if no data is found for the user
             }
         }
         setIsLoading(false);
-    }, []);
+    }, [currentUser]); // Depend on currentUser to re-fetch when user logs in/out
 
     useEffect(() => {
         // This page is accessible to all users, so we don't redirect if not logged in.
+        // The fetchStoredFiles will be called whenever the user auth state changes.
         fetchStoredFiles();
     }, [fetchStoredFiles]);
 
@@ -80,7 +87,8 @@ export default function DocumentsPage() {
     
     const handleClearHistory = () => {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem(STORAGE_KEY);
+            const storageKey = getStorageKey(currentUser?.uid || null);
+            localStorage.removeItem(storageKey);
             setStoredFiles([]);
             toast({ title: "History Cleared", description: "Your local download history has been cleared." });
         }
@@ -134,13 +142,14 @@ export default function DocumentsPage() {
     };
     
     const storagePercentage = (storedFiles.length / MAX_FILE_COUNT) * 100;
+    const pageTitle = currentUser ? `${currentUser.displayName || 'Your'}'s Recent Documents` : 'Your Recent Documents';
 
     return (
         <div className="space-y-8">
             <Card className="shadow-xl">
                 <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />Your Recent Documents</CardTitle>
+                        <CardTitle className="text-3xl font-bold flex items-center"><FileText className="mr-3 text-primary" />{pageTitle}</CardTitle>
                         <CardDescription className="mt-2">
                             This page lists the last {MAX_FILE_COUNT} Excel files you have downloaded in the last 24 hours. This data is stored only in your browser.
                         </CardDescription>
@@ -186,7 +195,7 @@ export default function DocumentsPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {storedFiles.map((file, index) => (
-                                        <TableRow key={index}>
+                                        <TableRow key={`${file.timestamp}-${index}`}>
                                             <TableCell className="font-medium truncate max-w-xs">{file.name}</TableCell>
                                             <TableCell>{format(new Date(file.timestamp), 'PP p')}</TableCell>
                                             <TableCell className="text-right space-x-2">
