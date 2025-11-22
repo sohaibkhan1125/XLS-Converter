@@ -3,7 +3,7 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy, TextItem } from 'pdfjs-dist/types/src/display/api';
-import type { StructuredPdfDataOutput } from '@/ai/flows/structure-pdf-data-flow';
+import type { StructuredPdfDataOutput, Transaction } from '@/ai/flows/structure-pdf-data-flow';
 
 // Dynamically import and set the workerSrc.
 // This is crucial for pdfjs-dist to work correctly in Next.js.
@@ -78,33 +78,29 @@ export function formatStructuredDataForExcel(structuredData: StructuredPdfDataOu
   }
 
   const { transactions } = structuredData;
-  const excelData: (string | number | undefined | null)[][] = [];
+  
+  const excelData: string[][] = [];
 
-  // Correct column order.
   const transactionHeaders = ['Date', 'Description', 'Paid Out', 'Paid In', 'Balance'];
   excelData.push(transactionHeaders);
 
-  const dataRows = transactions.map(t => [
-    t.date || '',
-    t.description || '',
-    t.debit,
-    t.credit,
-    t.balance,
-  ]);
-  excelData.push(...dataRows);
+  transactions.forEach(t => {
+    const row: string[] = [
+      t.date || '--',
+      t.description || '--',
+      // Format numbers to 2 decimal places to preserve .00 and .50
+      t.debit !== undefined && t.debit !== null ? t.debit.toFixed(2) : '--',
+      t.credit !== undefined && t.credit !== null ? t.credit.toFixed(2) : '--',
+      t.balance !== undefined && t.balance !== null ? t.balance.toFixed(2) : '--'
+    ];
+    excelData.push(row);
+  });
 
   if (excelData.length <= 1) { // Only headers are present
      return [["No financial transaction data could be extracted from the document."]];
   }
   
-  // Convert all cells to string for the final output array type, handling undefined/null
-  // Use '--' for empty cells for missing data.
-  return excelData.map(row => row.map(cell => {
-    if (cell === undefined || cell === null || String(cell).trim() === '') {
-      return '--';
-    }
-    return String(cell);
-  }));
+  return excelData;
 }
 
 

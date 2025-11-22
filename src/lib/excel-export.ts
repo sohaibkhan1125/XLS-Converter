@@ -6,8 +6,10 @@ export function exportToExcel(data: string[][], fileName: string = 'converted_da
     console.error("No data to export.");
     return;
   }
-
-  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  
+  // Use skipHeader: true to prevent XLSX from trying to auto-parse the first row as headers
+  // and potentially misinterpreting data types. We treat all data as plain text.
+  const worksheet = XLSX.utils.aoa_to_sheet(data, { skipHeader: true });
 
   // Set column widths to prevent data from being cut off.
   // The widths are in number of characters.
