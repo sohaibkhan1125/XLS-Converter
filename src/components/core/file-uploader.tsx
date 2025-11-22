@@ -16,8 +16,6 @@ interface FileUploaderProps {
   clickText?: string;
 }
 
-const MAX_FILES_LOGGED_IN = 5;
-
 export default function FileUploader({ 
   onFilesSelect, 
   disabled = false,
@@ -61,7 +59,14 @@ export default function FileUploader({
           <>
             <p className="text-lg font-semibold text-foreground">{uploaderText}</p>
             <p className="text-muted-foreground mb-4">{orText}</p>
-            <Button type="button" onClick={open} variant="outline" disabled={disabled}>
+            <Button 
+                type="button" 
+                onClick={open} 
+                variant="default" 
+                size="lg"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                disabled={disabled}
+            >
               {clickText}
             </Button>
             <p className="text-xs text-muted-foreground mt-4">
