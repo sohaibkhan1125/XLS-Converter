@@ -34,13 +34,13 @@ export default function FileUploader({
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: isSubscribed ? MAX_FILES_LOGGED_IN : 1,
+    maxFiles: isSubscribed ? 12 : 1,
     multiple: isSubscribed,
     disabled,
   });
 
   const uploaderText = isSubscribed 
-    ? dragText.replace('a PDF file', `up to ${MAX_FILES_LOGGED_IN} PDF files`)
+    ? dragText.replace('a PDF file', `up to 12 PDF files`)
     : dragText;
 
   return (
@@ -54,23 +54,22 @@ export default function FileUploader({
         <input {...getInputProps()} />
         <UploadCloud className={`h-12 w-12 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
         {isDragActive ? (
-          <p className="text-lg font-semibold text-primary">{uploaderText.replace('&', 'and')}...</p>
+          <p className="text-xl font-semibold text-primary">{uploaderText.replace('&', 'and')}...</p>
         ) : (
           <>
-            <p className="text-lg font-semibold text-foreground">{uploaderText}</p>
-            <p className="text-muted-foreground mb-4">{orText}</p>
-            <Button 
+             <Button 
                 type="button" 
                 onClick={open} 
                 variant="default" 
-                size="lg"
-                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                className="py-8 px-12 text-2xl font-bold h-auto"
                 disabled={disabled}
             >
               {clickText}
             </Button>
+            <p className="text-muted-foreground my-4">{orText}</p>
+            <p className="text-lg font-semibold text-foreground">{uploaderText}</p>
             <p className="text-xs text-muted-foreground mt-4">
-              Max file size: 10MB each. PDF only. {isSubscribed && `Max ${MAX_FILES_LOGGED_IN} files.`}
+              Max file size: 10MB each. PDF only. {isSubscribed && `Max 12 files.`}
             </p>
           </>
         )}
