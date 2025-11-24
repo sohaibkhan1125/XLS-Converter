@@ -61,7 +61,7 @@ export default function FileUploader({
                 type="button" 
                 onClick={open} 
                 variant="default" 
-                className="py-8 px-12 text-2xl font-bold h-auto"
+                className="py-6 px-10 text-xl font-bold h-auto"
                 disabled={disabled}
             >
               {clickText}
